@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#14171f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Fútbol de cartas para 2 jugadores: elige, adivina y mira el partido en pixel art." />
+  <title>Fútbol de Mesa</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <!-- MENÚ -->
+  <section id="screen-menu" class="screen active">
+    <div class="menu-inner">
+      <h1 class="logo"><span>FÚTBOL</span><span>DE MESA</span></h1>
+      <p class="tag">Cartas, dados y un partido que se juega frente a tus ojos.</p>
+      <button id="btn-team" class="team-pick">
+        <span class="kit-swatch" id="my-swatch"></span>
+        <span><small>Tu equipo</small><b id="my-team-name">Racing Club</b></span>
+        <span class="chev">▸</span>
+      </button>
+      <button id="btn-create" class="btn primary">Crear sala</button>
+      <div class="join-row">
+        <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+        <button id="btn-join" class="btn">Unirse</button>
+      </div>
+      <button id="btn-cpu" class="btn ghost">Jugar contra la máquina</button>
+      <button id="btn-help" class="link">¿Cómo se juega?</button>
+      <p id="menu-msg" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- SELECCIÓN DE EQUIPO -->
+  <section id="screen-teams" class="screen">
+    <header class="bar"><button class="back" data-back>◂</button><h2>Elige tu equipo</h2></header>
+    <div id="team-grid" class="team-grid"></div>
+  </section>
+
+  <!-- SALA -->
+  <section id="screen-lobby" class="screen">
+    <div class="menu-inner">
+      <h2 class="h2">Sala creada</h2>
+      <p>Comparte este código con tu rival:</p>
+      <div id="room-code" class="room-code">·····</div>
+      <button id="btn-share" class="btn primary">Compartir enlace</button>
+      <p class="waiting"><span class="ball-spin"></span> Esperando al rival…</p>
+      <button id="btn-cancel" class="btn ghost">Cancelar</button>
+      <p id="lobby-msg" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- PARTIDO -->
+  <section id="screen-game" class="screen">
+    <header id="hud" class="hud">
+      <div class="side home"><span class="kit-swatch" id="hud-sw0"></span><b id="hud-n0">LOC</b></div>
+      <div class="score"><span id="hud-s0">0</span><i>-</i><span id="hud-s1">0</span><small id="hud-min">0'</small></div>
+      <div class="side away"><b id="hud-n1">VIS</b><span class="kit-swatch" id="hud-sw1"></span></div>
+      <button id="btn-mute" class="mute" title="Sonido">♪</button>
+    </header>
+    <div class="pitch-wrap">
+      <canvas id="pitch"></canvas>
+      <div id="banner" class="banner"></div>
+      <div id="dice" class="dice-wrap"><div class="die" id="die"></div><p id="dice-text"></p></div>
+      <div id="coin" class="coin-wrap"><div class="coin" id="coin-face">?</div><p id="coin-text"></p></div>
+      <div id="fade" class="fade"></div>
+    </div>
+    <div id="feed" class="feed">¡Bienvenidos al estadio!</div>
+    <div id="panel" class="panel">
+      <div class="panel-head"><span id="panel-title">Esperando…</span><span id="panel-role" class="role"></span></div>
+      <div id="cards" class="cards"></div>
+      <div class="timer"><div id="timer-bar"></div></div>
+    </div>
+  </section>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal"><div class="modal-box" id="modal-box"></div></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

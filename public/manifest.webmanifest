@@ -1,0 +1,10 @@
+{
+  "name": "Fútbol de Mesa",
+  "short_name": "Fútbol",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14171f",
+  "theme_color": "#14171f",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
