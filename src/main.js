@@ -93,7 +93,7 @@ const HELP = `
 <ul>
 <li>Cuando la defensa adivina, recupera la pelota, salvo una cara para cada lado: una falta o un córner a favor del que ataca, o un <b>contragolpe</b> para el que defiende.</li>
 <li>Si el arquero adivina, ataja; una cara da rebote al córner y otra un saque rápido de contra.</li>
-<li>Si le ganas al arquero, la imagen se congela con la pelota en el aire y el dado decide: 2 caras de gol, 2 de palo y 2 afuera. Igual para cualquier remate.</li>
+<li>Si le ganas al arquero, la imagen se congela con la pelota en el aire y el dado decide: 4 caras de gol, 1 de palo y 1 afuera. Igual para cualquier remate.</li>
 <li>Una gambeta exitosa puede terminar en <b>penal</b>.</li>
 </ul>
 <h3>Duración</h3>

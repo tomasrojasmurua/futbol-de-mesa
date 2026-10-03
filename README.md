@@ -16,10 +16,10 @@ El dado aparece en momentos clave. Cada cara muestra un símbolo de lo que pasa,
 | La defensa adivina en la salida | 1: falta y sigue el ataque · 2-5: recupera · 6: contragolpe |
 | La defensa adivina en el área | 1: córner · 2-5: recupera · 6: contragolpe |
 | El arquero adivina | 1: rebote al córner · 2-5: ataja · 6: saque rápido de contra |
-| El remate supera al arquero | 1-2: palo · 3-4: afuera · 5-6: gol (igual para remate, cabezazo, mano a mano y penal) |
+| El remate supera al arquero | 1: palo · 2: afuera · 3-6: gol (igual para remate, cabezazo, mano a mano y penal) |
 | Gambeta exitosa | 6: penal |
 
-Las tres opciones de ataque valen lo mismo (un 16% de gol por llegada contra una defensa al azar), así que gana quien lee mejor al rival. `node scripts/fair-sim.js` lo comprueba.
+Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una defensa al azar), así que gana quien lee mejor al rival. `node scripts/fair-sim.js` lo comprueba.
 
 Cada carta tiene 12 segundos; si se acaba el tiempo, se elige sola. La duración se elige en el menú: corto (unas 21 decisiones, 3 a 5 minutos), normal (unas 34, 5 a 8 minutos) o largo (unas 53, 10 a 14 minutos). En una sala manda la de quien la crea.
 
