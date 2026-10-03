@@ -1,5 +1,5 @@
 import { TEAMS, teamById, matchKits } from './teams.js';
-import { optionsFor, SHOT_TITLES, TURN_SECONDS, fmtMinute, commentary, diceReason, randomChoice } from './game.js';
+import { optionsFor, SHOT_TITLES, TURN_SECONDS, fmtMinute, commentary, diceReason, diceFaces, DIE_LABELS, LENGTHS, randomChoice } from './game.js';
 import { Host, Cpu, LEVELS } from './host.js';
 import { createRoom, joinRoom } from './net.js';
 import { Renderer } from './render.js';
@@ -12,6 +12,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---------- preferencias ----------
 let myTeamId = 'rac';
 try { myTeamId = localStorage.getItem('fdm-team') || 'rac'; } catch { /* sin storage */ }
+let myLength = 'normal';
+try { myLength = LENGTHS[localStorage.getItem('fdm-len')] ? localStorage.getItem('fdm-len') : 'normal'; } catch { /* sin storage */ }
 
 function show(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
@@ -87,12 +89,15 @@ const HELP = `
 <h3>3. El remate</h3>
 <p>El atacante patea a un palo o al medio; el arquero elige hacia dónde se tira. Si adivina, ataja. Si no... ¡casi siempre es gol!</p>
 <h3>El dado</h3>
+<p>En los momentos clave se tira un dado especial: cada cara trae un símbolo de lo que pasa y debajo ves cuántas caras tiene cada resultado. Las reglas son las mismas para los dos equipos.</p>
 <ul>
-<li>Cuando la defensa adivina, un dado decide cómo: con 6 sale un <b>contragolpe</b>, en la salida un 1 es falta y sigue el ataque, y en el área un 1-2 es tiro de esquina.</li>
-<li>Una gambeta exitosa con un 6 termina en <b>penal</b>.</li>
-<li>Un remate que supera al arquero puede irse afuera: con 1-2 en remates y 1-3 en cabezazos (en un mano a mano, sólo con 1).</li>
-<li>Si el arquero ataja, con 5-6 da rebote y hay córner.</li>
+<li>Cuando la defensa adivina, recupera la pelota, salvo una cara para cada lado: una falta o un córner a favor del que ataca, o un <b>contragolpe</b> para el que defiende.</li>
+<li>Si el arquero adivina, ataja; una cara da rebote al córner y otra un saque rápido de contra.</li>
+<li>Si le ganas al arquero, la imagen se congela con la pelota en el aire y el dado decide: 4 caras de gol, 1 de palo y 1 afuera. Igual para cualquier remate.</li>
+<li>Una gambeta exitosa puede terminar en <b>penal</b>.</li>
 </ul>
+<h3>Duración</h3>
+<p>En el menú eliges partido <b>corto</b> (unos 3 a 5 minutos), <b>normal</b> (5 a 8) o <b>largo</b> (10 a 14). En una sala manda la duración de quien la crea.</p>
 <h3>Salas</h3>
 <p>Crea una sala, comparte el código o el enlace, y tu rival entra desde su celular. Tienes ${TURN_SECONDS} segundos para cada carta: si se acaba el tiempo, se elige sola.</p>`;
 
@@ -175,6 +180,7 @@ class MatchView {
       renderer.kickoffNow(0);
       this.paintHud(state);
       this.lastSeq = -1;
+      if (state.length && state.length !== 'normal') this.feed(`Partido ${LENGTHS[state.length].label.toLowerCase()}. ¡Bienvenidos al estadio!`);
       return this.promptToss(state);
     }
     if (ev.type === 'toss') {
@@ -190,6 +196,7 @@ class MatchView {
       this.stopTimer();
       this.clearCards(null);
       ev.diceText = diceReason(ev);
+      ev.diceFaces = diceFaces(ev);
       this.currentEv = ev;
       this.duelStart(ev);
       await renderer.play(ev);
@@ -407,19 +414,27 @@ const ui = {
     this._bt = setTimeout(() => el.classList.remove('show'), hold);
     return wait(Math.min(hold, 1300));
   },
-  async dice(value, reason) {
-    const wrap = $('#dice'), die = $('#die');
-    const face = (n) => {
-      const on = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] }[n];
-      die.innerHTML = Array.from({ length: 9 }, (_, i) => `<i class="${on.includes(i) ? '' : 'e'}"></i>`).join('');
+  async dice(value, reason, faces) {
+    const wrap = $('#dice'), die = $('#die'), legend = $('#dice-legend');
+    // Leyenda: qué puede salir y cuántas caras tiene cada cosa.
+    const kinds = [...new Set(faces)];
+    legend.innerHTML = kinds.map((k) => {
+      const n = faces.filter((f) => f === k).length;
+      return `<span class="chip" data-k="${k}"><img src="${icon('face', k)}" alt=""><b>${DIE_LABELS[k]}</b><i>${'●'.repeat(n)}${'○'.repeat(6 - n)}</i></span>`;
+    }).join('');
+    const face = (k) => {
+      die.innerHTML = `<img src="${icon('face', k)}" alt="${DIE_LABELS[k]}">`;
+      legend.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.k === k));
     };
     $('#dice-text').textContent = 'Tirando el dado…';
     wrap.classList.add('show'); die.classList.add('rolling');
     audio.sound('dice');
-    for (let i = 0; i < 8; i++) { face(1 + Math.floor(Math.random() * 6)); await wait(80); }
-    face(value); die.classList.remove('rolling');
-    $('#dice-text').textContent = `Dado: ${value}. ${reason}`;
-    await wait(1300);
+    for (let i = 0; i < 10; i++) { face(faces[Math.floor(Math.random() * 6)]); await wait(85); }
+    const k = faces[value - 1];
+    face(k); die.classList.remove('rolling');
+    legend.querySelector(`.chip[data-k="${k}"]`)?.classList.add('hit');
+    $('#dice-text').textContent = reason;
+    await wait(1600);
     wrap.classList.remove('show');
   },
   async coin(result, text) {
@@ -463,7 +478,7 @@ function startCpu(level = 'normal', awayId = pickCpuOpponent()) {
   audio.unlock();
   let host, cpu;
   const deliver = (m) => setTimeout(() => { view && view.onMessage(m); cpu.onMessage(m); }, 0);
-  host = new Host({ home: myTeamId, away: awayId, callerSide: 0, broadcast: deliver });
+  host = new Host({ home: myTeamId, away: awayId, callerSide: 0, broadcast: deliver, length: myLength });
   cpu = new Cpu(1, (m) => host.receive(1, m), level);
   view = new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId); } });
   session = { cleanup: () => { host.broadcast = () => {}; } };
@@ -479,7 +494,7 @@ function startHostGame(conn, guestTeam) {
     setTimeout(() => view && view.onMessage(m), 0);
   };
   const begin = () => {
-    host = new Host({ home: myTeamId, away: guestTeam, callerSide: 1, broadcast: deliver });
+    host = new Host({ home: myTeamId, away: guestTeam, callerSide: 1, broadcast: deliver, length: myLength });
     host.start();
   };
   const rematch = () => {
@@ -517,9 +532,9 @@ function createOnline() {
       $('#room-code').textContent = code;
       const url = `${location.origin}${location.pathname}?sala=${code}&b=${broker}`;
       $('#btn-share').onclick = async () => {
-        const text = `¡Te desafío a un partido de Fútbol de Mesa! Entra con el código ${code}`;
+        const text = `¡Te desafío a un partido de Calcciopoli! Entra con el código ${code}`;
         try {
-          if (navigator.share) await navigator.share({ title: 'Fútbol de Mesa', text, url });
+          if (navigator.share) await navigator.share({ title: 'Calcciopoli', text, url });
           else { await navigator.clipboard.writeText(`${text}: ${url}`); $('#lobby-msg').textContent = 'Enlace copiado.'; }
         } catch { /* cancelado */ }
       };
@@ -594,6 +609,13 @@ $('#btn-cpu').onclick = () => modal(`<h2>Contra la IA</h2>
   <p><b>Normal:</b> juega suelto y de vez en cuando se anticipa.</p>
   <p><b>Difícil:</b> estudia tus patrones y te los castiga. No repitas jugadas.</p>`,
   [...Object.entries(LEVELS).map(([id, l]) => [l.label, id === 'normal' ? 'primary' : '', () => startCpu(id)]), ['Volver', 'ghost', () => {}]]);
+const paintLength = () => document.querySelectorAll('#len-row [data-len]').forEach((b) => b.classList.toggle('on', b.dataset.len === myLength));
+document.querySelectorAll('#len-row [data-len]').forEach((b) => (b.onclick = () => {
+  myLength = b.dataset.len;
+  try { localStorage.setItem('fdm-len', myLength); } catch { /* sin storage */ }
+  paintLength();
+}));
+paintLength();
 $('#btn-create').onclick = () => createOnline();
 $('#btn-join').onclick = () => joinOnline($('#join-code').value);
 $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
@@ -608,7 +630,8 @@ if (params.get('sala')) {
   $('#join-code').value = params.get('sala').toUpperCase();
   $('#menu-msg').textContent = 'Elige tu equipo y toca «Unirse».';
 }
+if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(); }
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 
 // Para pruebas automáticas.
-window.__fdm = { get view() { return view; }, get renderer() { return renderer; }, randomChoice };
+window.__fdm = { get view() { return view; }, get renderer() { return renderer; }, randomChoice, icon };

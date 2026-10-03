@@ -125,6 +125,67 @@ const DRAW = {
   },
 };
 
+// Símbolos para las caras del dado (fondo transparente, sobre el dado blanco).
+function frame(g) {
+  px(g, 2, 4, C.ink, 12, 2); px(g, 2, 4, C.ink, 2, 9); px(g, 12, 4, C.ink, 2, 9);
+  for (let y = 6; y < 13; y += 2) for (let x = 4; x < 12; x += 2) px(g, x, y, '#b9c2cc');
+}
+const FACE = {
+  foul(g) { // silbato
+    px(g, 2, 7, C.ink, 9, 6); px(g, 3, 6, C.ink, 7, 8); px(g, 9, 6, C.ink, 6, 4);
+    px(g, 3, 7, '#d6d9de', 7, 6); px(g, 4, 6, '#d6d9de', 5, 1);
+    px(g, 10, 7, '#d6d9de', 4, 2); px(g, 5, 9, '#5d636c', 3, 2); px(g, 4, 7, '#ffffff', 2, 1);
+    px(g, 1, 3, '#e23b3b', 1, 4); px(g, 2, 2, '#e23b3b', 3, 1); px(g, 5, 3, '#e23b3b', 1, 3);
+  },
+  steal(g) { // escudo de la defensa
+    px(g, 3, 2, C.defD, 10, 8); px(g, 4, 10, C.defD, 8, 2); px(g, 6, 12, C.defD, 4, 1); px(g, 7, 13, C.defD, 2, 1);
+    px(g, 4, 3, C.def, 8, 7); px(g, 5, 10, C.def, 6, 1); px(g, 7, 11, C.def, 2, 1);
+    px(g, 6, 5, '#fff', 4, 4); px(g, 7, 6, C.ink, 2, 2);
+  },
+  counter(g) { // rayo
+    const pts = [[9, 1, 3], [8, 2, 3], [7, 3, 3], [6, 4, 3], [5, 5, 3], [4, 6, 7], [7, 7, 3], [6, 8, 3], [5, 9, 3], [4, 10, 3], [4, 11, 2], [3, 12, 2], [3, 13, 1]];
+    pts.forEach(([x, y, w]) => px(g, x, y, '#f2b705', w, 1));
+    px(g, 9, 1, '#ffe680', 1, 1); px(g, 4, 6, '#ffe680', 3, 1);
+  },
+  corner(g) { // banderín
+    px(g, 4, 2, C.ink, 1, 12); px(g, 2, 14, C.grass, 12, 1);
+    px(g, 5, 2, '#e23b3b', 6, 4); px(g, 5, 3, '#f2b705', 3, 2); px(g, 11, 3, '#e23b3b', 1, 2);
+  },
+  shoot(g) { // pelota disparada
+    px(g, 1, 6, '#9aa3ad', 4, 1); px(g, 0, 9, '#9aa3ad', 4, 1); px(g, 1, 12, '#9aa3ad', 4, 1);
+    px(g, 7, 4, C.ink, 5, 1); px(g, 6, 5, C.ink, 7, 1); px(g, 5, 6, C.ink, 9, 6); px(g, 6, 12, C.ink, 7, 1); px(g, 7, 13, C.ink, 5, 1);
+    px(g, 7, 5, '#fff', 5, 1); px(g, 6, 6, '#fff', 7, 6); px(g, 7, 12, '#fff', 5, 1);
+    px(g, 8, 7, C.ink, 3, 3); px(g, 6, 10, C.ink, 1, 1); px(g, 12, 10, C.ink, 1, 1); px(g, 9, 5, C.ink, 1, 1);
+  },
+  penalty(g) { // arco y pelota en el punto penal
+    frame(g); px(g, 6, 11, C.ink, 4, 4); px(g, 7, 12, '#fff', 2, 2);
+    px(g, 4, 15, C.grass, 8, 1);
+  },
+  save(g) { // guante
+    px(g, 4, 2, '#1e9e3a', 2, 6); px(g, 6, 1, '#1e9e3a', 2, 7); px(g, 8, 1, '#1e9e3a', 2, 7); px(g, 10, 2, '#1e9e3a', 2, 6);
+    px(g, 2, 6, '#1e9e3a', 2, 4); px(g, 4, 7, '#1e9e3a', 8, 5); px(g, 5, 12, '#fff', 6, 2);
+    px(g, 5, 2, '#5fd27a', 1, 5); px(g, 7, 1, '#5fd27a', 1, 6); px(g, 9, 1, '#5fd27a', 1, 6); px(g, 11, 2, '#5fd27a', 1, 5);
+  },
+  goal(g) { // pelota en la red
+    frame(g);
+    px(g, 5, 7, C.ink, 6, 6); px(g, 6, 6, C.ink, 4, 8);
+    px(g, 6, 7, '#fff', 4, 6); px(g, 7, 9, C.ink, 2, 2);
+    px(g, 1, 14, C.grass, 14, 1);
+  },
+  post(g) { // pelota contra el palo
+    frame(g); px(g, 12, 4, '#f2b705', 2, 9);
+    px(g, 13, 7, C.ink, 3, 4); px(g, 14, 8, '#fff', 2, 2);
+    px(g, 11, 5, '#f2b705', 1, 1); px(g, 15, 5, '#f2b705', 1, 1); px(g, 11, 12, '#f2b705', 1, 1); px(g, 15, 12, '#f2b705', 1, 1);
+  },
+  wide(g) { // pelota que se va por arriba
+    frame(g);
+    px(g, 11, 0, C.ink, 4, 4); px(g, 12, 1, '#fff', 2, 2);
+    px(g, 8, 3, '#9aa3ad', 2, 1); px(g, 6, 5, '#9aa3ad', 1, 1);
+    for (let i = 0; i < 4; i++) { px(g, 5 + i, 7 + i, '#e23b3b', 2, 1); px(g, 9 - i, 7 + i, '#e23b3b', 2, 1); }
+  },
+};
+DRAW.face = (g, kind) => FACE[kind](g);
+
 export function icon(kind, a, b) {
   const key = `${kind}|${a}|${b}`;
   if (cache.has(key)) return cache.get(key);

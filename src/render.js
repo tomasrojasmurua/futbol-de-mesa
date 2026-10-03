@@ -755,7 +755,9 @@ export class Renderer {
   }
 
   async diceMoment(ev) {
-    if (ev.dice != null) await this.ui.dice(ev.dice, ev.diceText);
+    if (ev.dice == null || ev._diced) return;
+    ev._diced = true;
+    await this.ui.dice(ev.dice, ev.diceText, ev.diceFaces);
   }
 
   async counterRun(ev, newA) {
@@ -919,14 +921,29 @@ export class Renderer {
     else if (ev.outcome === 'post') to = [ev.att === 'R' ? 37.66 : 30.34, 105];
     else to = [tu < 34 ? 28.6 : tu > 34 ? 39.4 : 34, 108.5];
     const zEnd = ev.outcome === 'wide' && ev.att === 'C' ? 3.4 : ev.att === 'C' ? 1.4 : 0.9;
-    this.launch(this.W(A, to[0], to[1]), { dur, h: header ? 0.5 : 0.5, z1: zEnd, ground: false });
+    // Si el arquero no adivina, la pelota sale hacia el arco y el dado decide en
+    // el aire si entra, pega en el palo o se va afuera.
+    const aim = ev.match ? to : [tu + (ev.att === 'L' ? -0.6 : ev.att === 'R' ? 0.6 : 0), 106.6];
+    this.launch(this.W(A, aim[0], aim[1]), { dur, h: 0.5, z1: ev.match ? zEnd : (ev.att === 'C' ? 1.4 : 0.9), ground: false });
     this.ui.sound(header ? 'header' : 'shot');
     this.burst(b.x, b.y, 'grass', 8);
     this.cam.shake = 0.3;
     await this.wait(dur * 0.22);
     this.climax();
     this.keeperDive(D, ev.def, dur * 0.65, ev.match ? 0 : 0.4);
-    await this.wait(dur * 0.78);
+    if (ev.match) await this.wait(dur * 0.78);
+    else {
+      await this.wait(dur * 0.3);
+      // Le ganó al arquero: se congela la imagen y se tira el dado.
+      this.ui.reveal({ ...ev, outcome: 'beaten' });
+      if (ev.outcome !== 'goal') ev._revealed = true;
+      const slow = this.tsTarget;
+      this.ts = this.tsTarget = 0;
+      await this.diceMoment(ev);
+      this.ts = this.tsTarget = slow;
+      if (ev.outcome !== 'goal') this.launch(this.W(A, to[0], to[1]), { dur: dur * 0.5, h: 0.2, z1: zEnd, ground: false });
+      await this.wait(dur * 0.52);
+    }
     const goalWorld = this.W(A, 34, 105);
     const gi = goalWorld[1] < 50 ? 0 : 1;
     if (ev.match) {
@@ -947,6 +964,7 @@ export class Renderer {
       this.ui.banner('¡ATAJADA!', { small: true });
       await this.wait(0.6);
       await this.diceMoment(ev);
+      if (ev.outcome === 'save_counter') { await this.counterRun(ev, D); return; }
       await this.wait(0.3);
       return;
     }

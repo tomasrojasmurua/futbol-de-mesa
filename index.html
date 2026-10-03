@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#14171f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Calcciopoli" />
   <meta name="description" content="Lee la jugada, gana el mano a mano y grita el gol. Fútbol para 2 jugadores." />
-  <title>Fútbol de Mesa</title>
+  <title>Calcciopoli</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -18,13 +19,17 @@
   <!-- MENÚ -->
   <section id="screen-menu" class="screen active">
     <div class="menu-inner">
-      <h1 class="logo"><span>FÚTBOL</span><span>DE MESA</span></h1>
+      <h1 class="logo"><span class="name">CALCCIOPOLI</span></h1>
       <p class="tag">Lee la jugada, gana el mano a mano y grita el gol.</p>
       <button id="btn-team" class="team-pick">
         <span class="kit-swatch" id="my-swatch"></span>
         <span><small>Tu equipo</small><b id="my-team-name">Racing Club</b></span>
         <span class="chev">▸</span>
       </button>
+      <div class="len-row" id="len-row">
+        <small>Duración</small>
+        <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
+      </div>
       <button id="btn-create" class="btn primary">Crear sala</button>
       <div class="join-row">
         <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
@@ -66,7 +71,7 @@
     <div class="pitch-wrap">
       <canvas id="pitch"></canvas>
       <div id="banner" class="banner"></div>
-      <div id="dice" class="dice-wrap"><div class="die" id="die"></div><p id="dice-text"></p></div>
+      <div id="dice" class="dice-wrap"><div class="die" id="die"></div><p id="dice-text"></p><div class="dice-legend" id="dice-legend"></div></div>
       <div id="coin" class="coin-wrap"><div class="coin" id="coin-face">?</div><p id="coin-text"></p></div>
       <div id="fade" class="fade"></div>
     </div>

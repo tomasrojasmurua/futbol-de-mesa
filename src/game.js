@@ -72,8 +72,16 @@ export const SHOT_TITLES = {
   penal: '¡PENAL! ¿A dónde patea?',
 };
 
-// Con qué número del dado (o menos) el remate se va afuera aunque el arquero falle.
-const MISS_ON = { remate: 2, cabezazo: 3, mano: 1, penal: 0 };
+// Dado del remate cuando el arquero no adivina: igual para todo tipo de remate
+// y para los dos equipos. 1 = palo, 2..MISS_ON = afuera, el resto es gol.
+export const MISS_ON = 2;
+
+// Duración: unidades de reloj por tiempo. El minuto que se ve siempre llega a 45'.
+export const LENGTHS = {
+  short: { label: 'Corto', half: 27 },
+  normal: { label: 'Normal', half: 45 },
+  long: { label: 'Largo', half: 72 },
+};
 
 export function optionsFor(situation) {
   return OPTIONS[situation === 'penalty' ? 'shot' : situation];
@@ -83,8 +91,10 @@ export function d6(rng = Math.random) {
   return 1 + Math.floor(rng() * 6);
 }
 
-export function newMatch({ home, away, callerSide = 1 }) {
+export function newMatch({ home, away, callerSide = 1, length = 'normal' }) {
   return {
+    length: LENGTHS[length] ? length : 'normal',
+    clock: 0,
     phase: 'toss',
     callerSide,
     teams: [home, away],
@@ -137,7 +147,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
   switch (s.situation) {
     case 'build': {
       s.stats.builds[A]++;
-      s.minute += 3 + Math.floor(rng() * 3);
+      s.clock += 3 + Math.floor(rng() * 3);
       if (ev.match) {
         const r = roll();
         if (r === 1) { ev.outcome = 'foul'; }
@@ -149,10 +159,10 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       break;
     }
     case 'attack': {
-      s.minute += 3;
+      s.clock += 3;
       if (ev.match) {
         const r = roll();
-        if (r <= 2) { ev.outcome = 'corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = rng() < 0.5 ? 'L' : 'R'; }
+        if (r === 1) { ev.outcome = 'corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = rng() < 0.5 ? 'L' : 'R'; }
         else if (r === 6) { ev.outcome = 'counter'; turnover('attack'); }
         else { ev.outcome = 'steal'; turnover(); }
       } else {
@@ -168,19 +178,19 @@ export function resolvePlay(state, att, def, rng = Math.random) {
     }
     case 'shot':
     case 'penalty': {
-      s.minute += 1;
+      s.clock += 1;
       s.stats.shots[A]++;
       const kind = s.situation === 'penalty' ? 'penal' : s.shotKind;
       ev.shotKind = kind;
       if (ev.match) {
         s.stats.onTarget[A]++;
         const r = roll();
-        if (r >= 5) { ev.outcome = 'save_corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = att === 'R' ? 'R' : att === 'L' ? 'L' : (rng() < 0.5 ? 'L' : 'R'); }
+        if (r === 1) { ev.outcome = 'save_corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = att === 'R' ? 'R' : att === 'L' ? 'L' : (rng() < 0.5 ? 'L' : 'R'); }
+        else if (r === 6) { ev.outcome = 'save_counter'; turnover('attack'); s.stats.steals[D]--; }
         else { ev.outcome = 'save'; turnover(); s.stats.steals[D]--; }
       } else {
-        const miss = MISS_ON[kind];
-        const r = miss > 0 ? roll() : null;
-        if (r !== null && r <= miss) {
+        const r = roll();
+        if (r <= MISS_ON) {
           ev.outcome = r === 1 ? 'post' : 'wide';
           turnover(); s.stats.steals[D]--;
         } else {
@@ -194,7 +204,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       break;
     }
     case 'corner': {
-      s.minute += 1;
+      s.clock += 1;
       if (ev.match) { ev.outcome = 'cleared'; turnover(); }
       else { ev.outcome = 'header'; s.situation = 'shot'; s.shotKind = 'cabezazo'; }
       break;
@@ -207,10 +217,12 @@ export function resolvePlay(state, att, def, rng = Math.random) {
   ev.situationAfter = s.situation;
 
   // Fin de tiempo: sólo cuando la pelota vuelve a una salida (no se corta un ataque).
-  if (s.minute >= HALF_MINUTES * s.half && s.situation === 'build') {
+  const halfLen = LENGTHS[s.length || 'normal'].half;
+  s.minute = Math.round((s.clock * HALF_MINUTES) / halfLen);
+  if (s.clock >= halfLen * s.half && s.situation === 'build') {
     if (s.half === 1) {
       ev.halfEnd = 1;
-      s.half = 2; s.minute = HALF_MINUTES; s.poss = 1 - s.kickoff; s.situation = 'build'; s.lane = 'C';
+      s.half = 2; s.minute = HALF_MINUTES; s.clock = halfLen; s.poss = 1 - s.kickoff; s.situation = 'build'; s.lane = 'C';
       ev.kickoffAfter = s.poss;
     } else {
       ev.halfEnd = 2;
@@ -256,12 +268,34 @@ export function commentary(ev, names) {
       if (ev.outcome === 'post') return `¡Al palo! Se salva ${D}.`;
       if (ev.outcome === 'wide') return `¡Uff! Se fue apenas afuera.`;
       if (ev.outcome === 'save_corner') return `¡Atajadón del arquero de ${D}! Al córner.`;
+      if (ev.outcome === 'save_counter') return `¡El arquero de ${D} ataja y sale rápido de contra!`;
       return `El arquero de ${D} adivinó y se queda con la pelota.`;
     case 'corner':
       if (ev.outcome === 'header') return `El córner cae justo... ¡cabezazo de ${A}!`;
       return `${D} rechaza el tiro de esquina.`;
   }
   return '';
+}
+
+// Caras del dado para esta tirada: cada cara muestra un símbolo de lo que pasa.
+export const DIE_LABELS = {
+  foul: 'Falta', steal: 'Recupera', counter: 'Contra', corner: 'Córner', shoot: 'Remate',
+  penalty: 'Penal', save: 'Atajada', goal: 'Gol', post: 'Palo', wide: 'Afuera',
+};
+
+export function diceFaces(ev) {
+  switch (ev.situation) {
+    case 'build': return ['foul', 'steal', 'steal', 'steal', 'steal', 'counter'];
+    case 'attack':
+      if (ev.att === 'dribble' && !ev.match) return ['shoot', 'shoot', 'shoot', 'shoot', 'shoot', 'penalty'];
+      return ['corner', 'steal', 'steal', 'steal', 'steal', 'counter'];
+    case 'shot':
+    case 'penalty': {
+      if (ev.match) return ['corner', 'save', 'save', 'save', 'save', 'counter'];
+      return [1, 2, 3, 4, 5, 6].map((n) => (n === 1 ? 'post' : n <= MISS_ON ? 'wide' : 'goal'));
+    }
+  }
+  return ['steal', 'steal', 'steal', 'steal', 'steal', 'steal'];
 }
 
 export function diceReason(ev) {
@@ -272,11 +306,11 @@ export function diceReason(ev) {
       return d === 1 ? 'Falta: sigue el ataque' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
     case 'attack':
       if (ev.att === 'dribble' && !ev.match) return d === 6 ? '¡Penal!' : 'Queda para rematar';
-      return d <= 2 ? 'Despeje al córner' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
+      return d === 1 ? 'Despeje al córner' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
     case 'shot':
     case 'penalty':
-      if (ev.match) return d >= 5 ? 'Da rebote: córner' : 'La contiene';
-      return ev.outcome === 'goal' ? '¡Va al arco!' : ev.outcome === 'post' ? '¡Al palo!' : 'Se va afuera';
+      if (ev.match) return d === 1 ? 'Da rebote: córner' : d === 6 ? 'Saque rápido: ¡contragolpe!' : 'La contiene';
+      return ev.outcome === 'goal' ? '¡Adentro!' : ev.outcome === 'post' ? '¡Al palo!' : 'Se va afuera';
   }
   return '';
 }

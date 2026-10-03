@@ -26,8 +26,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #screen-menu::before, #screen-lobby::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(20,23,31,.25), rgba(20,23,31,.85)); }
 .menu-inner { position: relative; width: min(360px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 12px; text-align: center; }
 .logo { font-family: var(--px); margin: 0 0 4px; line-height: 1.25; display: flex; flex-direction: column; gap: 6px; }
-.logo span:first-child { font-size: 30px; color: var(--gold); text-shadow: 3px 3px 0 #a34a00, 6px 6px 0 #000; }
-.logo span:last-child { font-size: 20px; color: #fff; text-shadow: 3px 3px 0 #000; }
+.logo .name { font-size: clamp(20px, 7vw, 28px); letter-spacing: 1px; color: var(--gold); text-shadow: 3px 3px 0 #a34a00, 6px 6px 0 #000; }
 .tag { margin: 0 0 8px; color: #d9e7d5; font-size: 20px; }
 .btn { font-family: var(--px); font-size: 12px; padding: 14px 12px; background: var(--panel2); border: 0; border-bottom: 4px solid #0c0f15; box-shadow: 0 0 0 3px #0c0f15; color: var(--ink); }
 .btn:active { transform: translateY(2px); border-bottom-width: 2px; }
@@ -38,6 +37,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .join-row { display: flex; gap: 10px; }
 .join-row input { flex: 1; min-width: 0; font-family: var(--px); font-size: 14px; text-align: center; letter-spacing: 4px; text-transform: uppercase; padding: 12px; border: 0; box-shadow: 0 0 0 3px #0c0f15; background: #f4f1e6; color: #111; }
 .msg { min-height: 1.2em; margin: 0; color: #ffd0d0; }
+.len-row { display: flex; align-items: center; gap: 6px; }
+.len-row small { color: var(--mute); font-size: 16px; margin-right: auto; }
+.len-row button { font-family: var(--px); font-size: 9px; padding: 9px 8px; background: rgba(0,0,0,.45); color: #fff; border: 0; box-shadow: 0 0 0 3px #0c0f15; }
+.len-row button.on { background: #ffd23f; color: #14171f; }
 .team-pick { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 12px; background: rgba(0,0,0,.45); border: 0; box-shadow: 0 0 0 3px #0c0f15; }
 .team-pick small { display: block; color: var(--mute); font-size: 16px; }
 .team-pick b { font-family: var(--px); font-size: 11px; line-height: 1.4; }
@@ -157,11 +160,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dice-wrap, .coin-wrap { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(0,0,0,.35); pointer-events: none; }
 .dice-wrap.show, .coin-wrap.show { display: flex; }
 .dice-wrap p, .coin-wrap p { margin: 0; font-family: var(--px); font-size: 12px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,.6); padding: 8px 10px; text-align: center; max-width: 90%; line-height: 1.5; }
-.die { width: 72px; height: 72px; background: #fff; box-shadow: 0 0 0 4px #000, inset -6px -6px 0 #cfcfcf; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 10px; }
+.die { width: 80px; height: 80px; background: #fff; box-shadow: 0 0 0 4px #000, inset -6px -6px 0 #cfcfcf; display: flex; align-items: center; justify-content: center; }
 .die.rolling { animation: shake .1s infinite; }
 @keyframes shake { 50% { transform: rotate(12deg) translateY(-6px); } }
-.die i { width: 12px; height: 12px; background: #111; place-self: center; }
-.die i.e { visibility: hidden; }
+.die img { width: 64px; height: 64px; image-rendering: pixelated; margin: -4px 0 0 -4px; }
+.dice-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 94%; }
+.dice-legend .chip { display: flex; flex-direction: column; align-items: center; gap: 3px; background: rgba(0,0,0,.65); border: 2px solid #3a4150; padding: 5px 6px 4px; min-width: 62px; opacity: .75; }
+.dice-legend .chip img { width: 28px; height: 28px; image-rendering: pixelated; background: #fff; box-shadow: 0 0 0 2px #000; }
+.dice-legend .chip b { font-family: var(--px); font-size: 8px; font-weight: normal; }
+.dice-legend .chip i { font-style: normal; font-size: 9px; letter-spacing: 1px; color: #9aa3ad; }
+.dice-legend .chip.on { opacity: 1; border-color: #fff; }
+.dice-legend .chip.hit { opacity: 1; border-color: var(--accent, #ffd23f); background: rgba(40,32,0,.85); transform: scale(1.08); }
+.dice-legend .chip.hit b { color: var(--accent, #ffd23f); }
 .coin { width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe680, #e0a800 60%, #8a6200); box-shadow: 0 0 0 4px #000; display: flex; align-items: center; justify-content: center; font-family: var(--px); font-size: 11px; color: #5a3c00; }
 .coin.flip { animation: flip .18s linear infinite; }
 @keyframes flip { 50% { transform: scaleX(.05); } }
