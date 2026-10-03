@@ -73,8 +73,9 @@ export const SHOT_TITLES = {
 };
 
 // Dado del remate cuando el arquero no adivina: igual para todo tipo de remate
-// y para los dos equipos. 1 = palo, 2..MISS_ON = afuera, el resto es gol.
-export const MISS_ON = 2;
+// y para los dos equipos. 1..POST_ON = palo, hasta MISS_ON = afuera, el resto es gol.
+export const POST_ON = 2;
+export const MISS_ON = 4;
 
 // Duración: unidades de reloj por tiempo. El minuto que se ve siempre llega a 45'.
 export const LENGTHS = {
@@ -191,7 +192,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       } else {
         const r = roll();
         if (r <= MISS_ON) {
-          ev.outcome = r === 1 ? 'post' : 'wide';
+          ev.outcome = r <= POST_ON ? 'post' : 'wide';
           turnover(); s.stats.steals[D]--;
         } else {
           ev.outcome = 'goal';
@@ -292,7 +293,7 @@ export function diceFaces(ev) {
     case 'shot':
     case 'penalty': {
       if (ev.match) return ['corner', 'save', 'save', 'save', 'save', 'counter'];
-      return [1, 2, 3, 4, 5, 6].map((n) => (n === 1 ? 'post' : n <= MISS_ON ? 'wide' : 'goal'));
+      return [1, 2, 3, 4, 5, 6].map((n) => (n <= POST_ON ? 'post' : n <= MISS_ON ? 'wide' : 'goal'));
     }
   }
   return ['steal', 'steal', 'steal', 'steal', 'steal', 'steal'];
