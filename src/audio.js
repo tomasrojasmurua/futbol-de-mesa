@@ -96,6 +96,12 @@ export function sound(name) {
       burst({ dur: 2.8, freq: 800, q: 0.4, vol: 0.5, type: 'bandpass' });
       [0, 0.15, 0.3, 0.45].forEach((at, i) => tone({ freq: [523, 659, 784, 1046][i], dur: 0.25, vol: 0.08, at }));
       break;
+    case 'longball': burst({ dur: 0.1, freq: 450, vol: 0.6 }); break;
+    case 'trap': burst({ dur: 0.05, freq: 900, vol: 0.3 }); break;
+    case 'tension': tone({ freq: 220, dur: 0.9, vol: 0.05, type: 'sawtooth', slide: 220 }); break;
+    case 'heart': tone({ freq: 60, dur: 0.12, vol: 0.25, type: 'sine' }); tone({ freq: 55, dur: 0.14, vol: 0.2, type: 'sine', at: 0.18 }); tone({ freq: 60, dur: 0.12, vol: 0.25, type: 'sine', at: 0.75 }); tone({ freq: 55, dur: 0.14, vol: 0.2, type: 'sine', at: 0.93 }); break;
+    case 'win-duel': tone({ freq: 660, dur: 0.1, vol: 0.07, at: 0 }); tone({ freq: 990, dur: 0.18, vol: 0.07, at: 0.09 }); break;
+    case 'lose-duel': tone({ freq: 300, dur: 0.15, vol: 0.07, type: 'triangle' }); tone({ freq: 200, dur: 0.25, vol: 0.07, type: 'triangle', at: 0.13 }); break;
     case 'card': tone({ freq: 660, dur: 0.06, vol: 0.06 }); break;
     case 'tick': tone({ freq: 1000, dur: 0.03, vol: 0.04 }); break;
     case 'dice': for (let i = 0; i < 6; i++) tone({ freq: 300 + Math.random() * 400, dur: 0.03, vol: 0.05, at: i * 0.1 }); break;

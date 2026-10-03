@@ -4,6 +4,7 @@ import { Host, Cpu, LEVELS } from './host.js';
 import { createRoom, joinRoom } from './net.js';
 import { Renderer } from './render.js';
 import * as audio from './audio.js';
+import { icon, iconFor } from './icons.js';
 
 const $ = (s) => document.querySelector(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -108,6 +109,26 @@ function describe(sit, role, id, iAttack) {
   return o ? o.label : id;
 }
 
+const MIRROR = { L: 'R', C: 'C', R: 'L' };
+
+// Datos de una carta vista desde la pantalla de quien mira.
+function cardInfo(sit, role, id, iAttack) {
+  const screen = iAttack ? id : MIRROR[id];
+  return { label: describe(sit, role, id, iAttack), img: iconFor(sit, role, id, screen) };
+}
+
+function cardHtml({ label, img, hint }, role, tag) {
+  return `<span class="card-top">${tag}</span><img class="ic" src="${img}" alt=""><span class="lb">${label}</span>${hint ? `<span class="hn">${hint}</span>` : ''}`;
+}
+
+const QUESTIONS = {
+  build: ['¿Llegará tu pase?', '¿Le cortas el pase?'],
+  attack: ['¿Rompes la defensa?', '¿Lo frenas?'],
+  shot: ['¿Será gol?', '¿Ataja tu arquero?'],
+  penalty: ['¿Será gol?', '¿Ataja tu arquero?'],
+  corner: ['¿Ganas por arriba?', '¿Despejas el córner?'],
+};
+
 // ---------- vista del partido ----------
 class MatchView {
   constructor({ mySide, send, isHost, onRematch }) {
@@ -169,7 +190,8 @@ class MatchView {
       this.stopTimer();
       this.clearCards(null);
       ev.diceText = diceReason(ev);
-      this.reveal(ev);
+      this.currentEv = ev;
+      this.duelStart(ev);
       await renderer.play(ev);
       this.feed(commentary(ev, this.names()));
       this.paintHud(state);
@@ -188,17 +210,22 @@ class MatchView {
     }
   }
 
-  reveal(ev) {
+  // Al empezar la jugada: tu carta boca arriba, la del rival boca abajo.
+  duelStart(ev) {
     const iAttack = ev.poss === this.mySide;
     const mine = iAttack ? ev.att : ev.def, theirs = iAttack ? ev.def : ev.att;
     const myRole = iAttack ? 'att' : 'def', theirRole = iAttack ? 'def' : 'att';
-    $('#panel-title').textContent = ev.match ? (iAttack ? '¡El rival te leyó la jugada!' : '¡Adivinaste!') : (iAttack ? '¡El rival no lo vio venir!' : 'No adivinaste…');
-    const r = $('#panel-role'); r.textContent = ev.match ? 'DEFENSA ACIERTA' : 'ATAQUE PASA'; r.className = 'role ' + (ev.match ? 'def' : 'att');
+    $('#panel-title').textContent = QUESTIONS[ev.situation][iAttack ? 0 : 1];
+    const r = $('#panel-role'); r.textContent = '? ? ?'; r.className = 'role suspense';
+    const me = cardInfo(ev.situation, myRole, mine, iAttack);
+    const them = cardInfo(ev.situation, theirRole, theirs, iAttack);
     $('#cards').innerHTML = `
-      <div class="pick ${myRole}"><small>Tú</small><b>${describe(ev.situation, myRole, mine, iAttack)}</b></div>
+      <div class="duel-card mine ${myRole}"><div class="card ${myRole}">${cardHtml(me, myRole, 'TÚ')}</div></div>
       <div class="vs">VS</div>
-      <div class="pick ${theirRole}"><small>Rival</small><b>${describe(ev.situation, theirRole, theirs, iAttack)}</b></div>`;
+      <div class="duel-card theirs ${theirRole}"><div class="flip"><div class="face back"><img src="${icon('back')}" alt=""><span>RIVAL</span></div><div class="face front card ${theirRole}">${cardHtml(them, theirRole, 'RIVAL')}</div></div></div>
+      <div id="stamp" class="stamp"></div>`;
     $('#cards').classList.add('reveal');
+    $('#panel').classList.add('tense');
     const names = this.names();
     const pre = {
       build: `${names[ev.poss]} intenta salir jugando…`,
@@ -208,6 +235,26 @@ class MatchView {
       corner: `Tiro de esquina para ${names[ev.poss]}…`,
     }[ev.situation];
     this.feed(pre);
+  }
+
+  // El momento de la verdad: se da vuelta la carta del rival.
+  duelReveal(ev) {
+    const iAttack = ev.poss === this.mySide;
+    const won = iAttack ? !ev.match : ev.match;
+    $('#panel').classList.remove('tense');
+    const theirs = document.querySelector('.duel-card.theirs');
+    if (theirs) theirs.classList.add('open');
+    const winCard = document.querySelector(won ? '.duel-card.mine' : '.duel-card.theirs');
+    if (winCard) winCard.classList.add('win');
+    const lose = document.querySelector(won ? '.duel-card.theirs' : '.duel-card.mine');
+    if (lose) lose.classList.add('lose');
+    const goal = ev.outcome === 'goal';
+    const text = goal ? (iAttack ? '¡GOOOL!' : 'GOL EN CONTRA') : won ? '¡GANASTE EL DUELO!' : 'PERDISTE EL DUELO';
+    const stamp = $('#stamp');
+    if (stamp) { stamp.textContent = text; stamp.className = 'stamp show ' + (won ? 'good' : 'bad'); }
+    $('#panel-title').textContent = won ? (iAttack ? 'El rival no lo vio venir.' : '¡Le leíste la jugada!') : (iAttack ? 'El rival te leyó la jugada.' : 'No adivinaste.');
+    const r = $('#panel-role'); r.textContent = won ? 'GANASTE' : 'PERDISTE'; r.className = 'role ' + (won ? 'good' : 'bad');
+    audio.sound(won ? 'win-duel' : 'lose-duel');
   }
 
   paintHud(state) {
@@ -231,6 +278,7 @@ class MatchView {
   clearCards(waitText) {
     $('#cards').innerHTML = waitText ? `<div class="wait"><span class="ball-spin"></span>${waitText}</div>` : '';
     $('#cards').classList.remove('locked', 'reveal');
+    $('#panel').classList.remove('tense');
     if (!waitText) $('#panel-title').textContent = 'El partido está en juego…';
     $('#panel-role').textContent = '';
     $('#timer-bar').style.width = '0';
@@ -272,7 +320,7 @@ class MatchView {
     const els = options.map((o) => {
       const b = document.createElement('button');
       b.className = 'card ' + roleCls;
-      b.innerHTML = `<span class="ic">${o.icon}</span><span class="lb">${o.label}</span>${o.hint ? `<span class="hn">${o.hint}</span>` : ''}`;
+      b.innerHTML = cardHtml(o, roleCls, roleCls === 'att' ? 'ATAQUE' : roleCls === 'def' ? 'DEFENSA' : 'SORTEO');
       b.onclick = () => pick(o, b);
       box.appendChild(b);
       return b;
@@ -289,9 +337,9 @@ class MatchView {
       $('#panel-title').textContent = 'Sorteo inicial';
       return;
     }
-    this.renderCards('Sorteo: ¿cara o sello?', 'MONEDA', 'att', [
-      { id: 'cara', label: 'Cara', icon: '◉' },
-      { id: 'sello', label: 'Sello', icon: '✪' },
+    this.renderCards('Sorteo: ¿cara o sello?', 'MONEDA', 'coin', [
+      { id: 'cara', label: 'Cara', img: icon('cara') },
+      { id: 'sello', label: 'Sello', img: icon('sello') },
     ], (call) => this.send({ t: 'call', call }));
   }
 
@@ -308,15 +356,15 @@ class MatchView {
     if (!att && opts[0].lane) {
       // El rival viene de frente: su izquierda es tu derecha. Ordenamos por pantalla.
       const screen = { L: 'derecha', C: 'centro', R: 'izquierda' };
-      const icon = { L: sit === 'build' ? '▶' : '◥', C: sit === 'build' ? '▲' : '■', R: sit === 'build' ? '◀' : '◤' };
       opts = ['R', 'C', 'L'].map((id) => {
         const o = opts.find((x) => x.id === id);
         let label;
         if (sit === 'build') label = id === 'C' ? 'Cerrar el centro' : `Cerrar ${screen[id]}`;
         else label = id === 'C' ? 'Quedarse al medio' : `Volar a la ${screen[id]}`;
-        return { ...o, label, icon: icon[id] };
+        return { ...o, label };
       });
     }
+    opts = opts.map((o) => ({ ...o, img: iconFor(sit, role, o.id, att ? o.id : MIRROR[o.id]) }));
     const seq = state.seq;
     this.renderCards(title, att ? 'ATACAS' : 'DEFIENDES', role, opts, (choice) => this.send({ t: 'choice', seq, choice }));
   }
@@ -346,6 +394,8 @@ class MatchView {
 // ---------- capa de UI para el motor ----------
 const ui = {
   sound: (n) => audio.sound(n),
+  reveal(ev) { if (view) view.duelReveal(ev); },
+  cinema(on) { document.querySelector('.pitch-wrap').classList.toggle('cinema', on); if (on) audio.sound('heart'); },
   banner(text, opts = {}) {
     const el = $('#banner');
     el.className = 'banner' + (opts.small ? ' small' : '') + (opts.goal ? ' goal' : '');

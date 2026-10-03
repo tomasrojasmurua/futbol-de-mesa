@@ -1,14 +1,17 @@
-// Motor visual: cancha pixelada, 22 jugadores con IA de posicionamiento,
-// pelota con altura, cámara de TV y guiones animados para cada jugada.
+// Motor visual: estadio pixelado, 22 jugadores con IA de posicionamiento,
+// pelota con altura y estela, cámara de TV con cámara lenta, partículas y
+// guiones animados para cada jugada (con un momento de suspenso antes de
+// revelar quién ganó el duelo).
+import { hexRgb } from './teams.js';
 
-const PW = 68, PL = 105;          // cancha en metros
-const S = 3;                       // píxeles por metro (resolución interna)
-const MX = 14, MY = 22;            // tribunas alrededor
-export const WW = PW * S + MX * 2; // 232
-export const WH = PL * S + MY * 2; // 359
+const PW = 68, PL = 105;           // cancha en metros
+const S = 4;                        // píxeles por metro (resolución interna)
+const MX = 22, MY = 36;             // estadio alrededor
+export const WW = PW * S + MX * 2;  // 316
+export const WH = PL * S + MY * 2;  // 492
 
 const LANE_U = { L: 12, C: 34, R: 56 };
-const GOAL_U = { L: 31.4, C: 34, R: 36.6 };
+const GOAL_U = { L: 31.3, C: 34, R: 36.7 };
 
 const FORMATION = [
   [34, 4],
@@ -19,7 +22,7 @@ const FORMATION = [
 const ROW = (i) => (i === 0 ? 'G' : i <= 4 ? 'D' : i <= 8 ? 'M' : 'F');
 
 const SKINS = ['#f1c7a0', '#e0a77c', '#c68657', '#9c6440', '#6e4428', '#f5d3b5'];
-const HAIRS = ['#2a1a10', '#4a2e18', '#111111', '#7a5530', '#d9b25a', '#1c1c1c', '#5b3a1e'];
+const HAIRS = ['#2a1a10', '#4a2e18', '#111111', '#7a5530', '#d9b25a', '#1c1c1c', '#5b3a1e', '#a0522d'];
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -27,8 +30,118 @@ const ease = (t) => t * t * (3 - 2 * t);
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function seeded(n) {
-  let x = Math.sin(n * 9301 + 49297) * 233280;
+  const x = Math.sin(n * 9301 + 49297) * 233280;
   return x - Math.floor(x);
+}
+
+function shade(hex, f) {
+  const [r, g, b] = hexRgb(hex);
+  const m = (c) => Math.round(f < 1 ? c * f : c + (255 - c) * (f - 1));
+  return `rgb(${m(r)},${m(g)},${m(b)})`;
+}
+function lum(hex) { const [r, g, b] = hexRgb(hex); return 0.299 * r + 0.587 * g + 0.114 * b; }
+
+// ---------- sprites (7x13) ----------
+// h pelo · s piel · S piel sombra · e ojos · t camiseta · T camiseta sombra
+// n dorsal · p short · P short sombra · k medias · b botines · g guantes/manos
+const BODY = {
+  front: [
+    '..hhh..',
+    '.hhhhh.',
+    '.heseh.',
+    '..sSs..',
+    '.ttttT.',
+    'tttttTT',
+    'ttttttT',
+    'gttttTg',
+    '.ppppP.',
+    '.pp.pP.',
+  ],
+  back: [
+    '..hhh..',
+    '.hhhhh.',
+    '.hhhhh.',
+    '..hSh..',
+    '.ttttT.',
+    'ttnnnTT',
+    'ttnnnTT',
+    'gttttTg',
+    '.ppppP.',
+    '.pp.pP.',
+  ],
+  side: [
+    '..hhh..',
+    '.hhhhs.',
+    '.hhsse.',
+    '..sSs..',
+    '..tttT.',
+    '.ttttT.',
+    '.tTttT.',
+    '..gtT..',
+    '..ppP..',
+    '..pPP..',
+  ],
+  jump: [
+    'g.hhh.g',
+    'thhhhhT',
+    'theseht',
+    '.tsSsT.',
+    '.ttttT.',
+    '.ttttT.',
+    '.ttttT.',
+    '.ttttT.',
+    '.ppppP.',
+    '.pp.pP.',
+  ],
+};
+const LEGS = {
+  front: [
+    ['..s.s..', '..k.k..', '.bb.bb.'],
+    ['..s.s..', '.k...k.', 'bb....b'],
+    ['...ss..', '...kk..', '..bbb..'],
+    ['..s.s..', '.k...k.', 'b....bb'],
+  ],
+  side: [
+    ['..s.s..', '..k.k..', '..bbbb.'],
+    ['.s...s.', '.k...k.', 'bb....b'],
+    ['..s.s..', '..kk...', '..bbb..'],
+    ['.s..s..', 'k...k..', 'b...bb.'],
+  ],
+  jump: [['..s.s..', '..k.k..', '..b.b..']],
+};
+// Poses horizontales (mirando a la derecha).
+const POSES = {
+  slide: [
+    '.............',
+    '.hh......s...',
+    'hhsttTpp.k...',
+    'hsstttTppkkbb',
+    '.g.ttT..s....',
+  ],
+  dive: [
+    '.........hhh..',
+    'bkkpPttttThesg',
+    'bkkpPTtttTtssg',
+    '......ttT.....',
+  ],
+  fallen: [
+    'hh..........',
+    'hsstttTppkkb',
+    '.s.tTTPpkkb.',
+  ],
+};
+
+function isAlt(pattern, r, c) {
+  switch (pattern) {
+    case 'stripes': return c === 2 || c === 4;
+    case 'band': return r === 6;
+    case 'hoops': return r === 5 || r === 7;
+    case 'sash': return c === 9 - r;
+    case 'sleeves': return c === 0 || c === 6;
+    case 'center': return c === 3;
+    case 'checks': return (r + c) % 2 === 1;
+    default: return false;
+  }
 }
 
 export class Renderer {
@@ -39,22 +152,25 @@ export class Renderer {
     this.world = document.createElement('canvas');
     this.world.width = WW; this.world.height = WH;
     this.wctx = this.world.getContext('2d');
-    this.pitch = this.buildPitch();
+    this.spriteCache = new Map();
     this.mySide = 0;
     this.kits = null;
     this.players = [[], []];
     this.ball = { x: 34, y: 52.5, z: 0, owner: null, flight: null, head: false, spin: 0 };
-    this.ref = { x: 30, y: 60, vx: 0, vy: 0, anim: 0, facing: 1 };
+    this.trail = [];
+    this.particles = [];
+    this.ref = { x: 30, y: 60, vx: 0, vy: 0, anim: 0, facing: 1, fx: 0 };
     this.possSide = 0;
     this.focus = [null, null];
     this.defStyle = [null, null];
-    this.cam = { x: WW / 2, y: WH / 2, zoom: 1, tzoom: 1, follow: null };
+    this.cam = { x: WW / 2, y: WH / 2, zoom: 1, tzoom: 1, punch: 0, follow: null, shake: 0 };
+    this.ts = 1; this.tsTarget = 1;
     this.timers = [];
     this.netShake = [0, 0];
     this.crowd = [];
     this.crowdJump = { side: -1, t: 0 };
-    this.celebrate = null;
     this.flash = 0;
+    this.boardT = 0;
     this.last = performance.now();
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -62,7 +178,6 @@ export class Renderer {
   }
 
   // ---------- coordenadas ----------
-  // Marco de equipo (u: izquierda→derecha, v: arco propio→arco rival) a mundo.
   W(side, u, v) { return side === 0 ? [u, PL - v] : [PW - u, v]; }
   U(side, x, y) { return side === 0 ? [x, PL - y] : [PW - x, y]; }
   px(x, y) {
@@ -74,16 +189,19 @@ export class Renderer {
     this.teams = teams;
     this.kits = kits;
     this.mySide = mySide;
+    this.spriteCache.clear();
+    this.bg = this.buildBackground();
     this.buildCrowd();
+    this.boards = this.buildBoards();
     for (let s = 0; s < 2; s++) {
       this.players[s] = FORMATION.map(([u, v], i) => {
         const [x, y] = this.W(s, u, Math.min(v, 48));
-        const seed = s * 31 + i * 7 + teams[s].id.length * 13;
+        const seed = s * 31 + i * 7 + teams[s].id.length * 13 + teams[s].id.charCodeAt(0);
         return {
-          side: s, i, x, y, vx: 0, vy: 0, tx: x, ty: y, anim: 0, facing: s === 0 ? -1 : 1, fx: 0,
+          side: s, i, x, y, vx: 0, vy: 0, tx: x, ty: y, anim: 0, facing: s === 0 ? -1 : 1, fx: 0, z: 0,
           skin: SKINS[Math.floor(seeded(seed) * SKINS.length)],
           hair: HAIRS[Math.floor(seeded(seed + 3) * HAIRS.length)],
-          ov: null, lock: null, boost: 1, fallen: 0, dive: null,
+          ov: null, lock: null, boost: 1, fallen: 0, dive: null, pose: null, jump: null, cheer: 0,
         };
       });
     }
@@ -97,41 +215,47 @@ export class Renderer {
     this.cv.width = Math.max(1, Math.round(r.width * dpr));
     this.cv.height = Math.max(1, Math.round(r.height * dpr));
     this.ctx.imageSmoothingEnabled = false;
+    this.vignette = null;
   }
 
   // ---------- tiempo ----------
+  // Las esperas usan el tiempo del partido: en cámara lenta, todo se estira.
   wait(sec) { return new Promise((res) => this.timers.push({ t: sec, res })); }
 
   loop(now) {
-    const dt = Math.min(0.05, (now - this.last) / 1000);
+    const real = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    this.update(dt);
+    this.ts = lerp(this.ts, this.tsTarget, Math.min(1, real * 7));
+    this.update(real * this.ts, real);
     this.draw(now);
     requestAnimationFrame((t) => this.loop(t));
   }
 
-  update(dt) {
+  update(dt, real) {
     for (const tm of this.timers) tm.t -= dt;
     const done = this.timers.filter((t) => t.t <= 0);
     this.timers = this.timers.filter((t) => t.t > 0);
     done.forEach((t) => t.res());
+    this.boardT += real;
     if (!this.kits) return;
 
     this.updateBall(dt);
     this.computeTargets();
     for (const team of this.players) for (const p of team) this.movePlayer(p, dt);
     this.moveRef(dt);
-    this.netShake = this.netShake.map((n) => Math.max(0, n - dt));
-    this.flash = Math.max(0, this.flash - dt);
-    if (this.crowdJump.t > 0) this.crowdJump.t -= dt;
+    this.updateParticles(dt);
+    this.netShake = this.netShake.map((n) => Math.max(0, n - real));
+    this.flash = Math.max(0, this.flash - real);
+    this.cam.shake = Math.max(0, this.cam.shake - real * 2);
+    if (this.crowdJump.t > 0) this.crowdJump.t -= real;
 
-    // Cámara
+    // Cámara (en tiempo real, para que el zoom de suspenso se sienta)
     const target = this.cam.follow || this.ball;
     const [bx, by] = this.px(target.x, target.y - (this.cam.follow ? 0 : this.ball.z * 0.5));
-    const k = Math.min(1, dt * 3);
+    const k = Math.min(1, real * 3.2);
     this.cam.x = lerp(this.cam.x, bx, k);
     this.cam.y = lerp(this.cam.y, by, k);
-    this.cam.zoom = lerp(this.cam.zoom, this.cam.tzoom, Math.min(1, dt * 2));
+    this.cam.zoom = lerp(this.cam.zoom, this.cam.tzoom + this.cam.punch, Math.min(1, real * 2.4));
   }
 
   updateBall(dt) {
@@ -140,28 +264,37 @@ export class Renderer {
       const f = b.flight;
       f.t += dt;
       const t = clamp(f.t / f.dur, 0, 1);
-      const tt = f.ground ? 1 - (1 - t) * (1 - t) : t; // rodando, la pelota frena
-      b.x = lerp(f.from[0], f.to[0], tt);
-      b.y = lerp(f.from[1], f.to[1], tt);
+      const tt = f.ground ? 1 - (1 - t) * (1 - t) * 0.6 - 0.4 * (1 - t) : t;
+      b.x = lerp(f.from[0], f.to[0], clamp(tt, 0, 1));
+      b.y = lerp(f.from[1], f.to[1], clamp(tt, 0, 1));
       b.z = lerp(f.z0 || 0, f.z1 || 0, t) + 4 * f.h * t * (1 - t);
-      b.spin += dt * 20;
+      b.spin += dt * 24;
       if (t >= 1) { b.flight = null; f.done && f.done(); }
     } else if (b.owner) {
       const p = b.owner;
-      if (b.head) { b.x = p.x; b.y = p.y; b.z = 2.1; }
+      if (b.head) { b.x = p.x; b.y = p.y; b.z = 2.1 + p.z; }
       else {
         const sp = Math.hypot(p.vx, p.vy);
         const dx = sp > 0.3 ? p.vx / sp : p.fx, dy = sp > 0.3 ? p.vy / sp : p.facing;
-        b.x = lerp(b.x, p.x + dx * 0.8, Math.min(1, dt * 18));
-        b.y = lerp(b.y, p.y + dy * 0.8, Math.min(1, dt * 18));
-        b.z = 0;
+        b.x = lerp(b.x, p.x + dx * 0.75, Math.min(1, dt * 18));
+        b.y = lerp(b.y, p.y + dy * 0.75, Math.min(1, dt * 18));
+        b.z = Math.max(0, b.z - dt * 8);
         b.spin += sp * dt * 3;
       }
     }
+    // estela cuando la pelota va rápido o alta
+    const [sx, sy] = this.px(b.x, b.y);
+    const last = this.trail[this.trail.length - 1];
+    if (b.flight && (!last || Math.hypot(last.x - sx, last.y - sy + last.z - b.z * S * 0.9) > 1.5)) {
+      this.trail.push({ x: sx, y: sy, z: b.z * S * 0.9, a: 1 });
+    }
+    for (const t of this.trail) t.a -= dt * 2.6;
+    this.trail = this.trail.filter((t) => t.a > 0).slice(-14);
   }
 
   computeTargets() {
     const b = this.ball;
+    const now = performance.now();
     for (let s = 0; s < 2; s++) {
       const inPoss = this.possSide === s;
       const [bu, bv] = this.U(s, b.x, b.y);
@@ -191,14 +324,12 @@ export class Renderer {
             if (style === 'cross' && (p.i === 1 || p.i === 4 || p.i === 5 || p.i === 8)) u = 34 + (u - 34) * 1.35;
             if (style === 'through' && row === 'D') v += 6;
           }
-          // Pequeño vaivén para que nunca estén quietos del todo.
-          const wob = Math.sin(performance.now() / 900 + p.i * 1.7 + s * 3) * 0.9;
-          u += wob; v += Math.cos(performance.now() / 1100 + p.i) * 0.6;
+          u += Math.sin(now / 900 + p.i * 1.7 + s * 3) * 0.9;
+          v += Math.cos(now / 1100 + p.i) * 0.6;
         }
         u = clamp(u, 1.5, 66.5); v = clamp(v, 1.5, 103.5);
         [p.tx, p.ty] = this.W(s, u, v);
       }
-      // Marca en zona defensiva y presión al portador.
       if (!inPoss && this.kits) {
         const opp = this.players[1 - s];
         if (bv < 38) {
@@ -231,20 +362,31 @@ export class Renderer {
         });
       }
     }
-    // El portador espera con la pelota si nadie le dice qué hacer.
     const o = b.owner;
     if (o && !o.lock && !o.ov) { o.tx = o.x; o.ty = o.y; }
   }
 
   movePlayer(p, dt) {
-    if (p.fallen > 0) { p.fallen -= dt; p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx * dt; p.y += p.vy * dt; return; }
+    if (p.jump) {
+      const j = p.jump; j.t += dt;
+      const t = clamp(j.t / j.dur, 0, 1);
+      p.z = 4 * j.h * t * (1 - t);
+      if (t >= 1) { p.jump = null; p.z = 0; }
+    }
+    if (p.pose) {
+      p.pose.t += dt;
+      if (p.pose.t > p.pose.dur) { const k = p.pose.kind; p.pose = null; if (k === 'slide') p.fallen = Math.max(p.fallen, 0.35); }
+    }
+    if (p.cheer > 0) p.cheer -= dt;
+    if (p.fallen > 0 && !p.lock) { p.fallen -= dt; p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx * dt; p.y += p.vy * dt; return; }
     if (p.dive) {
       const d = p.dive;
       d.t += dt;
       const t = clamp(d.t / d.dur, 0, 1);
       p.x = lerp(d.from[0], d.to[0], ease(t));
       p.y = lerp(d.from[1], d.to[1], ease(t));
-      if (d.t > d.dur + d.hold) { p.dive = null; p.vx = p.vy = 0; }
+      p.z = d.up ? Math.sin(t * Math.PI) * d.up : 0;
+      if (d.t > d.dur + d.hold) { p.dive = null; p.vx = p.vy = 0; p.z = 0; }
       return;
     }
     if (p.lock) {
@@ -258,11 +400,11 @@ export class Renderer {
         const off = Math.sin(t * Math.PI * L.zig) * 2.6 * Math.sin(t * Math.PI);
         x += (-dy / dl) * off; y += (dx / dl) * off;
       }
-      p.vx = (x - p.x) / Math.max(dt, 1e-3); p.vy = (y - p.y) / Math.max(dt, 1e-3);
+      p.vx = (x - p.x) / Math.max(dt, 1e-4); p.vy = (y - p.y) / Math.max(dt, 1e-4);
       p.x = x; p.y = y;
-      this.faceFromVel(p);
+      if (!p.pose) this.faceFromVel(p);
       p.anim += Math.hypot(p.vx, p.vy) * dt * 0.9;
-      if (t >= 1) { p.lock = null; L.done && L.done(); }
+      if (t >= 1) { p.lock = null; p.vx = p.vy = 0; L.done && L.done(); }
       return;
     }
     const tx = p.ov ? p.ov[0] : p.tx, ty = p.ov ? p.ov[1] : p.ty;
@@ -276,7 +418,6 @@ export class Renderer {
     const v = Math.hypot(p.vx, p.vy);
     if (v > 0.4) this.faceFromVel(p);
     else {
-      // mira hacia la pelota
       const bx = this.ball.x - p.x, by = this.ball.y - p.y, bl = Math.hypot(bx, by) || 1;
       p.fx = bx / bl; p.facing = by / bl;
     }
@@ -307,6 +448,39 @@ export class Renderer {
   }
   nearest(side, x, y, outfield = true, exclude = []) { return this.nearestN(side, x, y, 1, outfield, exclude)[0]; }
 
+  // ---------- partículas ----------
+  burst(x, y, kind, n = 10) {
+    const cols = {
+      grass: ['#2f7a2c', '#4fb348', '#6cc35f', '#3a8c35'],
+      dust: ['#c9b48a', '#a8916a', '#e0d2b0'],
+      spark: ['#ffffff', '#fff3b0'],
+    }[kind];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = rnd(1, kind === 'spark' ? 7 : 4);
+      this.particles.push({ x, y, z: 0.1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: rnd(1, 4), life: rnd(0.4, 0.9), c: cols[i % cols.length] });
+    }
+  }
+
+  confetti(side) {
+    const k = this.kits[side];
+    const cols = [k.shirt, k.alt2, '#ffffff', '#ffd23f'];
+    for (let i = 0; i < 90; i++) {
+      this.particles.push({ x: rnd(0, PW), y: rnd(0, PL), z: rnd(8, 18), vx: rnd(-1, 1), vy: rnd(-1, 1), vz: rnd(-1, 0), life: rnd(2, 3.5), c: cols[i % cols.length], conf: true });
+    }
+  }
+
+  updateParticles(dt) {
+    for (const p of this.particles) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (p.conf) { p.vz = Math.max(p.vz - dt * 1.5, -2.5); p.vx += Math.sin(p.life * 6) * dt * 2; }
+      else p.vz -= dt * 14;
+      p.z = Math.max(0, p.z + p.vz * dt);
+      if (p.z === 0 && !p.conf) { p.vx *= 0.8; p.vy *= 0.8; }
+      p.life -= dt;
+    }
+    this.particles = this.particles.filter((p) => p.life > 0);
+  }
+
   // ---------- acciones del guion ----------
   give(p) {
     this.ball.owner = p; this.ball.flight = null; this.ball.head = false;
@@ -317,90 +491,166 @@ export class Renderer {
     for (const t of this.players) for (const p of t) { p.ov = null; p.boost = 1; }
   }
 
-  // Pase a un punto (marco del equipo `side`). Devuelve el receptor.
-  async pass(side, uv, { dur = 0.8, h = 0.4, recv = null, z1 = 0 } = {}) {
+  // Mueve a un jugador por un camino fijo (sirve para coreografías exactas).
+  moveTo(p, to, dur, opts = {}) {
+    p.ov = null;
+    p.lock = { from: [p.x, p.y], to, t: 0, dur, ...opts };
+  }
+
+  launch(to, { dur = 0.8, h = 0.4, z1 = 0, ground } = {}) {
     const b = this.ball;
+    b.owner = null; b.head = false;
+    b.flight = { from: [b.x, b.y], to, t: 0, dur, h, z0: b.z, z1, ground: ground ?? h < 0.5 };
+  }
+
+  climax() {
+    this.tsTarget = 0.28;
+    this.cam.punch = 0.3;
+    this.ui.cinema(true);
+    this.ui.sound('tension');
+  }
+
+  release() {
+    this.tsTarget = 1;
+    this.cam.punch = 0;
+    this.ui.cinema(false);
+  }
+
+  reveal(ev) {
+    if (ev._revealed) return;
+    ev._revealed = true;
+    this.ui.reveal(ev);
+  }
+
+  async pass(side, uv, { dur = 0.8, h = 0.4, recv = null, z1 = 0 } = {}) {
     const to = this.W(side, uv[0], uv[1]);
-    const passer = b.owner;
+    const passer = this.ball.owner;
     const r = recv || this.nearest(side, to[0], to[1], true, passer ? [passer] : []);
     r.ov = to; r.boost = 1.5;
-    b.owner = null; b.head = false;
-    b.flight = { from: [b.x, b.y], to, t: 0, dur, h, z0: b.z, z1, ground: h < 0.5 };
+    this.launch(to, { dur, h, z1 });
     this.ui.sound('kick');
     await this.wait(dur);
-    // Si el receptor no llegó, lo "acerca" un poco para no ver saltos raros.
     const d = Math.hypot(r.x - to[0], r.y - to[1]);
-    if (d > 1.2) await this.wait(Math.min(0.7, d / 9));
+    if (d > 1.2) await this.wait(Math.min(0.6, d / 9));
     r.ov = null; r.boost = 1;
     r.x = lerp(r.x, to[0], 0.7); r.y = lerp(r.y, to[1], 0.7);
     this.give(r);
     return r;
   }
 
-  // Pase interceptado por un rival que corre hacia la línea de pase.
-  async intercept(side, uv, { dur = 0.8, h = 0.3, at = 0.55 } = {}) {
-    const b = this.ball;
-    const to = this.W(side, uv[0], uv[1]);
-    const mid = [lerp(b.x, to[0], at), lerp(b.y, to[1], at)];
-    const cut = this.nearest(1 - side, mid[0], mid[1], true);
-    cut.ov = mid; cut.boost = 1.7;
-    b.owner = null;
-    b.flight = { from: [b.x, b.y], to: mid, t: 0, dur: dur * at, h, z0: b.z, ground: h < 0.5 };
-    this.ui.sound('kick');
-    await this.wait(dur * at);
-    cut.ov = null; cut.boost = 1;
-    cut.x = lerp(cut.x, mid[0], 0.8); cut.y = lerp(cut.y, mid[1], 0.8);
-    this.give(cut);
-    return cut;
-  }
-
   async dribble(side, uv, dur = 1, zig = 0) {
     const p = this.ball.owner;
     if (!p) return;
-    const to = this.W(side, uv[0], uv[1]);
-    p.lock = { from: [p.x, p.y], to, t: 0, dur, zig };
+    this.moveTo(p, this.W(side, uv[0], uv[1]), dur, { zig });
     await this.wait(dur);
   }
 
-  // El rival más cercano entra al cruce y se queda con la pelota.
-  async tackle(defSide, { dur = 0.45, fall = true } = {}) {
-    const b = this.ball;
-    const victim = b.owner;
-    const t = this.nearest(defSide, b.x, b.y, true);
-    t.ov = [b.x, b.y]; t.boost = 1.8;
-    await this.wait(dur);
-    t.ov = null; t.boost = 1;
-    t.x = lerp(t.x, b.x, 0.8); t.y = lerp(t.y, b.y, 0.8);
-    this.ui.sound('tackle');
-    if (victim && fall) { victim.fallen = 0.9; victim.lock = null; }
-    this.give(t);
-    return t;
+  // Punto a `dist` metros de `to`, del lado desde donde viene `p`.
+  short(p, to, dist) {
+    const dx = p.x - to[0], dy = p.y - to[1], dl = Math.hypot(dx, dy) || 1;
+    return [to[0] + (dx / dl) * dist, to[1] + (dy / dl) * dist];
   }
 
-  async ballOut(side, uv, { dur = 0.8, h = 2 } = {}) {
-    const b = this.ball;
-    b.owner = null; b.head = false;
-    const to = this.W(side, uv[0], uv[1]);
-    b.flight = { from: [b.x, b.y], to, t: 0, dur, h, z0: b.z };
-    this.ui.sound('kick');
-    await this.wait(dur);
+  // Duelo por una pelota en el aire o por el piso: un compañero y un rival
+  // corren al mismo punto. Hasta el final no se sabe quién llega.
+  async duelPass(ev, A, uv, { h = 0.3, dur = 1, defWins, style = 'slide', recv = null, def = null, z1 = 0 }) {
+    const D = 1 - A;
+    const to = this.W(A, uv[0], uv[1]);
+    const passer = this.ball.owner;
+    const r = recv || this.nearest(A, to[0], to[1], true, passer ? [passer] : []);
+    const d = def || this.nearest(D, to[0], to[1], true);
+    const header = style === 'header';
+    const rEnd = defWins ? this.short(r, to, header ? 1.1 : 1.8) : to;
+    const dEnd = defWins ? to : this.short(d, to, header ? 1.1 : 2.2);
+    this.moveTo(r, rEnd, dur * 0.97, { linear: true });
+    this.moveTo(d, dEnd, dur * (header ? 0.97 : 0.8), { linear: true });
+    if (passer) passer.cheer = 0;
+    this.launch(to, { dur, h, z1: header ? 2.2 : z1 });
+    this.ui.sound(h > 1.5 ? 'longball' : 'kick');
+    this.burst(this.ball.x, this.ball.y, 'grass', 4);
+    await this.wait(dur * 0.4);
+    this.climax();
+    if (header) {
+      await this.wait(dur * 0.42);
+      r.jump = { t: 0, dur: 0.5, h: 0.9 }; d.jump = { t: 0, dur: 0.5, h: 0.9 };
+      await this.wait(dur * 0.18);
+    } else {
+      await this.wait(dur * 0.4);
+      // barrida del defensor
+      const dir = (to[0] - d.x) >= 0 ? 1 : -1;
+      d.pose = { kind: 'slide', t: 0, dur: 0.55, dir };
+      this.moveTo(d, [to[0] + (to[0] - d.x) * 0.25, to[1] + (to[1] - d.y) * 0.25], dur * 0.25, { linear: true });
+      this.burst(d.x, d.y, 'dust', 6);
+      await this.wait(dur * 0.2);
+    }
+    if (defWins) {
+      this.give(d);
+      this.ui.sound(header ? 'header' : 'tackle');
+      this.burst(to[0], to[1], header ? 'spark' : 'grass', 12);
+      this.cam.shake = 0.5;
+    } else {
+      this.give(r);
+      if (header) this.ball.head = true;
+      this.ui.sound(header ? 'header' : 'trap');
+    }
+    this.reveal(ev);
+    await this.wait(0.12);
+    this.release();
+    await this.wait(0.55);
+    return defWins ? d : r;
   }
 
-  keeperDive(side, lane, dur = 0.42) {
+  // Duelo mano a mano: el defensor se tira a los pies del que gambetea.
+  async duelDribble(ev, A, uv, { defWins }) {
+    const D = 1 - A;
+    const carrier = this.ball.owner;
+    const to = this.W(A, uv[0], uv[1]);
+    const d = this.nearest(D, carrier.x, carrier.y, true);
+    const mid = [lerp(carrier.x, to[0], 0.55), lerp(carrier.y, to[1], 0.55)];
+    this.moveTo(carrier, mid, 0.9, { zig: 2 });
+    this.moveTo(d, this.short(d, mid, 2.5), 0.8);
+    await this.wait(0.5);
+    this.climax();
+    await this.wait(0.4);
+    const dir = (mid[0] - d.x) >= 0 ? 1 : -1;
+    d.pose = { kind: 'slide', t: 0, dur: 0.6, dir };
+    this.moveTo(d, [mid[0] + (mid[0] - d.x) * 0.4, mid[1] + (mid[1] - d.y) * 0.4], 0.35, { linear: true });
+    this.burst(d.x, d.y, 'dust', 8);
+    if (defWins) {
+      await this.wait(0.3);
+      carrier.lock = null;
+      carrier.fallen = 1;
+      this.give(d);
+      this.ui.sound('tackle');
+      this.burst(mid[0], mid[1], 'grass', 14);
+      this.cam.shake = 0.6;
+    } else {
+      carrier.jump = { t: 0, dur: 0.45, h: 0.7 };
+      this.moveTo(carrier, to, 0.75, { linear: true });
+      this.ball.z = 0.8;
+      await this.wait(0.3);
+      this.ui.sound('trap');
+    }
+    this.reveal(ev);
+    await this.wait(0.12);
+    this.release();
+    await this.wait(0.5);
+  }
+
+  keeperDive(side, lane, dur = 0.42, extra = 0) {
     const k = this.players[side][0];
-    // `lane` viene en el marco del atacante; el arquero está en el arco rival.
     const att = 1 - side;
     const u = GOAL_U[lane];
-    const to = this.W(att, lane === 'C' ? 34 : u + (lane === 'L' ? -1.2 : 1.2), 104.2);
+    const to = this.W(att, lane === 'C' ? 34 : u + (lane === 'L' ? -1.5 - extra : 1.5 + extra), 104.2);
     k.ov = null; k.lock = null;
-    k.dive = { from: [k.x, k.y], to, t: 0, dur, hold: 0.9, dir: lane === 'C' ? 0 : (to[0] < k.x ? -1 : 1) };
+    k.dive = { from: [k.x, k.y], to, t: 0, dur, hold: 1.1, up: lane === 'C' ? 0.6 : 0.3, dir: lane === 'C' ? 0 : (to[0] < k.x ? -1 : 1) };
   }
 
   async fade(fn) {
     await this.ui.fadeOut();
     fn();
-    this.cam.x = this.px(this.ball.x, this.ball.y)[0];
-    this.cam.y = this.px(this.ball.x, this.ball.y)[1];
+    this.trail = [];
+    [this.cam.x, this.cam.y] = this.px(this.ball.x, this.ball.y);
     await this.ui.fadeIn();
   }
 
@@ -408,7 +658,7 @@ export class Renderer {
     for (const p of this.players[side]) {
       const [u, v] = fn(p);
       [p.x, p.y] = this.W(side, u, v);
-      p.tx = p.x; p.ty = p.y; p.vx = p.vy = 0; p.ov = null; p.lock = null; p.dive = null; p.fallen = 0;
+      p.tx = p.x; p.ty = p.y; p.vx = p.vy = 0; p.ov = null; p.lock = null; p.dive = null; p.fallen = 0; p.pose = null; p.jump = null; p.z = 0; p.cheer = 0;
     }
   }
 
@@ -448,11 +698,10 @@ export class Renderer {
         const [u, v] = FORMATION[p.i];
         return [u, v + 6];
       });
-      const taker = this.players[A][laneSide === 'L' ? 5 : 8];
-      this.give(taker);
+      this.give(this.players[A][laneSide === 'L' ? 5 : 8]);
       [this.ball.x, this.ball.y] = this.W(A, cu, 104.4);
       this.focus = [null, null]; this.defStyle = [null, null];
-      this.cam.tzoom = 1.5;
+      this.cam.tzoom = 1.6;
     });
   }
 
@@ -466,7 +715,7 @@ export class Renderer {
       this.give(shooter);
       [this.ball.x, this.ball.y] = this.W(A, 34, 94);
       this.focus = [null, null]; this.defStyle = [null, null];
-      this.cam.tzoom = 1.6;
+      this.cam.tzoom = 1.8;
     });
   }
 
@@ -474,11 +723,11 @@ export class Renderer {
     await this.fade(() => {
       const k = this.players[D][0];
       [k.x, k.y] = this.W(D, 34, 5.5);
-      k.dive = null; k.ov = null;
+      k.dive = null; k.ov = null; k.z = 0;
       this.give(k);
       [this.ball.x, this.ball.y] = this.W(D, 34, 6.3);
       this.focus = [null, null]; this.defStyle = [null, null];
-      this.cam.tzoom = 1;
+      this.cam.tzoom = 1.2;
     });
   }
 
@@ -500,6 +749,8 @@ export class Renderer {
     else if (ev.situation === 'attack') await this.playAttack(ev, A, D);
     else if (ev.situation === 'shot' || ev.situation === 'penalty') await this.playShot(ev, A, D);
     else if (ev.situation === 'corner') await this.playCorner(ev, A, D);
+    this.reveal(ev);
+    this.release();
     this.clearOverrides();
   }
 
@@ -509,55 +760,54 @@ export class Renderer {
 
   async counterRun(ev, newA) {
     this.ui.banner('¡CONTRAGOLPE!', { small: true });
-    this.cam.tzoom = 1.25;
+    this.cam.tzoom = 1.35;
     const lane = LANE_U[ev.laneAfter || 'C'];
     const [, v] = this.ballUV(newA);
     await this.dribble(newA, [lerp(this.ballUV(newA)[0], lane, 0.5), Math.min(v + 8, 60)], 0.7);
-    await this.pass(newA, [lane, Math.min(v + 26, 70)], { dur: 0.9, h: 2.2 });
+    await this.pass(newA, [lane, Math.min(v + 26, 70)], { dur: 1.0, h: 3 });
     await this.dribble(newA, [lane, 73], 0.6);
   }
 
+  async afterSteal(D) {
+    const [u, v] = this.ballUV(D);
+    await this.dribble(D, [clamp(u + rnd(-4, 4), 4, 64), v + 6], 0.7);
+  }
+
   async playBuild(ev, A, D) {
-    this.cam.tzoom = 1.25; this.cam.follow = null;
+    this.cam.tzoom = 1.3; this.cam.follow = null;
     this.possSide = A;
     this.ensureOwner(A);
     const lane = LANE_U[ev.att];
     this.focus[D] = 68 - LANE_U[ev.def];
-    const [, cv] = this.ballUV(A);
+    const [cu0, cv] = this.ballUV(A);
+    void cu0;
     const v1 = clamp(cv + 6, 26, 46);
-    await this.pass(A, [lerp(34, lane, 0.35) + rnd(-3, 3), v1], { dur: cv < 15 ? 1.0 : 0.75, h: cv < 15 ? 1.6 : 0.3 });
-    await this.dribble(A, [lerp(this.ballUV(A)[0], lane, 0.55), v1 + 7], 0.9);
-    if (ev.outcome === 'advance') {
-      this.cam.tzoom = 1.3;
-      const r = await this.pass(A, [lane + rnd(-2, 2), 66], { dur: 1.0, h: ev.att === 'C' ? 0.35 : 2.4 });
-      void r;
-      await this.dribble(A, [lane, 73], 0.8);
-      return;
-    }
-    // El rival leyó la jugada: duelo y dado.
-    const [cu, cv2] = this.ballUV(A);
-    const lock = this.dribble(A, [lerp(cu, lane, 0.5), cv2 + 5], 0.7);
-    const presser = this.nearest(D, this.ball.x, this.ball.y, true);
-    presser.ov = [this.ball.x, this.ball.y]; presser.boost = 1.6;
-    await lock;
+    await this.pass(A, [lerp(34, lane, 0.35) + rnd(-3, 3), v1], { dur: cv < 15 ? 1.0 : 0.75, h: cv < 15 ? 1.8 : 0.3 });
+    await this.dribble(A, [lerp(this.ballUV(A)[0], lane, 0.55), v1 + 6], 0.8);
+    // El pase decisivo: largo por la banda o raso por el medio.
+    const long = ev.att !== 'C';
+    this.cam.tzoom = 1.4;
+    const winner = await this.duelPass(ev, A, [clamp(lane + rnd(-2, 2), 5, 63), 66], {
+      h: long ? 3.4 : 0.3, dur: long ? 1.3 : 1.0, defWins: ev.match, style: long ? 'header' : 'slide',
+    });
+    if (!ev.match) { await this.dribble(A, [lane, 73], 0.7); return; }
     await this.diceMoment(ev);
     if (ev.outcome === 'foul') {
-      presser.ov = null; presser.boost = 1;
-      const victim = this.ball.owner;
-      victim.fallen = 1.1;
+      const victim = this.nearest(A, winner.x, winner.y, true);
+      victim.fallen = 1.2;
       this.ui.sound('whistle');
       this.ui.banner('FALTA', { small: true });
-      await this.wait(1.4);
+      await this.wait(1.1);
+      this.give(victim);
+      await this.wait(0.4);
       return;
     }
-    await this.tackle(D);
     if (ev.outcome === 'counter') { await this.counterRun(ev, D); return; }
-    const [u, v] = this.ballUV(D);
-    await this.dribble(D, [u + rnd(-4, 4), v + 5], 0.7);
+    await this.afterSteal(D);
   }
 
   async playAttack(ev, A, D) {
-    this.cam.tzoom = 1.45; this.cam.follow = null;
+    this.cam.tzoom = 1.5; this.cam.follow = null;
     this.possSide = A;
     this.ensureOwner(A);
     this.defStyle[D] = ev.def;
@@ -565,141 +815,168 @@ export class Renderer {
     const fw = this.players[A].slice(9);
     if (ev.att === 'cross') {
       const wingU = ev.lane === 'R' ? 62 : ev.lane === 'L' ? 6 : (Math.random() < 0.5 ? 6 : 62);
-      fw[0].ov = this.W(A, wingU < 34 ? 30 : 38, 93); fw[1].ov = this.W(A, wingU < 34 ? 39 : 29, 95);
-      if (!ev.match) {
-        await this.dribble(A, [wingU, 86], 1.1);
-        this.cam.tzoom = 1.6;
-        const target = [wingU < 34 ? 38 : 30, 95.5];
-        const r = await this.pass(A, target, { dur: 1.0, h: 5.5, recv: wingU < 34 ? fw[1] : fw[0], z1: 2.1 });
-        this.ball.head = true;
-        void r;
-        await this.wait(0.3);
+      const target = [wingU < 34 ? 38 : 30, 95.5];
+      const runner = wingU < 34 ? fw[1] : fw[0];
+      fw[0].ov = this.W(A, wingU < 34 ? 30 : 38, 92); fw[1].ov = this.W(A, wingU < 34 ? 37 : 31, 90);
+      await this.dribble(A, [wingU, 86], 1.1);
+      this.cam.tzoom = 1.6;
+      const marker = this.nearest(D, ...this.W(A, target[0], target[1]), true);
+      await this.duelPass(ev, A, target, { h: 6, dur: 1.3, defWins: ev.match, style: 'header', recv: runner, def: marker });
+      if (!ev.match) return;
+      await this.diceMoment(ev);
+      if (ev.outcome === 'corner') {
+        this.launch(this.W(A, target[0] < 34 ? 24 : 44, 107), { dur: 0.8, h: 2.5, z1: 0 });
+        await this.wait(0.8);
+        await this.setCorner(A, ev.cornerSide || (wingU < 34 ? 'L' : 'R'));
         return;
       }
-      const lock = this.dribble(A, [wingU, 84], 1.0);
-      const blocker = this.nearest(D, ...this.W(A, wingU, 86), true);
-      blocker.ov = this.W(A, wingU + (wingU < 34 ? 2 : -2), 88); blocker.boost = 1.5;
-      await lock;
-      await this.diceMoment(ev);
-      if (ev.outcome === 'corner') { await this.ballOut(A, [wingU < 34 ? 6 : 62, 106.5], { dur: 0.7, h: 1.5 }); await this.setCorner(A, ev.cornerSide || (wingU < 34 ? 'L' : 'R')); return; }
-      await this.tackle(D);
       if (ev.outcome === 'counter') { await this.counterRun(ev, D); return; }
-      const [u, v] = this.ballUV(D);
-      await this.dribble(D, [u + (u < 34 ? 6 : -6), v + 8], 0.8);
+      await this.pass(D, [34 + rnd(-12, 12), 30], { dur: 1, h: 4 });
       return;
     }
     if (ev.att === 'through') {
       const [cu] = this.ballUV(A);
       await this.dribble(A, [lerp(cu, 34, 0.5), 74], 0.7);
       const runU = 34 + (lane < 34 ? -5 : lane > 34 ? 5 : rnd(-4, 4));
-      fw[0].ov = this.W(A, runU, 90); fw[0].boost = 1.6;
-      await this.wait(0.25);
+      fw[0].ov = this.W(A, runU, 84); fw[0].boost = 1.4;
+      await this.wait(0.2);
+      this.cam.tzoom = 1.6;
+      await this.duelPass(ev, A, [runU, 89], { h: 0.25, dur: 1.0, defWins: ev.match, style: 'slide', recv: fw[0] });
       if (!ev.match) {
-        this.cam.tzoom = 1.45;
-        await this.pass(A, [runU, 89], { dur: 0.9, h: 0.3, recv: fw[0] });
-        const k = this.players[D][0];
-        k.ov = this.W(A, 34, 99.5);
-        await this.dribble(A, [runU * 0.7 + 34 * 0.3, 92], 0.6);
+        this.players[D][0].ov = this.W(A, 34, 99.5);
+        await this.dribble(A, [runU * 0.7 + 34 * 0.3, 92], 0.5);
         return;
       }
-      await this.intercept(A, [runU, 89], { dur: 0.9, at: 0.6 });
       await this.diceMoment(ev);
-      if (ev.outcome === 'corner') { await this.ballOut(D, [runU > 34 ? 6 : 62, -1.5], { dur: 0.8, h: 2 }); await this.setCorner(A, ev.cornerSide || 'L'); return; }
+      if (ev.outcome === 'corner') {
+        this.launch(this.W(A, runU < 34 ? 20 : 48, 106.5), { dur: 0.7, h: 1.2 });
+        await this.wait(0.7);
+        await this.setCorner(A, ev.cornerSide || 'L');
+        return;
+      }
       if (ev.outcome === 'counter') { await this.counterRun(ev, D); return; }
-      const [u, v] = this.ballUV(D);
-      await this.dribble(D, [u, v + 6], 0.7);
+      await this.afterSteal(D);
       return;
     }
     // Gambeta
     const [cu] = this.ballUV(A);
     const endU = clamp(lerp(cu, 34, 0.7) + rnd(-4, 4), 24, 44);
+    await this.dribble(A, [lerp(cu, endU, 0.4), 80], 0.8, 1);
+    this.cam.tzoom = 1.65;
+    await this.duelDribble(ev, A, [endU, 89], { defWins: ev.match });
     if (!ev.match) {
-      await this.dribble(A, [endU, 88], 1.7, 3);
       await this.diceMoment(ev);
       if (ev.outcome === 'penalty') {
         const victim = this.ball.owner;
         const fouler = this.nearest(D, this.ball.x, this.ball.y, true);
-        fouler.ov = [this.ball.x, this.ball.y]; fouler.boost = 2;
+        this.moveTo(fouler, [this.ball.x, this.ball.y], 0.35, { linear: true });
+        fouler.pose = { kind: 'slide', t: 0, dur: 0.5, dir: 1 };
         await this.wait(0.35);
-        fouler.ov = null; fouler.boost = 1;
         victim.fallen = 1.3;
+        this.burst(victim.x, victim.y, 'dust', 10);
         this.ui.sound('whistle');
         await this.ui.banner('¡PENAL!', {});
         await this.setPenalty(A);
       }
       return;
     }
-    const lock = this.dribble(A, [endU, 82], 1.0, 2);
-    await this.wait(0.55);
-    await lock;
     await this.diceMoment(ev);
-    if (ev.outcome === 'corner') { await this.ballOut(A, [endU < 34 ? 20 : 48, 106.5], { dur: 0.6, h: 1 }); await this.setCorner(A, ev.cornerSide || 'L'); return; }
-    await this.tackle(D);
+    if (ev.outcome === 'corner') {
+      this.launch(this.W(A, endU < 34 ? 22 : 46, 106.5), { dur: 0.6, h: 1 });
+      await this.wait(0.6);
+      await this.setCorner(A, ev.cornerSide || 'L');
+      return;
+    }
     if (ev.outcome === 'counter') { await this.counterRun(ev, D); return; }
-    const [u, v] = this.ballUV(D);
-    await this.dribble(D, [u + rnd(-5, 5), v + 7], 0.7);
+    await this.afterSteal(D);
   }
 
   async playShot(ev, A, D) {
-    this.cam.tzoom = 1.7; this.cam.follow = null;
+    this.cam.tzoom = 1.75; this.cam.follow = null;
     this.possSide = A;
     const shooter = this.ensureOwner(A);
     const kind = ev.shotKind;
     if (kind === 'penal') {
       const [su, sv] = this.U(A, shooter.x, shooter.y);
-      shooter.lock = { from: [shooter.x, shooter.y], to: this.W(A, su, sv + 2.6), t: 0, dur: 0.7, linear: true };
+      this.moveTo(shooter, this.W(A, su, sv + 2.6), 0.8, { linear: true });
       this.ball.owner = null;
-      await this.wait(0.7);
+      await this.wait(0.8);
       this.ball.owner = shooter;
+    } else if (kind !== 'cabezazo') {
+      // un toque para acomodarse
+      const [su, sv] = this.U(A, shooter.x, shooter.y);
+      await this.dribble(A, [su + (34 - su) * 0.1, sv + 1.5], 0.35);
     }
     const tu = GOAL_U[ev.att];
     const header = kind === 'cabezazo';
-    const dur = header ? 0.6 : 0.5;
-    this.keeperDive(D, ev.def, dur * 0.9);
+    const dur = header ? 0.75 : 0.65;
     const b = this.ball;
-    const fly = (to, h, z1, d) => {
-      b.owner = null; b.head = false;
-      b.flight = { from: [b.x, b.y], to: this.W(A, to[0], to[1]), t: 0, dur: d, h, z0: b.z, z1 };
-      return this.wait(d);
-    };
+    if (header) { shooter.jump = { t: 0, dur: 0.5, h: 0.6 }; await this.wait(0.15); }
+    // Hacia dónde va realmente la pelota.
+    let to;
+    if (ev.match) to = [tu, 104.5];
+    else if (ev.outcome === 'goal') to = [tu + (ev.att === 'L' ? -0.6 : ev.att === 'R' ? 0.6 : 0), 106.6];
+    else if (ev.outcome === 'post') to = [ev.att === 'R' ? 37.66 : 30.34, 105];
+    else to = [tu < 34 ? 28.6 : tu > 34 ? 39.4 : 34, 108.5];
+    const zEnd = ev.outcome === 'wide' && ev.att === 'C' ? 3.4 : ev.att === 'C' ? 1.4 : 0.9;
+    this.launch(this.W(A, to[0], to[1]), { dur, h: header ? 0.5 : 0.5, z1: zEnd, ground: false });
     this.ui.sound(header ? 'header' : 'shot');
+    this.burst(b.x, b.y, 'grass', 8);
+    this.cam.shake = 0.3;
+    await this.wait(dur * 0.22);
+    this.climax();
+    this.keeperDive(D, ev.def, dur * 0.65, ev.match ? 0 : 0.4);
+    await this.wait(dur * 0.78);
+    const goalWorld = this.W(A, 34, 105);
+    const gi = goalWorld[1] < 50 ? 0 : 1;
     if (ev.match) {
-      await fly([tu, 104.4], header ? 0.8 : 0.7, ev.att === 'C' ? 1.4 : 0.8, dur);
       this.ui.sound('save');
-      await this.diceMoment(ev);
+      this.burst(b.x, b.y, 'spark', 10);
+      this.reveal(ev);
+      await this.wait(0.1);
+      this.release();
       if (ev.outcome === 'save_corner') {
+        this.launch(this.W(A, tu < 34 ? 27 : tu > 34 ? 41 : 39, 107.6), { dur: 0.7, h: 2.5 });
         this.ui.banner('¡ATAJADA!', { small: true });
-        await fly([tu < 34 ? 27 : tu > 34 ? 41 : 38, 107.5], 2.5, 0, 0.7);
+        await this.wait(0.8);
+        await this.diceMoment(ev);
         await this.setCorner(A, ev.cornerSide || (tu < 34 ? 'L' : 'R'));
         return;
       }
-      const k = this.players[D][0];
-      this.give(k);
+      this.give(this.players[D][0]);
       this.ui.banner('¡ATAJADA!', { small: true });
-      await this.wait(1.2);
+      await this.wait(0.6);
+      await this.diceMoment(ev);
+      await this.wait(0.3);
       return;
     }
     if (ev.outcome === 'goal') {
-      await fly([tu + (ev.att === 'L' ? -0.6 : ev.att === 'R' ? 0.6 : 0), 106.4], 0.5, 1.2, dur);
-      const goalWorld = this.W(A, 34, 105);
-      const gi = goalWorld[1] < 50 ? 0 : 1;
-      this.netShake[gi] = 1.2;
-      b.flight = null; b.z = 0.3;
-      await this.celebrate_(ev, A, shooter);
+      this.netShake[gi] = 1.4;
+      b.flight = null; b.z = 0.4;
+      this.cam.shake = 1;
+      this.reveal(ev);
+      await this.wait(0.15);
+      this.release();
+      await this.celebrate(ev, A, shooter);
       return;
     }
-    await this.diceMoment(ev);
     if (ev.outcome === 'post') {
-      const post = ev.att === 'R' ? 37.66 : 30.34;
-      await fly([post, 105], 0.4, 1, dur * 0.9);
       this.ui.sound('post');
+      this.burst(b.x, b.y, 'spark', 8);
+      this.cam.shake = 0.6;
+      this.reveal(ev);
+      await this.wait(0.1);
+      this.release();
+      this.launch(this.W(A, to[0] < 34 ? 22 : 46, 108), { dur: 0.6, h: 1.5 });
       this.ui.banner('¡AL PALO!', { small: true });
-      await fly([post < 34 ? 22 : 46, 108], 1.5, 0, 0.6);
     } else {
-      await fly([tu < 34 ? 27.5 : tu > 34 ? 40.5 : 34, 108.5], 3, 3, 0.7);
+      this.reveal(ev);
+      await this.wait(0.1);
+      this.release();
       this.ui.banner('¡AFUERA!', { small: true });
     }
-    await this.wait(0.8);
+    await this.wait(0.7);
+    await this.diceMoment(ev);
     await this.goalKick(D);
   }
 
@@ -711,81 +988,89 @@ export class Renderer {
     const left = tu < 34;
     const T = { near: [left ? 31 : 37, 100.5], spot: [34, 94], far: [left ? 38.5 : 29.5, 99.5] }[ev.att];
     const runner = this.nearest(A, ...this.W(A, T[0], T[1]), true, [taker]);
-    runner.ov = this.W(A, T[0], T[1]); runner.boost = 1.5;
-    if (ev.match) {
-      const def = this.nearest(D, ...this.W(A, T[0], T[1]), true);
-      def.ov = this.W(A, T[0], T[1] + 0.8); def.boost = 1.7;
-    }
-    await this.wait(0.5);
-    if (!ev.match) {
-      await this.pass(A, T, { dur: 1.1, h: 5, recv: runner, z1: 2.1 });
-      this.ball.head = true;
-      await this.wait(0.3);
-      return;
-    }
-    const b = this.ball;
-    b.owner = null;
-    b.flight = { from: [b.x, b.y], to: this.W(A, T[0], T[1]), t: 0, dur: 1.1, h: 5, z1: 2 };
-    this.ui.sound('kick');
-    await this.wait(1.1);
-    this.ui.sound('header');
+    const marker = this.nearest(D, ...this.W(A, T[0], T[1]), true);
+    await this.wait(0.4);
+    await this.duelPass(ev, A, T, { h: 5.5, dur: 1.3, defWins: ev.match, style: 'header', recv: runner, def: marker });
+    if (!ev.match) return;
     const clearTo = [T[0] + rnd(-10, 10), 76];
     const rec = this.nearest(D, ...this.W(A, clearTo[0], clearTo[1]), true);
     rec.ov = this.W(A, clearTo[0], clearTo[1]);
-    b.flight = { from: [b.x, b.y], to: this.W(A, clearTo[0], clearTo[1]), t: 0, dur: 1.0, h: 4, z0: 2 };
+    this.ball.owner = null;
+    this.launch(this.W(A, clearTo[0], clearTo[1]), { dur: 1.0, h: 4 });
     await this.wait(1.0);
     rec.ov = null;
     this.give(rec);
-    const [u, v] = this.ballUV(D);
-    await this.dribble(D, [u, v + 6], 0.6);
+    await this.afterSteal(D);
   }
 
-  async celebrate_(ev, A, scorer) {
+  async celebrate(ev, A, scorer) {
     this.ui.sound('goal');
-    this.crowdJump = { side: A, t: 4 };
+    this.crowdJump = { side: A, t: 4.5 };
     this.flash = 0.6;
+    this.confetti(A);
     this.ui.banner('¡GOOOL!', { goal: true, color: this.kits[A].shirt, alt: this.kits[A].alt2 });
     await this.wait(0.4);
     const [su] = this.U(A, scorer.x, scorer.y);
     const corner = this.W(A, su < 34 ? 3 : 65, 101);
-    scorer.ov = corner; scorer.boost = 1.2;
-    this.cam.follow = scorer; this.cam.tzoom = 2;
+    scorer.ov = corner; scorer.boost = 1.25; scorer.cheer = 3.5;
+    this.cam.follow = scorer; this.cam.tzoom = 2.1;
     this.players[A].forEach((p, k) => {
-      if (p !== scorer && p.i !== 0 && k % 2 === 0) { p.ov = [corner[0] + rnd(-3, 3), corner[1] + rnd(-3, 3)]; p.boost = 1.1; }
+      if (p !== scorer && p.i !== 0 && k % 2 === 0) { p.ov = [corner[0] + rnd(-3, 3), corner[1] + rnd(-3, 3)]; p.boost = 1.1; p.cheer = 3.5; }
     });
-    // Los que recibieron el gol caminan resignados al medio.
     this.players[1 - A].forEach((p) => { if (p.i !== 0) { p.ov = this.W(1 - A, FORMATION[p.i][0], Math.min(FORMATION[p.i][1], 40)); p.boost = 0.45; } });
-    await this.wait(3.2);
+    await this.wait(3.3);
     this.cam.follow = null;
   }
 
-  // ---------- dibujo ----------
-  buildPitch() {
+  // ---------- estadio ----------
+  buildBackground() {
     const c = document.createElement('canvas');
     c.width = WW; c.height = WH;
     const g = c.getContext('2d');
-    g.fillStyle = '#2b2f3a'; g.fillRect(0, 0, WW, WH);
-    // pasto con franjas
-    const stripes = 14;
-    for (let i = 0; i < stripes; i++) {
-      g.fillStyle = i % 2 ? '#3f9b3a' : '#45a83f';
-      const y0 = Math.round(MY + (PL * S * i) / stripes), y1 = Math.round(MY + (PL * S * (i + 1)) / stripes);
-      g.fillRect(MX - 6, y0, PW * S + 12, y1 - y0);
+    // estructura de tribunas
+    g.fillStyle = '#20232c'; g.fillRect(0, 0, WW, WH);
+    for (let y = 0; y < WH; y += 3) {
+      g.fillStyle = (y / 3) % 2 ? '#262a35' : '#2c313d';
+      g.fillRect(0, y, WW, 1);
     }
-    g.fillStyle = '#3c9437';
-    g.fillRect(MX - 6, MY - 6, PW * S + 12, 6); g.fillRect(MX - 6, MY + PL * S, PW * S + 12, 6);
-    // ruido de pasto
-    for (let i = 0; i < 1400; i++) {
-      const x = MX - 6 + Math.random() * (PW * S + 12), y = MY - 6 + Math.random() * (PL * S + 12);
-      g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)';
+    // césped con franjas y cuadriculado de corte
+    const gx0 = MX - 10, gy0 = MY - 10, gw = PW * S + 20, gh = PL * S + 20;
+    g.fillStyle = '#3d9a3a'; g.fillRect(gx0, gy0, gw, gh);
+    const bands = 14;
+    for (let i = 0; i < bands; i++) {
+      const y0 = Math.round(MY + (PL * S * i) / bands), y1 = Math.round(MY + (PL * S * (i + 1)) / bands);
+      g.fillStyle = i % 2 ? '#3f9c3b' : '#48ab43';
+      g.fillRect(gx0, y0, gw, y1 - y0);
+    }
+    for (let i = 0; i < 8; i++) {
+      if (i % 2) { g.fillStyle = 'rgba(0,0,0,0.035)'; g.fillRect(MX + (PW * S * i) / 8, gy0, (PW * S) / 8, gh); }
+    }
+    // textura
+    for (let i = 0; i < 5000; i++) {
+      const x = gx0 + Math.random() * gw, y = gy0 + Math.random() * gh;
+      g.fillStyle = Math.random() < 0.5 ? 'rgba(0,30,0,0.08)' : 'rgba(255,255,200,0.06)';
       g.fillRect(Math.floor(x), Math.floor(y), 1, 1);
     }
-    g.fillStyle = '#f2f2ea';
+    // desgaste en las áreas chicas y el círculo central
+    const wear = (cx, cy, r, n) => {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, d = Math.random() ** 1.6 * r;
+        g.fillStyle = Math.random() < 0.6 ? 'rgba(150,130,80,0.18)' : 'rgba(120,100,60,0.14)';
+        g.fillRect(Math.round(MX + (cx + Math.cos(a) * d) * S), Math.round(MY + (cy + Math.sin(a) * d * 0.7) * S), 1, 1);
+      }
+    };
+    wear(PW / 2, 3, 6, 260); wear(PW / 2, PL - 3, 6, 260); wear(PW / 2, PL / 2, 5, 120);
+    // sombra de la tribuna sobre el césped
+    const sh = g.createLinearGradient(0, gy0, 0, gy0 + 40);
+    sh.addColorStop(0, 'rgba(0,0,0,0.28)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = sh; g.fillRect(gx0, gy0, gw, 40);
+    // líneas
+    g.fillStyle = 'rgba(246,246,236,0.92)';
     const line = (x0, y0, x1, y1) => {
       const ax = Math.round(MX + x0 * S), ay = Math.round(MY + y0 * S), bx = Math.round(MX + x1 * S), by = Math.round(MY + y1 * S);
       g.fillRect(Math.min(ax, bx), Math.min(ay, by), Math.max(1, Math.abs(bx - ax)), Math.max(1, Math.abs(by - ay)));
     };
-    const rect = (x, y, w, h) => { line(x, y, x + w, y); line(x, y + h, x + w, y + h); line(x, y, x, y + h); line(x + w, y, x + w, y + h + 1 / S); };
+    const rect = (x, y, w, h) => { line(x, y, x + w, y); line(x, y + h, x + w + 1 / S, y + h); line(x, y, x, y + h); line(x + w, y, x + w, y + h); };
     rect(0, 0, PW, PL);
     line(0, PL / 2, PW, PL / 2);
     const circle = (cx, cy, r, a0 = 0, a1 = Math.PI * 2) => {
@@ -796,150 +1081,263 @@ export class Renderer {
       }
     };
     circle(PW / 2, PL / 2, 9.15);
-    g.fillRect(Math.round(MX + (PW / 2) * S) - 1, Math.round(MY + (PL / 2) * S) - 1, 2, 2);
+    g.fillRect(Math.round(MX + (PW / 2) * S) - 1, Math.round(MY + (PL / 2) * S) - 1, 3, 3);
     for (const top of [true, false]) {
       const y = top ? 0 : PL;
       const dir = top ? 1 : -1;
-      const by = top ? 0 : PL - 16.5, gy = top ? 0 : PL - 5.5;
-      rect((PW - 40.3) / 2, by, 40.3, 16.5);
-      rect((PW - 18.3) / 2, gy, 18.3, 5.5);
+      rect((PW - 40.3) / 2, top ? 0 : PL - 16.5, 40.3, 16.5);
+      rect((PW - 18.3) / 2, top ? 0 : PL - 5.5, 18.3, 5.5);
       const spotY = y + dir * 11;
-      g.fillRect(Math.round(MX + (PW / 2) * S) - 1, Math.round(MY + spotY * S), 2, 1);
-      // medialuna
+      g.fillRect(Math.round(MX + (PW / 2) * S) - 1, Math.round(MY + spotY * S) - 1, 2, 2);
       const a = Math.acos(5.5 / 9.15);
       if (top) circle(PW / 2, spotY, 9.15, Math.PI / 2 - a, Math.PI / 2 + a);
       else circle(PW / 2, spotY, 9.15, -Math.PI / 2 - a, -Math.PI / 2 + a);
-      // córners
       circle(0, y, 1, top ? 0 : -Math.PI / 2, top ? Math.PI / 2 : 0);
       circle(PW, y, 1, top ? Math.PI / 2 : Math.PI, top ? Math.PI : Math.PI * 1.5);
     }
-    // banderines
-    for (const [x, y] of [[0, 0], [PW, 0], [0, PL], [PW, PL]]) {
-      const X = Math.round(MX + x * S), Y = Math.round(MY + y * S);
-      g.fillStyle = '#ddd'; g.fillRect(X, Y - 5, 1, 5);
-      g.fillStyle = '#f0c419'; g.fillRect(X + (x ? -3 : 1), Y - 5, 3, 2);
+    // bancos de suplentes
+    for (const yy of [PL / 2 - 9, PL / 2 + 3]) {
+      const X = MX + PW * S + 11, Y = Math.round(MY + yy * S);
+      g.fillStyle = '#11141a'; g.fillRect(X, Y, 6, 22);
+      g.fillStyle = '#5a6a80'; g.fillRect(X, Y, 6, 2);
+      g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(X + 1, Y + 3, 1, 18);
+    }
+    return c;
+  }
+
+  buildBoards() {
+    // Carteles LED: bloques de color con "letras" de píxeles.
+    const len = 640;
+    const c = document.createElement('canvas');
+    c.width = len; c.height = 4;
+    const g = c.getContext('2d');
+    const t = this.teams;
+    const pal = [['#0b2a6b', '#ffd23f'], ['#c8102e', '#ffffff'], ['#111111', '#3fbf5a'], [t[0].kit.shirt, t[0].kit.alt2 === t[0].kit.shirt ? '#111' : t[0].kit.alt2], [t[1].kit.shirt, t[1].kit.alt2 === t[1].kit.shirt ? '#111' : t[1].kit.alt2], ['#ff7a00', '#111111']];
+    let x = 0, k = 0;
+    while (x < len) {
+      const [bg, fg] = pal[k % pal.length]; k++;
+      const w = 40 + Math.floor(Math.random() * 30);
+      g.fillStyle = bg; g.fillRect(x, 0, w, 4);
+      g.fillStyle = fg;
+      for (let i = x + 4; i < x + w - 4; i++) {
+        if (Math.random() < 0.55) g.fillRect(i, 1, 1, Math.random() < 0.5 ? 2 : 1);
+        if (Math.random() < 0.15) i++;
+      }
+      g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(x + w - 1, 0, 1, 4);
+      x += w;
     }
     return c;
   }
 
   buildCrowd() {
-    const cols = [this.teams[0].kit.shirt, this.teams[0].kit.alt2, this.teams[1].kit.shirt, this.teams[1].kit.alt2, '#c9c9c9', '#7a7a7a', '#3a3a3a'];
+    const cols = [this.teams[0].kit.shirt, this.teams[0].kit.alt2, this.teams[1].kit.shirt, this.teams[1].kit.alt2, '#c9c9c9', '#7a7a7a', '#3a3a3a', '#8a6a4a'];
     this.crowd = [];
     const add = (x, y) => {
-      // cada lado de la tribuna favorece a un equipo
-      const nearHomeEnd = y > WH / 2;
+      if (Math.random() < 0.08) return; // asientos vacíos
+      const homeEnd = y > WH / 2;
       const r = Math.random();
       let c;
-      if (r < 0.45) c = nearHomeEnd ? cols[0] : cols[2];
-      else if (r < 0.6) c = nearHomeEnd ? cols[1] : cols[3];
-      else c = cols[4 + Math.floor(Math.random() * 3)];
-      this.crowd.push({ x, y, c, ph: Math.random() * 10, team: nearHomeEnd ? 0 : 1, skin: SKINS[Math.floor(Math.random() * SKINS.length)] });
+      if (r < 0.45) c = homeEnd ? cols[0] : cols[2];
+      else if (r < 0.6) c = homeEnd ? cols[1] : cols[3];
+      else c = cols[4 + Math.floor(Math.random() * 4)];
+      this.crowd.push({ x, y, c, ph: Math.random() * 10, team: homeEnd ? 0 : 1, skin: SKINS[Math.floor(Math.random() * SKINS.length)], flag: Math.random() < 0.02 });
     };
-    for (let y = 2; y < MY - 9; y += 3) for (let x = 2; x < WW - 2; x += 3) { add(x, y); add(x, WH - y - 3); }
-    for (let x = 1; x < MX - 8; x += 3) for (let y = MY - 6; y < WH - MY + 4; y += 3) { add(x, y); add(WW - x - 3, y); }
+    for (let y = 2; y < MY - 15; y += 3) for (let x = 1; x < WW - 2; x += 3) { add(x, y); add(x, WH - y - 3); }
+    for (let x = 1; x < MX - 11; x += 3) for (let y = MY - 12; y < WH - MY + 10; y += 3) { add(x, y); if (!(y > MY + (PL / 2 - 10) * S && y < MY + (PL / 2 + 10) * S)) add(WW - x - 3, y); }
   }
 
   drawCrowd(g, now) {
     const flip = this.mySide === 1;
     for (const p of this.crowd) {
-      let x = p.x, y = p.y;
-      // la tribuna local siempre abajo para cada jugador
       const team = flip ? 1 - p.team : p.team;
       const jumping = this.crowdJump.t > 0 && this.crowdJump.side === team;
-      const bob = jumping ? (Math.sin(now / 90 + p.ph) > 0 ? -1 : 0) : (Math.sin(now / 700 + p.ph) > 0.97 ? -1 : 0);
-      g.fillStyle = p.c; g.fillRect(x, y + bob + 1, 2, 2);
-      g.fillStyle = p.skin; g.fillRect(x, y + bob, 2, 1);
+      const bob = jumping ? (Math.sin(now / 80 + p.ph) > 0 ? -1 : 0) : (Math.sin(now / 700 + p.ph) > 0.96 ? -1 : 0);
+      g.fillStyle = p.c; g.fillRect(p.x, p.y + bob + 1, 2, 2);
+      g.fillStyle = p.skin; g.fillRect(p.x, p.y + bob, 2, 1);
+      if (p.flag || (jumping && p.ph > 9.3)) { g.fillStyle = p.c; g.fillRect(p.x + 2, p.y + bob - 3 + (Math.sin(now / 120 + p.ph) > 0 ? 0 : 1), 3, 2); g.fillStyle = '#ddd'; g.fillRect(p.x + 2, p.y + bob - 3, 1, 4); }
     }
   }
 
-  drawGoal(g, top, shake) {
-    const gw = 7.32 * S, x0 = Math.round(MX + (PW / 2) * S - gw / 2);
+  drawBoards(g) {
+    const off = Math.floor(this.boardT * 14) % 320;
+    const yT = MY - 15, yB = MY + PL * S + 11;
+    g.drawImage(this.boards, off, 0, PW * S + 20, 4, MX - 10, yT, PW * S + 20, 4);
+    g.drawImage(this.boards, 320 - off, 0, PW * S + 20, 4, MX - 10, yB, PW * S + 20, 4);
+    g.save();
+    g.translate(MX - 14, MY - 10); g.rotate(Math.PI / 2);
+    g.drawImage(this.boards, off + 100, 0, PL * S + 20, 4, 0, 0, PL * S + 20, 4);
+    g.restore();
+    g.save();
+    g.translate(MX + PW * S + 10, MY - 10); g.rotate(Math.PI / 2);
+    g.drawImage(this.boards, 300 - off, 0, PL * S + 20, 4, 0, 0, PL * S + 20, 4);
+    g.restore();
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    g.fillRect(MX - 10, yT + 4, PW * S + 20, 1);
+    g.fillRect(MX - 10, yB + 4, PW * S + 20, 1);
+  }
+
+  drawGoal(g, top, shake, front) {
+    const gw = Math.round(7.32 * S), x0 = Math.round(MX + (PW / 2) * S - gw / 2);
     const yLine = top ? MY : MY + PL * S;
-    const depth = 7;
-    const y0 = top ? yLine - depth : yLine;
-    g.fillStyle = 'rgba(255,255,255,0.15)';
-    g.fillRect(x0, y0, Math.round(gw), depth);
-    g.fillStyle = 'rgba(230,230,230,0.55)';
-    const wob = shake > 0 ? Math.round(Math.sin(performance.now() / 40) * 1.5 * shake) : 0;
-    for (let x = x0; x <= x0 + gw; x += 2) g.fillRect(x + (wob && x % 4 ? wob : 0), y0, 1, depth);
-    for (let y = y0; y < y0 + depth; y += 2) g.fillRect(x0, y + (top ? -wob * 0.5 : wob * 0.5), Math.round(gw), 1);
+    const depth = 9;
+    const wob = shake > 0 ? Math.sin(performance.now() / 35) * 2 * shake : 0;
+    if (!front) {
+      // red (detrás de los jugadores)
+      const y0 = top ? yLine - depth : yLine;
+      g.fillStyle = 'rgba(20,30,20,0.35)'; g.fillRect(x0, y0, gw, depth);
+      for (let x = 0; x <= gw; x++) {
+        for (let y = 0; y < depth; y++) {
+          const dyy = top ? depth - y : y;
+          const bulge = Math.round(wob * Math.sin((x / gw) * Math.PI) * (dyy / depth));
+          if ((x + y) % 3 === 0 || (x - y + 30) % 3 === 0) {
+            g.fillStyle = `rgba(235,235,235,${0.25 + 0.35 * (dyy / depth)})`;
+            g.fillRect(x0 + x, y0 + y + (top ? -bulge : bulge), 1, 1);
+          }
+        }
+      }
+      // red lateral y fondo
+      g.fillStyle = 'rgba(235,235,235,0.55)';
+      g.fillRect(x0, top ? y0 : y0 + depth - 1, gw, 1);
+      g.fillRect(x0, y0, 1, depth); g.fillRect(x0 + gw - 1, y0, 1, depth);
+      return;
+    }
+    // palos y travesaño (delante)
+    g.fillStyle = 'rgba(0,0,0,0.3)';
+    g.fillRect(x0 + 1, yLine + 1, gw, 1);
     g.fillStyle = '#ffffff';
-    g.fillRect(x0 - 1, top ? y0 : yLine, 2, depth); g.fillRect(x0 + Math.round(gw) - 1, top ? y0 : yLine, 2, depth);
-    g.fillRect(x0 - 1, top ? y0 : yLine + depth - 1, Math.round(gw) + 1, 1);
-    g.fillRect(x0 - 1, yLine - (top ? 1 : 0), Math.round(gw) + 2, 1);
+    g.fillRect(x0 - 1, yLine - 1, 2, 3); g.fillRect(x0 + gw - 1, yLine - 1, 2, 3);
+    g.fillRect(x0 - 1, yLine - (top ? 1 : 0), gw + 2, 1);
+  }
+
+  drawFlags(g, now) {
+    for (const [x, y] of [[0, 0], [PW, 0], [0, PL], [PW, PL]]) {
+      const [X, Y] = [Math.round(MX + x * S), Math.round(MY + y * S)];
+      g.fillStyle = '#e8e8e8'; g.fillRect(X, Y - 7, 1, 7);
+      const w = Math.sin(now / 200 + x + y) > 0 ? 0 : 1;
+      g.fillStyle = '#f0c419'; g.fillRect(X + (x ? -4 : 1), Y - 7 + w, 4, 2); g.fillRect(X + (x ? -3 : 1), Y - 5 + w, 2, 1);
+    }
+  }
+
+  // ---------- sprites ----------
+  sprite(kit, gk, skin, hair, view, frame) {
+    const key = `${kit.shirt}${kit.alt2}${kit.pattern}${kit.shorts}${gk ? kit.gk : ''}|${skin}${hair}|${view}${frame}`;
+    let c = this.spriteCache.get(key);
+    if (c) return c;
+    const isPose = !!POSES[view];
+    const rows = isPose ? POSES[view] : [...BODY[view], ...(view === 'jump' ? LEGS.jump[0] : LEGS[view === 'side' ? 'side' : 'front'][frame])];
+    c = document.createElement('canvas');
+    c.width = rows[0].length; c.height = rows.length;
+    const g = c.getContext('2d');
+    const shirt = gk ? kit.gk : kit.shirt;
+    const alt = gk ? shade(kit.gk, 0.75) : kit.alt2;
+    const pattern = gk ? 'plain' : kit.pattern;
+    const shorts = gk ? '#222833' : kit.shorts;
+    const num = lum(shirt) > 150 ? '#1a1a1a' : '#f4f4f4';
+    const socks = gk ? '#222833' : (lum(kit.shorts) > 128 ? kit.shorts : shade(shirt, 0.95));
+    for (let r = 0; r < rows.length; r++) {
+      for (let col = 0; col < rows[r].length; col++) {
+        const ch = rows[r][col];
+        if (ch === '.') continue;
+        let color;
+        switch (ch) {
+          case 'h': color = hair; break;
+          case 's': color = skin; break;
+          case 'S': color = shade(skin, 0.82); break;
+          case 'e': color = '#1b1410'; break;
+          case 't': case 'T': {
+            const altCell = !isPose && view !== 'side' ? isAlt(pattern, r, col) : (pattern === 'stripes' && col % 2 === 0);
+            const base = altCell ? alt : shirt;
+            color = ch === 'T' ? shade(base, 0.78) : base;
+            break;
+          }
+          case 'n': color = gk ? shade(shirt, 0.7) : num; break;
+          case 'p': color = shorts; break;
+          case 'P': color = shade(shorts, 0.75); break;
+          case 'k': color = socks; break;
+          case 'b': color = '#151515'; break;
+          case 'g': color = gk ? '#f2f2f2' : skin; break;
+          default: color = '#f0f';
+        }
+        g.fillStyle = color;
+        g.fillRect(col, r, 1, 1);
+      }
+    }
+    this.spriteCache.set(key, c);
+    return c;
   }
 
   drawPlayer(g, p, kit, isGK) {
     const [X, Y] = this.px(p.x, p.y);
-    const x = Math.round(X) - 2, y = Math.round(Y) - 9;
-    const shirt = isGK ? kit.gk : kit.shirt;
-    const alt = isGK ? kit.gk : kit.alt2;
-    const pat = isGK ? 'plain' : kit.pattern;
-    const shorts = isGK ? '#222' : kit.shorts;
-    // sombra
-    g.fillStyle = 'rgba(0,0,0,0.28)';
-    g.fillRect(x, y + 8, 5, 2); g.fillRect(x + 1, y + 10, 3, 0.5);
+    const x = Math.round(X), y = Math.round(Y);
+    const lift = Math.round((p.z || 0) * S * 0.9);
+    // sombras (una principal y dos suaves por los focos)
+    const sw = p.pose || p.dive || p.fallen > 0 ? 11 : 7;
+    const sa = Math.max(0.12, 0.3 - lift * 0.02);
+    g.fillStyle = `rgba(0,0,0,${sa})`;
+    g.fillRect(x - (sw >> 1), y - 1, sw, 2);
+    g.fillStyle = 'rgba(0,0,0,0.08)';
+    g.fillRect(x - 6, y, 5, 1); g.fillRect(x + 2, y, 5, 1);
+
     let facing = p.facing, fx = p.fx;
     if (this.mySide === 1) { facing = -facing; fx = -fx; }
-    // tirado (falta o estirada)
-    const lying = p.fallen > 0 || (p.dive && p.dive.dir !== 0);
-    if (lying) {
-      const dir = p.dive ? (this.mySide === 1 ? -p.dive.dir : p.dive.dir) : (fx >= 0 ? 1 : -1);
-      const lx = Math.round(X) - 4, ly = Math.round(Y) - 4;
-      const col = (i) => (dir > 0 ? lx + i : lx + 8 - i);
-      g.fillStyle = p.skin; g.fillRect(col(0), ly + 1, 1, 1); g.fillRect(col(1), ly + 1, 1, 1);
-      g.fillStyle = shorts; g.fillRect(Math.min(col(2), col(3)), ly, 2, 3);
-      g.fillStyle = shirt; g.fillRect(Math.min(col(4), col(6)), ly, 3, 3);
-      if (pat !== 'plain') { g.fillStyle = alt; g.fillRect(col(5), ly, 1, 3); }
-      g.fillStyle = p.skin; g.fillRect(Math.min(col(7), col(8)), ly, 2, 2);
-      g.fillStyle = p.hair; g.fillRect(col(8), ly, 1, 2);
-      if (p.dive) { g.fillStyle = isGK ? '#fff' : p.skin; g.fillRect(col(9), ly - 1, 1, 1); g.fillRect(col(9), ly + 2, 1, 1); }
-      return;
+    const flipDir = (d) => (this.mySide === 1 ? -d : d);
+
+    let view, frame = 0, dir = 1, img;
+    if (p.dive && p.dive.dir !== 0) { view = 'dive'; dir = flipDir(p.dive.dir); }
+    else if (p.pose && p.pose.kind === 'slide') { view = 'slide'; dir = flipDir(p.pose.dir); }
+    else if (p.fallen > 0) { view = 'fallen'; dir = fx >= 0 ? 1 : -1; }
+    else if (p.jump || p.cheer > 0 || (p.dive && p.dive.dir === 0)) { view = 'jump'; }
+    else {
+      const moving = Math.hypot(p.vx, p.vy) > 0.5;
+      frame = moving ? Math.floor(p.anim * 1.7) % 4 : 0;
+      if (Math.abs(fx) > 0.75) { view = 'side'; dir = fx > 0 ? 1 : -1; }
+      else view = facing < -0.2 ? 'back' : 'front';
     }
-    const back = facing < -0.3; // de espaldas a la cámara
-    // cabeza
-    g.fillStyle = p.hair; g.fillRect(x + 1, y, 3, 1);
-    g.fillStyle = back ? p.hair : p.skin; g.fillRect(x + 1, y + 1, 3, 2);
-    if (!back && Math.abs(fx) > 0.6) { g.fillStyle = p.hair; g.fillRect(fx > 0 ? x + 1 : x + 3, y + 1, 1, 1); }
-    // camiseta
-    for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 5; c++) {
-        if (r === 2 && (c === 0 || c === 4)) { g.fillStyle = isGK ? '#eee' : p.skin; g.fillRect(x + c, y + 3 + r, 1, 1); continue; }
-        let col = shirt;
-        if (pat === 'stripes' && c % 2 === 1) col = alt;
-        else if (pat === 'band' && r === 1) col = alt;
-        else if (pat === 'hoops' && r !== 1) col = alt;
-        else if (pat === 'sash' && c === 3 - r) col = alt;
-        else if (pat === 'sleeves' && (c === 0 || c === 4)) col = alt;
-        else if (pat === 'center' && c === 2) col = alt;
-        else if (pat === 'checks' && (r + c) % 2) col = alt;
-        g.fillStyle = col; g.fillRect(x + c, y + 3 + r, 1, 1);
-      }
-    }
-    // short
-    g.fillStyle = shorts; g.fillRect(x + 1, y + 6, 3, 1);
-    // piernas animadas
-    const moving = Math.hypot(p.vx, p.vy) > 0.5;
-    const f = moving ? Math.floor(p.anim * 1.6) % 4 : 1;
-    g.fillStyle = p.skin;
-    const sock = '#eaeaea';
-    if (f === 0) { g.fillRect(x + 1, y + 7, 1, 1); g.fillStyle = sock; g.fillRect(x + 1, y + 8, 1, 1); g.fillStyle = p.skin; g.fillRect(x + 3, y + 7, 1, 1); }
-    else if (f === 2) { g.fillRect(x + 3, y + 7, 1, 1); g.fillStyle = sock; g.fillRect(x + 3, y + 8, 1, 1); g.fillStyle = p.skin; g.fillRect(x + 1, y + 7, 1, 1); }
-    else { g.fillRect(x + 1, y + 7, 1, 1); g.fillRect(x + 3, y + 7, 1, 1); g.fillStyle = sock; g.fillRect(x + 1, y + 8, 1, 1); g.fillRect(x + 3, y + 8, 1, 1); }
+    img = this.sprite(kit, isGK, p.skin, p.hair, view, frame);
+    const bob = (view === 'front' || view === 'back' || view === 'side') && (frame === 1 || frame === 3) ? 1 : 0;
+    const cheerHop = p.cheer > 0 && !p.jump ? Math.round(Math.abs(Math.sin(performance.now() / 120)) * 3) : 0;
+    const dx = x - Math.floor(img.width / 2), dy = y - img.height - lift - bob - cheerHop + (POSES[view] ? 1 : 0);
+    if (dir < 0) {
+      g.save(); g.translate(dx + img.width, dy); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore();
+    } else g.drawImage(img, dx, dy);
   }
 
   drawRef(g) {
-    const r = this.ref;
-    this.drawPlayer(g, { ...r, skin: '#e0a77c', hair: '#222', fallen: 0, dive: null, i: 99 }, { shirt: '#111', alt2: '#111', pattern: 'plain', shorts: '#111' }, false);
+    this.drawPlayer(g, { ...this.ref, skin: '#e0a77c', hair: '#222', fallen: 0, dive: null, pose: null, jump: null, cheer: 0, z: 0, i: 99 },
+      { shirt: '#111111', alt2: '#111111', pattern: 'plain', shorts: '#111111' }, false);
+  }
+
+  drawBall(g, x, y, z) {
+    const X = Math.round(x), Y = Math.round(y);
+    const bz = Math.round(z * S * 0.9);
+    // sombra: más chica y clara cuanto más alta va
+    const sw = Math.max(2, 4 - Math.floor(bz / 10));
+    g.fillStyle = `rgba(0,0,0,${Math.max(0.12, 0.38 - bz * 0.01)})`;
+    g.fillRect(X - (sw >> 1), Y, sw, 1);
+    const big = z > 3;
+    const sz = big ? 4 : 3;
+    const bx = X - 1, by = Y - sz - bz;
+    g.fillStyle = '#d8d8d8'; g.fillRect(bx, by, sz, sz);
+    g.fillStyle = '#ffffff'; g.fillRect(bx, by, sz - 1, sz - 1);
+    const f = Math.floor(this.ball.spin) % 3;
+    g.fillStyle = '#2a2a2a';
+    g.fillRect(bx + (f === 0 ? 1 : f === 1 ? 0 : sz - 2), by + (f === 2 ? 0 : 1), 1, 1);
   }
 
   draw(now) {
     const g = this.wctx;
-    g.drawImage(this.pitch, 0, 0);
-    if (this.kits) {
+    if (!this.kits) {
+      g.fillStyle = '#1d212b'; g.fillRect(0, 0, WW, WH);
+    } else {
+      g.drawImage(this.bg, 0, 0);
       this.drawCrowd(g, now);
-      this.drawGoal(g, true, this.mySide === 0 ? this.netShake[0] : this.netShake[1]);
-      // entidades ordenadas por profundidad
+      this.drawBoards(g);
+      this.drawFlags(g, now);
+      const topShake = this.mySide === 0 ? this.netShake[0] : this.netShake[1];
+      const botShake = this.mySide === 0 ? this.netShake[1] : this.netShake[0];
+      this.drawGoal(g, true, topShake, false);
+      this.drawGoal(g, false, botShake, false);
+      // partículas en el piso
       const ents = [];
       for (const t of this.players) for (const p of t) ents.push({ y: this.px(p.x, p.y)[1], d: () => this.drawPlayer(g, p, this.kits[p.side], p.i === 0) });
       ents.push({ y: this.px(this.ref.x, this.ref.y)[1], d: () => this.drawRef(g) });
@@ -947,38 +1345,54 @@ export class Renderer {
       const [bx, by] = this.px(b.x, b.y);
       ents.push({ y: by + 0.1, d: () => this.drawBall(g, bx, by, b.z) });
       ents.sort((a, b2) => a.y - b2.y).forEach((e) => e.d());
-      this.drawGoal(g, false, this.mySide === 0 ? this.netShake[1] : this.netShake[0]);
+      // estela de la pelota
+      for (const t of this.trail) {
+        g.fillStyle = `rgba(255,255,255,${t.a * 0.45})`;
+        g.fillRect(Math.round(t.x), Math.round(t.y - t.z - 2), 2, 2);
+      }
+      for (const p of this.particles) {
+        const [qx, qy] = this.px(p.x, p.y);
+        g.fillStyle = p.c;
+        g.fillRect(Math.round(qx), Math.round(qy - p.z * S * 0.9), p.conf ? 2 : 1, p.conf ? (Math.sin(p.life * 12) > 0 ? 2 : 1) : 1);
+      }
+      this.drawGoal(g, true, topShake, true);
+      this.drawGoal(g, false, botShake, true);
       // indicador del portador
       if (b.owner && !b.flight) {
         const [ox, oy] = this.px(b.owner.x, b.owner.y);
-        const k = this.kits[b.owner.side];
         const bob = Math.sin(now / 150) > 0 ? 0 : 1;
-        g.fillStyle = '#000'; g.fillRect(Math.round(ox) - 2, Math.round(oy) - 15 + bob, 5, 3);
+        const X = Math.round(ox), Y = Math.round(oy) - 20 + bob - Math.round(b.owner.z * S * 0.9);
+        g.fillStyle = '#000'; g.fillRect(X - 3, Y - 1, 7, 4);
         g.fillStyle = b.owner.side === this.mySide ? '#ffe14a' : '#ffffff';
-        g.fillRect(Math.round(ox) - 1, Math.round(oy) - 14 + bob, 3, 1); g.fillRect(Math.round(ox), Math.round(oy) - 13 + bob, 1, 1);
-        void k;
+        g.fillRect(X - 2, Y, 5, 1); g.fillRect(X - 1, Y + 1, 3, 1); g.fillRect(X, Y + 2, 1, 1);
       }
       if (this.flash > 0) { g.fillStyle = `rgba(255,255,255,${this.flash * 0.5})`; g.fillRect(0, 0, WW, WH); }
     }
     // cámara
-    const c = this.ctx, W = this.cv.width, H = this.cv.height;
+    const c = this.ctx, Wd = this.cv.width, Hd = this.cv.height;
     c.imageSmoothingEnabled = false;
-    c.fillStyle = '#1d212b'; c.fillRect(0, 0, W, H);
-    const base = Math.min(W / WW, H / WH);
+    c.fillStyle = '#1d212b'; c.fillRect(0, 0, Wd, Hd);
+    const base = Math.min(Wd / WW, Hd / WH);
     const sc = base * this.cam.zoom;
-    const vw = W / sc, vh = H / sc;
-    const cx = vw >= WW ? WW / 2 : clamp(this.cam.x, vw / 2, WW - vw / 2);
-    const cy = vh >= WH ? WH / 2 : clamp(this.cam.y, vh / 2, WH - vh / 2);
-    c.drawImage(this.world, cx - vw / 2, cy - vh / 2, vw, vh, 0, 0, W, H);
-  }
-
-  drawBall(g, x, y, z) {
-    const X = Math.round(x), Y = Math.round(y);
-    g.fillStyle = 'rgba(0,0,0,0.35)';
-    g.fillRect(X - 1, Y, 3, 1);
-    const bz = Math.round(z * S * 0.9);
-    const s = z > 3 ? 3 : 2;
-    g.fillStyle = '#ffffff'; g.fillRect(X - 1, Y - 2 - bz, s, s);
-    g.fillStyle = '#333'; g.fillRect(X - 1 + (Math.floor(this.ball.spin) % 2), Y - 2 - bz + (Math.floor(this.ball.spin / 2) % 2), 1, 1);
+    const vw = Wd / sc, vh = Hd / sc;
+    let cx = vw >= WW ? WW / 2 : clamp(this.cam.x, vw / 2, WW - vw / 2);
+    let cy = vh >= WH ? WH / 2 : clamp(this.cam.y, vh / 2, WH - vh / 2);
+    if (this.cam.shake > 0) { cx += (Math.random() - 0.5) * this.cam.shake * 3; cy += (Math.random() - 0.5) * this.cam.shake * 3; }
+    c.drawImage(this.world, cx - vw / 2, cy - vh / 2, vw, vh, 0, 0, Wd, Hd);
+    // viñeta suave de transmisión
+    if (!this.vignette) {
+      const v = document.createElement('canvas'); v.width = Wd; v.height = Hd;
+      const vg = v.getContext('2d');
+      const grd = vg.createRadialGradient(Wd / 2, Hd / 2, Math.min(Wd, Hd) * 0.35, Wd / 2, Hd / 2, Math.max(Wd, Hd) * 0.75);
+      grd.addColorStop(0, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(0,0,0,0.38)');
+      vg.fillStyle = grd; vg.fillRect(0, 0, Wd, Hd);
+      this.vignette = v;
+    }
+    c.drawImage(this.vignette, 0, 0);
+    if (this.ts < 0.8) {
+      // tono de repetición en cámara lenta
+      c.fillStyle = `rgba(20,30,60,${(0.8 - this.ts) * 0.22})`;
+      c.fillRect(0, 0, Wd, Hd);
+    }
   }
 }
