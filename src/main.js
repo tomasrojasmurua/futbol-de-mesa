@@ -472,8 +472,12 @@ function startCpu(level = 'normal', awayId = pickCpuOpponent()) {
 }
 
 function startHostGame(conn, guestTeam) {
-  let host;
-  const deliver = (m) => { conn.send(m); setTimeout(() => view && view.onMessage(m), 0); };
+  let host, n = 0, lastMsg = null;
+  const deliver = (m) => {
+    lastMsg = { ...m, n: ++n };
+    conn.send(lastMsg);
+    setTimeout(() => view && view.onMessage(m), 0);
+  };
   const begin = () => {
     host = new Host({ home: myTeamId, away: guestTeam, callerSide: 1, broadcast: deliver });
     host.start();
@@ -487,7 +491,12 @@ function startHostGame(conn, guestTeam) {
   };
   const makeView = () => new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: rematch });
   view = makeView();
-  conn.on('message', (m) => { if (m.t === 'choice' || m.t === 'call') host.receive(1, m); });
+  conn.on('message', (m) => {
+    if (m.t === 'choice' || m.t === 'call') host.receive(1, m);
+    // El rival volvió de una desconexión corta: le reenviamos el último estado.
+    if (m.t === 'sync' && lastMsg && lastMsg.n > (m.n || 0)) conn.send(lastMsg);
+    if (m.t === 'reconnected' && lastMsg) conn.send(lastMsg);
+  });
   begin();
 }
 
@@ -504,9 +513,9 @@ function createOnline() {
   $('#lobby-msg').textContent = '';
   let conn = null;
   const room = createRoom({
-    onReady: (code) => {
+    onReady: (code, broker) => {
       $('#room-code').textContent = code;
-      const url = `${location.origin}${location.pathname}?sala=${code}`;
+      const url = `${location.origin}${location.pathname}?sala=${code}&b=${broker}`;
       $('#btn-share').onclick = async () => {
         const text = `¡Te desafío a un partido de Fútbol de Mesa! Entra con el código ${code}`;
         try {
@@ -515,12 +524,10 @@ function createOnline() {
         } catch { /* cancelado */ }
       };
     },
-    onGuest: (c) => {
+    onGuest: (c, hello) => {
       conn = c;
       c.on('close', onDisconnect);
-      c.on('message', (m) => {
-        if (m.t === 'hello' && !view) startHostGame(c, teamById(m.team).id);
-      });
+      if (!view) startHostGame(c, teamById(hello.team).id);
     },
     onError: (e) => { $('#lobby-msg').textContent = errorText(e); },
   });
@@ -530,7 +537,8 @@ function createOnline() {
 
 function errorText(e) {
   if (!e) return 'Error de conexión.';
-  if (e.type === 'peer-unavailable') return 'No existe una sala con ese código.';
+  if (e.type === 'peer-unavailable') return 'No hay una sala abierta con ese código (o ya empezó).';
+  if (e.type === 'full') return 'La sala ya está llena.';
   if (e.type === 'timeout') return 'No se pudo conectar. Revisa el código o tu conexión.';
   if (e.type === 'network' || e.type === 'server-error' || e.type === 'socket-error') return 'Sin conexión con el servidor de salas. Intenta de nuevo.';
   if (e.type === 'browser-incompatible') return 'Tu navegador no permite partidas en línea.';
@@ -544,15 +552,21 @@ function joinOnline(code) {
   $('#menu-msg').textContent = 'Conectando…';
   $('#btn-join').disabled = true;
   let conn = null;
+  let lastN = 0;
+  const hint = Number(new URLSearchParams(location.search).get('b')) || 0;
   const j = joinRoom(code, {
+    team: myTeamId,
+    brokerHint: hint,
     onOpen: (c) => {
       conn = c;
       $('#menu-msg').textContent = '';
       $('#btn-join').disabled = false;
       c.on('close', onDisconnect);
       c.on('message', (m) => {
-        if (m.t === 'full') { $('#menu-msg').textContent = 'La sala ya está llena.'; leaveMatch(); return; }
+        if (m.t === 'reconnected') { c.send({ t: 'sync', n: lastN }); return; }
         if (m.t !== 'state') return;
+        if (m.n && m.n <= lastN) return; // repetido
+        if (m.n) lastN = m.n;
         if (m.ev && m.ev.type === 'start') {
           if (view) view.destroy();
           closeModal();
@@ -560,7 +574,6 @@ function joinOnline(code) {
         }
         view && view.onMessage(m);
       });
-      c.send({ t: 'hello', team: myTeamId });
     },
     onError: (e) => {
       $('#btn-join').disabled = false;

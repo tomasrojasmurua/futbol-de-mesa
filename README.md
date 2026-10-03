@@ -32,9 +32,9 @@ npm test         # simula 2000 partidos y muestra duración y goles promedio
 
 ## Salas en línea
 
-Las salas usan [PeerJS](https://peerjs.com): los dos celulares se conectan directo entre sí (WebRTC) y el servidor público gratuito de PeerJS sólo sirve para encontrarse con el código. El que crea la sala es la autoridad del partido: resuelve las jugadas y tira los dados.
+Las salas usan un broker MQTT público y gratuito por WebSocket seguro (EMQX, con HiveMQ y Mosquitto de respaldo): los dos celulares se mandan los mensajes a través de él, así que funciona también con datos móviles, donde una conexión directa WebRTC suele fallar. El que crea la sala es la autoridad del partido: resuelve las jugadas y tira los dados. Si un celular pierde la señal unos segundos, al volver recibe el último estado y sigue el partido.
 
-Para probar sin internet, levanta un servidor PeerJS local con `npm run peer` y abre `http://localhost:5173/?peerhost=127.0.0.1&peerport=9000&peersecure=0` en dos pestañas.
+Para probar sin internet, levanta un broker local con `npm run broker` y abre `http://localhost:5173/?broker=ws://127.0.0.1:8883` en dos pestañas.
 
 ## Publicar en Netlify
 
@@ -44,7 +44,7 @@ El repositorio ya trae `netlify.toml` (build `npm run build`, carpeta `dist`). E
 
 - `src/game.js`: reglas puras del partido (situaciones, dados, reloj, relato).
 - `src/host.js`: autoridad del partido y rival de la IA (Fácil, Normal, Difícil).
-- `src/net.js`: salas con PeerJS.
+- `src/net.js`: salas por relevo MQTT.
 - `src/render.js`: cancha, jugadores, cámara y animación de cada jugada.
 - `src/main.js`: pantallas, cartas y flujo del partido.
 - `src/teams.js`: equipos y camisetas.
