@@ -1,6 +1,6 @@
 import { TEAMS, teamById, matchKits } from './teams.js';
 import { optionsFor, SHOT_TITLES, TURN_SECONDS, fmtMinute, commentary, diceReason, randomChoice } from './game.js';
-import { Host, Cpu } from './host.js';
+import { Host, Cpu, LEVELS } from './host.js';
 import { createRoom, joinRoom } from './net.js';
 import { Renderer } from './render.js';
 import * as audio from './audio.js';
@@ -409,14 +409,15 @@ function pickCpuOpponent() {
   return pool[Math.floor(Math.random() * pool.length)].id;
 }
 
-function startCpu(awayId = pickCpuOpponent()) {
+function startCpu(level = 'normal', awayId = pickCpuOpponent()) {
   audio.unlock();
   let host, cpu;
   const deliver = (m) => setTimeout(() => { view && view.onMessage(m); cpu.onMessage(m); }, 0);
   host = new Host({ home: myTeamId, away: awayId, callerSide: 0, broadcast: deliver });
-  cpu = new Cpu(1, (m) => host.receive(1, m));
-  view = new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(awayId); } });
+  cpu = new Cpu(1, (m) => host.receive(1, m), level);
+  view = new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId); } });
   session = { cleanup: () => { host.broadcast = () => {}; } };
+  $('#feed').textContent = `Contra la IA (${LEVELS[level].label}). ¡Bienvenidos al estadio!`;
   host.start();
 }
 
@@ -525,7 +526,11 @@ paintMyTeam();
 buildTeamGrid();
 $('#btn-team').onclick = () => { buildTeamGrid(); show('screen-teams'); };
 document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show('screen-menu')));
-$('#btn-cpu').onclick = () => startCpu();
+$('#btn-cpu').onclick = () => modal(`<h2>Contra la IA</h2>
+  <p><b>Fácil:</b> tiene mañas y repite jugadas; si lo lees, le ganas.</p>
+  <p><b>Normal:</b> juega suelto y de vez en cuando se anticipa.</p>
+  <p><b>Difícil:</b> estudia tus patrones y te los castiga. No repitas jugadas.</p>`,
+  [...Object.entries(LEVELS).map(([id, l]) => [l.label, id === 'normal' ? 'primary' : '', () => startCpu(id)]), ['Volver', 'ghost', () => {}]]);
 $('#btn-create').onclick = () => createOnline();
 $('#btn-join').onclick = () => joinOnline($('#join-code').value);
 $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
@@ -540,7 +545,7 @@ if (params.get('sala')) {
   $('#join-code').value = params.get('sala').toUpperCase();
   $('#menu-msg').textContent = 'Elige tu equipo y toca «Unirse».';
 }
-if (params.get('demo') === 'cpu') startCpu();
+if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 
 // Para pruebas automáticas.
 window.__fdm = { get view() { return view; }, get renderer() { return renderer; }, randomChoice };

@@ -1,6 +1,6 @@
 # Fútbol de Mesa
 
-Juego de fútbol de cartas para celular, para 2 jugadores en una sala (o contra la máquina). Cada jugada se decide eligiendo cartas a la vez, como un piedra-papel-tijera, y el partido se ve en una cancha pixelada mientras se desarrolla.
+Juego de fútbol de cartas para celular, para 2 jugadores en una sala (o contra la IA, con tres niveles). Cada jugada se decide eligiendo cartas a la vez, como un piedra-papel-tijera, y el partido se ve en una cancha pixelada mientras se desarrolla.
 
 ## Cómo se juega
 
@@ -43,7 +43,7 @@ El repositorio ya trae `netlify.toml` (build `npm run build`, carpeta `dist`). E
 ## Estructura
 
 - `src/game.js`: reglas puras del partido (situaciones, dados, reloj, relato).
-- `src/host.js`: autoridad del partido y rival de la máquina.
+- `src/host.js`: autoridad del partido y rival de la IA (Fácil, Normal, Difícil).
 - `src/net.js`: salas con PeerJS.
 - `src/render.js`: cancha, jugadores, cámara y animación de cada jugada.
 - `src/main.js`: pantallas, cartas y flujo del partido.
