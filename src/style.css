@@ -281,10 +281,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .league-table tr.gone td { opacity: .5; }
 .league-table td small { color: var(--mute); font-size: 15px; }
 .fx { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; margin: 4px 0; font-size: 20px; }
-.fx span:first-child { text-align: right; }
-.fx span:last-child { text-align: left; }
+.fx span:first-of-type { text-align: right; }
+.fx span:last-of-type { text-align: left; }
 .fx b { font-family: var(--px); font-size: 11px; color: var(--gold); font-weight: normal; }
-.fx small { grid-column: 1 / -1; color: var(--mute); font-size: 15px; margin-top: -4px; }
+.fx small { grid-column: 1 / -1; color: var(--mute); font-size: 15px; margin-top: -4px; text-align: center; }
 .fx.rest { display: block; color: var(--mute); }
 .tb-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .champ { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px; background: linear-gradient(#3a2c00, #1a1300); box-shadow: 0 0 0 3px #0c0f15, 0 0 0 6px var(--gold); }
