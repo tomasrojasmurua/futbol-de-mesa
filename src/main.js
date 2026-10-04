@@ -10,6 +10,7 @@ import { Renderer } from './render.js';
 import { CARDS, activeEffects } from './situations.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
+import { rollDice } from './dice.js';
 import { playerName } from './squads.js';
 
 const $ = (s) => document.querySelector(s);
@@ -142,6 +143,14 @@ function describe(sit, role, id, iAttack) {
 
 const MIRROR = { L: 'R', C: 'C', R: 'L' };
 
+// De qué es el dado que se tira.
+function diceTitle(ev) {
+  if (ev.situation === 'build') return 'Dado de la salida';
+  if (ev.situation === 'attack') return ev.att === 'dribble' && !ev.match ? 'Dado de la gambeta' : 'Dado del último tercio';
+  if (['shot', 'penalty', 'shootout'].includes(ev.situation)) return ev.match ? 'Dado de la atajada' : 'Dado del remate';
+  return 'El dado decide';
+}
+
 // Datos de una carta vista desde la pantalla de quien mira.
 function cardInfo(sit, role, id, iAttack) {
   const screen = iAttack || SHOT_SITS.includes(sit) ? id : MIRROR[id];
@@ -252,6 +261,7 @@ class MatchView {
       this.clearCards(null);
       ev.diceText = diceReason(ev);
       ev.diceFaces = diceFaces(ev);
+      ev.diceTitle = diceTitle(ev);
       this.currentEv = ev;
       this.duelStart(ev);
       await renderer.play(ev);
@@ -681,49 +691,8 @@ const ui = {
     this._bt = setTimeout(() => el.classList.remove('show'), hold);
     return wait(Math.min(hold, 1300));
   },
-  async dice(value, reason, faces) {
-    const wrap = $('#dice'), die = $('#die'), legend = $('#dice-legend');
-    // Leyenda: qué puede salir y cuántas caras tiene cada cosa.
-    const kinds = [...new Set(faces)];
-    legend.innerHTML = kinds.map((k) => {
-      const n = faces.filter((f) => f === k).length;
-      return `<span class="chip" data-k="${k}"><img src="${icon('face', k)}" alt=""><b>${DIE_LABELS[k]}</b><i>${'●'.repeat(n)}${'○'.repeat(6 - n)}</i></span>`;
-    }).join('');
-    // Un cubo con las seis caras, cada una con el símbolo de lo que puede pasar.
-    die.innerHTML = `<div class="toss"><div class="tilt"><div class="cube">${faces.map((k, i) => `<div class="f f${i}"><img src="${icon('face', k)}" alt="${DIE_LABELS[k]}"></div>`).join('')}</div></div></div><div class="shadow"></div>`;
-    const toss = die.querySelector('.toss'), cube = die.querySelector('.cube'), shadow = die.querySelector('.shadow');
-    $('#dice-text').textContent = 'Tirando el dado…';
-    wrap.classList.add('show');
-    // Rotación que deja la cara del resultado de frente, más vueltas completas.
-    const FACE = [[0, 0], [0, 180], [0, -90], [0, 90], [-90, 0], [90, 0]];
-    const [fx, fy] = FACE[value - 1];
-    const spinX = fx + 360 * (2 + Math.floor(Math.random() * 2)), spinY = fy + 360 * (2 + Math.floor(Math.random() * 2));
-    const T = 1100;
-    const side = Math.random() < 0.5 ? -1 : 1;
-    // Se lanza desde un costado, rebota dos veces y se asienta.
-    toss.animate([
-      { transform: `translate(${side * 150}px, -120px)`, offset: 0 },
-      { transform: 'translate(0px, 0px)', offset: 0.45 },
-      { transform: `translate(${-side * 6}px, -34px)`, offset: 0.63 },
-      { transform: 'translate(0px, 0px)', offset: 0.8 },
-      { transform: `translate(${side * 2}px, -8px)`, offset: 0.9 },
-      { transform: 'translate(0px, 0px)', offset: 1 },
-    ], { duration: T, easing: 'linear', fill: 'forwards' });
-    shadow.animate([{ opacity: 0.1, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1)', offset: 0.45 }, { opacity: 0.6, transform: 'scale(.8)', offset: 0.63 }, { opacity: 1, transform: 'scale(1)' }], { duration: T, fill: 'forwards' });
-    cube.animate([
-      { transform: `rotateX(${Math.random() * 360}deg) rotateY(${Math.random() * 360}deg)` },
-      { transform: `rotateX(${spinX}deg) rotateY(${spinY}deg)` },
-    ], { duration: T, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
-    // Golpes contra la mesa en cada rebote.
-    for (const at of [0.45, 0.8, 0.95]) setTimeout(() => audio.sound('roll'), T * at);
-    await wait(T + 80);
-    const k = faces[value - 1];
-    audio.sound('land');
-    legend.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.k === k));
-    legend.querySelector(`.chip[data-k="${k}"]`)?.classList.add('hit');
-    $('#dice-text').textContent = reason;
-    await wait(2000);
-    wrap.classList.remove('show');
+  async dice(value, reason, faces, title) {
+    await rollDice($('#dice'), { value, faces, labels: DIE_LABELS, title, reason, sound: (n) => audio.sound(n) });
   },
   async coin(result, text) {
     const wrap = $('#coin'), c = $('#coin-face');

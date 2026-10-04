@@ -319,7 +319,20 @@ export function sound(name) {
     case 'lose-duel': tone({ freq: 300, dur: 0.15, vol: 0.07, type: 'triangle' }); tone({ freq: 200, dur: 0.25, vol: 0.07, type: 'triangle', at: 0.13 }); break;
     case 'card': tone({ freq: 660, dur: 0.06, vol: 0.06 }); break;
     case 'tick': tone({ freq: 1000, dur: 0.03, vol: 0.04 }); break;
-    case 'dice': for (let i = 0; i < 6; i++) tone({ freq: 300 + Math.random() * 400, dur: 0.03, vol: 0.05, at: i * 0.1 }); break;
+    // Dado de madera: rebota 3 o 4 veces sobre la mesa, cada vez más rápido y suave.
+    case 'dice': {
+      let at = 0, gap = 0.07 + Math.random() * 0.04, v = 0.6;
+      const pitch = 750 + Math.random() * 450;
+      for (let b = 0, n = 3 + Math.floor(Math.random() * 2); b < n; b++) {
+        burst({ dur: 0.02, freq: 2600 + Math.random() * 600, vol: v * 0.8, type: 'bandpass', q: 2.5, at });
+        tone({ freq: pitch, dur: 0.03, vol: v * 0.12, type: 'triangle', at, slide: -pitch * 0.1 });
+        at += gap; gap *= 0.62; v *= 0.62;
+      }
+      break;
+    }
+    // Dado chocando en la mano mientras se agita.
+    case 'clack': for (let i = 0, n = 1 + Math.floor(Math.random() * 2); i < n; i++) burst({ dur: 0.022, freq: 1400 + Math.random() * 1300, vol: 0.12, type: 'bandpass', q: 4, at: i * 0.02 }); break;
+    case 'throw': burst({ dur: 0.18, freq: 900, vol: 0.12, type: 'bandpass', q: 0.8 }); break;
     // El dado rueda (un golpecito por cara) y cae.
     case 'roll': burst({ dur: 0.03, freq: 2500, vol: 0.18, type: 'bandpass', q: 2 }); tone({ freq: 300 + Math.random() * 400, dur: 0.03, vol: 0.04 }); break;
     case 'land': burst({ dur: 0.09, freq: 600, vol: 0.5 }); tone({ freq: 880, dur: 0.15, vol: 0.06, type: 'triangle' }); break;
