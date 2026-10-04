@@ -531,12 +531,13 @@ const ui = {
     $('#dice-text').textContent = 'Tirando el dado…';
     wrap.classList.add('show'); die.classList.add('rolling');
     audio.sound('dice');
-    for (let i = 0; i < 10; i++) { face(faces[Math.floor(Math.random() * 6)]); await wait(85); }
+    // El dado gira y va frenando, para que se alcance a seguir.
+    for (let i = 0; i < 12; i++) { face(faces[Math.floor(Math.random() * 6)]); await wait(70 + i * 12); }
     const k = faces[value - 1];
     face(k); die.classList.remove('rolling');
     legend.querySelector(`.chip[data-k="${k}"]`)?.classList.add('hit');
     $('#dice-text').textContent = reason;
-    await wait(1600);
+    await wait(3000);
     wrap.classList.remove('show');
   },
   async coin(result, text) {
