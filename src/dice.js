@@ -38,6 +38,54 @@ const FACE_COL = { goal: GREEN, penalty: RED, foul: RED, counter: GOLD, corner: 
 const faceCol = (f) => FACE_COL[f] || INK;
 export const faceSvg = (f) => `<svg viewBox="0 0 24 24" aria-hidden="true" style="color:${faceCol(f)}">${FACE_SYM[f] || ''}</svg>`;
 
+// Paño de la mesa: un trozo de cancha en pixel art (franjas de corte, pasto
+// con textura, el borde del área y la medialuna). Se dibuja una vez, chico, y
+// se escala sin suavizar.
+let grassUrl = null;
+function grass() {
+  if (grassUrl) return grassUrl;
+  const W = 140, H = 60;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const BANDS = [['#3f9c3b', '#45a640', '#378f34', '#4fb04a'], ['#48ab43', '#4fb54a', '#3f9e3b', '#58bb52']];
+  for (let x = 0; x < W; x++) {
+    const band = BANDS[Math.floor(x / 14) % 2];
+    for (let y = 0; y < H; y++) {
+      const r = rnd();
+      g.fillStyle = r < 0.62 ? band[0] : r < 0.82 ? band[1] : r < 0.95 ? band[2] : band[3];
+      g.fillRect(x, y, 1, 1);
+    }
+  }
+  // matas de pasto: rayitas verticales más claras y más oscuras
+  for (let i = 0; i < 90; i++) {
+    const x = Math.floor(rnd() * W), y = Math.floor(rnd() * (H - 2));
+    g.fillStyle = rnd() < 0.5 ? 'rgba(20,70,20,.45)' : 'rgba(170,230,140,.35)';
+    g.fillRect(x, y, 1, 2);
+  }
+  // línea del área grande y medialuna, gastadas
+  const line = (x, y) => { if (rnd() < 0.93) { g.fillStyle = rnd() < 0.8 ? '#eef0e6' : '#cfd8c8'; g.fillRect(x, y, 1, 1); } };
+  const ly = 14;
+  for (let x = 0; x < W; x++) line(x, ly);
+  const cx = W / 2, R = 30;
+  for (let a = 0; a <= Math.PI; a += 0.008) {
+    const x = Math.round(cx + Math.cos(a) * R), y = Math.round(ly - 22 + Math.sin(a) * R);
+    if (y > ly) line(x, y);
+  }
+  // punto penal arriba, apenas asomado
+  g.fillStyle = '#eef0e6'; g.fillRect(cx - 1, 2, 2, 2);
+  // desgaste de tierra donde se paran a patear
+  for (let i = 0; i < 40; i++) {
+    const a = rnd() * Math.PI * 2, d = rnd() ** 1.5 * 7;
+    g.fillStyle = 'rgba(140,110,60,.35)';
+    g.fillRect(Math.round(cx + Math.cos(a) * d * 1.6), Math.round(H - 12 + Math.sin(a) * d * 0.6), 1, 1);
+  }
+  grassUrl = c.toDataURL();
+  return grassUrl;
+}
+
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -49,7 +97,7 @@ export async function rollDice(wrap, { value, faces, labels, title, reason, soun
   wrap.innerHTML = `<div class="tbox">
     <div class="thead"><small>Tirada de dado</small><h2>${title || 'El dado decide'}</h2>
       <div class="tleg">${kinds.map((f) => `<span data-k="${f}"><i>${faceSvg(f)}</i>${labels[f]}<em>${'●'.repeat(faces.filter((x) => x === f).length)}</em></span>`).join('')}</div></div>
-    <div class="tray"><div class="tdie"></div></div>
+    <div class="tray" style="background-image:url(${grass()})"><div class="tdie"></div></div>
     <div class="tres"></div></div>`;
   const tray = wrap.querySelector('.tray'), die = wrap.querySelector('.tdie'), res = wrap.querySelector('.tres');
   const setFace = (f) => { die.dataset.f = f; die.innerHTML = faceSvg(f); };
