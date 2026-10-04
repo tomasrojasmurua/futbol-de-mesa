@@ -179,6 +179,7 @@ class MatchView {
     $('#feed').textContent = '¡Bienvenidos al estadio!';
     this.clearCards(spectator ? 'Mirando el partido…' : 'Preparando la cancha…');
     document.body.classList.toggle('watching', spectator);
+    audio.stadium(true);
   }
 
   onMessage(msg) {
@@ -302,11 +303,30 @@ class MatchView {
     const title = card.second ? 'Segunda amarilla: ¡roja!' : info.title;
     const el = $('#sitcard');
     el.className = `sitcard ${card.deck} k-${card.id}${this.spectator || both ? '' : good ? ' good' : ' bad'}`;
-    el.innerHTML = `<div class="sc-box"><small>${card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA'}</small><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em><p>${info.text}</p></div>`;
+    el.innerHTML = `<div class="sc-box"><small>${card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA'}</small><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em><p>${info.text}</p><u class="sc-tap">${this.spectator ? '' : 'Toca para seguir'}</u></div>`;
     audio.sound(card.id === 'red' || card.id === 'yellow' ? 'whistle' : 'card');
+    if (card.id === 'red' || card.id === 'yellow') audio.sound('boo');
     requestAnimationFrame(() => el.classList.add('show'));
     this.feed(both ? `${title}: afecta a los dos equipos.` : `${title}: ${bad ? 'en contra de' : 'a favor de'} ${card.deck === 'disciplina' && card.id !== 'freekick' ? who : t.name}.`);
-    await wait(2900);
+    // La carta queda hasta que el jugador la toca, para que alcance a leerla.
+    // Quien sólo mira el partido no toca nada: se va sola.
+    await new Promise((resolve) => {
+      const shownAt = performance.now();
+      const done = () => {
+        clearTimeout(auto);
+        el.onclick = null;
+        document.removeEventListener('keydown', onKey);
+        this.dismissCard = null;
+        resolve();
+      };
+      // Un toque que ya venía de antes no la cierra sin leerla.
+      const tap = () => { if (performance.now() - shownAt > 500) { audio.sound('card'); done(); } };
+      const onKey = (e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') { e.preventDefault(); tap(); } };
+      const auto = this.spectator ? setTimeout(done, 4500) : null;
+      el.onclick = tap;
+      document.addEventListener('keydown', onKey);
+      this.dismissCard = done;
+    });
     el.classList.remove('show');
     await wait(250);
   }
@@ -316,10 +336,37 @@ class MatchView {
     const el = $('#fxbar');
     if (!el) return;
     const shorts = state.teams.map((id) => teamById(id).short);
-    const chips = activeEffects(state).map((f) => `<span class="fx-chip k-${f.id}"><b>${shorts[f.side]}</b>${f.title}</span>`);
+    const chips = activeEffects(state).map((f) => `<button class="fx-chip k-${f.id}" data-id="${f.id}" data-side="${f.side}"><b>${shorts[f.side]}</b>${f.title}</button>`);
     const reds = state.sit ? state.sit.reds : [0, 0];
-    [0, 1].forEach((side) => { for (let k = 0; k < reds[side]; k++) chips.push(`<span class="fx-chip k-red"><i></i><b>${shorts[side]}</b>con uno menos</span>`); });
+    [0, 1].forEach((side) => { for (let k = 0; k < reds[side]; k++) chips.push(`<button class="fx-chip k-red" data-id="red" data-side="${side}"><i></i><b>${shorts[side]}</b>con uno menos</button>`); });
     el.innerHTML = chips.join('');
+    // Si la ficha que se estaba leyendo ya no está activa, se cierra su recuadro.
+    if (this.fxOpen && !el.querySelector(`.fx-chip[data-id="${this.fxOpen.id}"][data-side="${this.fxOpen.side}"]`)) this.closeFxTip();
+  }
+
+  // Al tocar una ficha de efecto activo: un recuadro con lo que hace.
+  toggleFxTip(chip) {
+    const id = chip.dataset.id, side = +chip.dataset.side;
+    if (this.fxOpen && this.fxOpen.id === id && this.fxOpen.side === side) { this.closeFxTip(); return; }
+    const info = CARDS[id];
+    if (!info || !this.state) return;
+    const team = teamById(this.state.teams[side]);
+    const mine = this.spectator ? '' : side === this.mySide ? ' (tú)' : ' (rival)';
+    const tip = $('#fxtip');
+    tip.innerHTML = `<b>${id === 'red' ? 'Con uno menos' : info.title}</b><em>${team.name}${mine}</em><p>${info.text}</p>`;
+    const wrap = document.querySelector('.pitch-wrap').getBoundingClientRect();
+    const r = chip.getBoundingClientRect();
+    tip.style.top = `${r.bottom - wrap.top + 6}px`;
+    tip.style.left = `${Math.max(6, Math.min(r.left - wrap.left, wrap.width - 226))}px`;
+    tip.classList.add('show');
+    document.querySelectorAll('.fx-chip.open').forEach((c) => c.classList.remove('open'));
+    chip.classList.add('open');
+    this.fxOpen = { id, side };
+  }
+  closeFxTip() {
+    $('#fxtip').classList.remove('show');
+    document.querySelectorAll('.fx-chip.open').forEach((c) => c.classList.remove('open'));
+    this.fxOpen = null;
   }
 
   // Al empezar la jugada: tu carta boca arriba, la del rival boca abajo.
@@ -599,7 +646,14 @@ class MatchView {
     modal(html, btns);
   }
 
-  destroy() { this.dead = true; this.stopTimer(); this.queue = []; document.body.classList.remove('watching'); }
+  destroy() {
+    this.dead = true; this.stopTimer(); this.queue = [];
+    document.body.classList.remove('watching');
+    if (this.dismissCard) this.dismissCard();
+    $('#sitcard').classList.remove('show');
+    this.closeFxTip();
+    audio.stadium(false);
+  }
 }
 
 // ---------- capa de UI para el motor ----------
@@ -631,15 +685,23 @@ const ui = {
       legend.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.k === k));
     };
     $('#dice-text').textContent = 'Tirando el dado…';
-    wrap.classList.add('show'); die.classList.add('rolling');
-    audio.sound('dice');
-    // El dado gira y va frenando, para que se alcance a seguir.
-    for (let i = 0; i < 12; i++) { face(faces[Math.floor(Math.random() * 6)]); await wait(70 + i * 12); }
+    wrap.classList.add('show');
+    // Un momento para mirar qué puede salir antes de tirar.
+    await wait(600);
+    die.classList.add('rolling');
+    // El dado gira y va frenando de a poco, para que se sienta la tensión.
+    for (let i = 0; i < 14; i++) {
+      face(faces[Math.floor(Math.random() * 6)]);
+      audio.sound('roll');
+      await wait(90 + i * i * 1.5);
+    }
+    await wait(250);
     const k = faces[value - 1];
     face(k); die.classList.remove('rolling');
+    audio.sound('land');
     legend.querySelector(`.chip[data-k="${k}"]`)?.classList.add('hit');
     $('#dice-text').textContent = reason;
-    await wait(3000);
+    await wait(3500);
     wrap.classList.remove('show');
   },
   async coin(result, text) {
@@ -1445,6 +1507,14 @@ document.querySelectorAll('#lg-len [data-len]').forEach((b) => (b.onclick = () =
 $('#btn-join').onclick = () => joinOnline($('#join-code').value);
 $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
 $('#btn-help').onclick = () => modal(HELP, [['Entendido', 'primary', () => {}]]);
+// Fichas de efectos activos: al tocarlas se abre un recuadro con su efecto.
+$('#fxbar').addEventListener('click', (e) => {
+  const chip = e.target.closest('.fx-chip');
+  if (chip && view) { e.stopPropagation(); view.toggleFxTip(chip); }
+});
+document.addEventListener('click', (e) => {
+  if (view && view.fxOpen && !e.target.closest('#fxtip')) view.closeFxTip();
+});
 const muteBtn = $('#btn-mute');
 const paintMute = () => muteBtn.classList.toggle('off', audio.isMuted());
 paintMute();

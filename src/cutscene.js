@@ -136,7 +136,7 @@ export class Cutscene {
       this.speed = 1;
       if (o.outcome === 'goal') { o.sound('goal'); this.shake = 1.2; this.flash = 1; }
       else if (o.outcome === 'post') { o.sound('post'); this.shake = 0.9; this.flash = 0.5; }
-      else o.sound('kick');
+      else { o.sound('kick'); o.sound(String(o.outcome).startsWith('save') ? 'save' : 'miss'); }
     }
     await this.until(this.T.end);
     this.on = false;
