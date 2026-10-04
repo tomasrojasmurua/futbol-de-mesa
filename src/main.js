@@ -683,14 +683,14 @@ const ui = {
   },
   async dice(value, reason, faces) {
     const wrap = $('#dice'), die = $('#die'), legend = $('#dice-legend');
-    // Leyenda: qué puede salir y en qué números del dado.
+    // Leyenda: qué puede salir y cuántas caras tiene cada cosa.
     const kinds = [...new Set(faces)];
     legend.innerHTML = kinds.map((k) => {
-      const nums = faces.map((f, i) => (f === k ? i + 1 : null)).filter(Boolean).join(' ');
-      return `<span class="chip" data-k="${k}"><img src="${icon('face', k)}" alt=""><b>${DIE_LABELS[k]}</b><i>${nums}</i></span>`;
+      const n = faces.filter((f) => f === k).length;
+      return `<span class="chip" data-k="${k}"><img src="${icon('face', k)}" alt=""><b>${DIE_LABELS[k]}</b><i>${'●'.repeat(n)}${'○'.repeat(6 - n)}</i></span>`;
     }).join('');
-    // Un cubo con las seis caras: la cara i lleva el número i+1.
-    die.innerHTML = `<div class="toss"><div class="tilt"><div class="cube">${faces.map((k, i) => `<div class="f f${i}"><img src="${icon('face', k)}" alt="${DIE_LABELS[k]}"><i>${i + 1}</i></div>`).join('')}</div></div></div><div class="shadow"></div>`;
+    // Un cubo con las seis caras, cada una con el símbolo de lo que puede pasar.
+    die.innerHTML = `<div class="toss"><div class="tilt"><div class="cube">${faces.map((k, i) => `<div class="f f${i}"><img src="${icon('face', k)}" alt="${DIE_LABELS[k]}"></div>`).join('')}</div></div></div><div class="shadow"></div>`;
     const toss = die.querySelector('.toss'), cube = die.querySelector('.cube'), shadow = die.querySelector('.shadow');
     $('#dice-text').textContent = 'Tirando el dado…';
     wrap.classList.add('show');
