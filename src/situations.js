@@ -1,6 +1,6 @@
 // Situaciones de juego: dos mazos de cartas que le pasan cosas al partido.
 //
-// - Mazo de PARTIDO (40 cartas, 14 situaciones): se roba en cuatro momentos
+// - Mazo de PARTIDO (49 cartas, 17 situaciones): se roba en cuatro momentos
 //   fijos (al 40% y al 80% de cada tiempo, en una salida). A quién le toca lo
 //   decide la jugada: el que tiene la pelota, el que defiende, el que va
 //   perdiendo o ganando, o los dos.
@@ -8,6 +8,7 @@
 //   que la cometió (el tiro libre, al que la recibió).
 //
 // Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los dados.
+// Cada carta dura una tirada del dado que nombra; la Lluvia, todo el partido.
 // Las copias de cada carta definen qué tan seguido sale.
 
 // Los cuatro dados del partido.
@@ -20,57 +21,69 @@ export const BASE_DICE = {
   shotBeat: ['post', 'wide', 'goal', 'goal', 'goal', 'goal'],
 };
 
-const PLAY = ['buildDef', 'attackDef'];
-// role: 'att' = cuando ese equipo ataca, 'def' = cuando defiende.
-// from → to en n caras, durante `uses` tiradas (half: hasta el entretiempo).
-// Las cartas del mazo de partido duran una sola tirada (pedido de Tomás).
-const fx = (role, dice, from, to, n, uses, half = false) => ({ role, dice, from, to, n, uses, half });
+// Cada carta dice cómo queda el dado entero mientras dura (to: las 6 caras).
+// Al tirar se aplica la diferencia con el dado base, así se puede sumar a otro
+// efecto (por ejemplo, la roja). role: 'att' = cuando ese equipo ataca,
+// 'def' = cuando defiende. uses: tiradas que dura (Infinity: todo el partido).
+const fx = (role, die, to, uses = 1) => ({ role, dice: [die], to, uses });
+const S = 'buildDef', U = 'attackDef';
+const F = (spec) => spec.split(' ').flatMap((x) => { const [k, n] = x.split(':'); return Array(Number(n || 1)).fill(k); });
 
 // who: poss (tiene la pelota) | def (no la tiene) | losing | winning | both.
 // tie: a quién le toca si van empatados (poss o def).
+// Todas duran una sola tirada del dado que nombran, salvo la Lluvia (todo el partido).
 export const CARDS = {
   hinchada: { deck: 'partido', copies: 3, who: 'losing', tie: 'poss', title: 'Ánimo de la hinchada',
     text: 'En su próximo remate que supere al arquero, la cara «afuera» también es gol.',
-    fx: [fx('att', ['shotBeat'], 'wide', 'goal', 1, 1)] },
+    fx: [fx('att', 'shotBeat', F('post goal:5'))] },
   suplentes: { deck: 'partido', copies: 3, who: 'def', title: 'Entran suplentes',
     text: 'Piernas frescas: en su próxima defensa acertada, una cara «recupera» pasa a contragolpe.',
-    fx: [fx('def', PLAY, 'steal', 'counter', 1, 1)] },
+    fx: [fx('def', S, F('foul steal:3 counter:2')), fx('def', U, F('corner foul steal:2 counter:2'))] },
   lesion: { deck: 'partido', copies: 4, who: 'def', title: 'Lesión',
-    text: 'Con uno menos hasta el cambio: en su próxima defensa acertada, una cara «recupera» pasa a «sigue la jugada» del rival.',
-    fx: [fx('def', PLAY, 'steal', 'advance', 1, 1)] },
+    text: 'Con uno menos hasta el cambio: en su próxima defensa acertada, una cara «recupera» pasa a favor del rival.',
+    fx: [fx('def', S, F('foul steal:3 advance counter')), fx('def', U, F('corner foul steal:2 shoot counter'))] },
   habilitacion: { deck: 'partido', copies: 4, who: 'poss', title: 'Habilitación larga',
-    text: 'Si le adivinan la próxima salida, una cara «recupera» pasa a «remate directo».',
-    fx: [fx('att', ['buildDef'], 'steal', 'shoot', 1, 1)] },
+    text: 'Si le adivinan la próxima salida, dos caras «recupera» pasan a «pase largo»: la pelota llega al último tercio.',
+    fx: [fx('att', S, F('foul steal:2 longpass:2 counter'))] },
+  primera: { deck: 'partido', copies: 4, who: 'poss', title: 'Remate de primera',
+    text: 'Si le adivinan el próximo ataque en el último tercio, el dado queda: córner, falta, 2 recupera y 2 remate al arco.',
+    fx: [fx('att', U, F('corner foul steal:2 shoot:2'))] },
   tactico: { deck: 'partido', copies: 4, who: 'losing', tie: 'def', title: 'Cambio táctico: todo al ataque',
-    text: 'En su próximo ataque que le adivinen, una cara «recupera» pasa a «sigue la jugada».',
-    fx: [fx('att', PLAY, 'steal', 'advance', 1, 1)] },
-  arquero: { deck: 'partido', copies: 3, who: 'def', title: 'Arquero inspirado',
-    text: 'En el próximo remate rival que lo supere, una cara de gol pasa a «atajada al córner».',
-    fx: [fx('def', ['shotBeat'], 'goal', 'corner', 1, 1)] },
+    text: 'En su próximo ataque que le adivinen, el rival pierde la contra y la jugada sigue con 2 caras.',
+    fx: [fx('att', S, F('foul steal:3 advance:2')), fx('att', U, F('corner foul steal:2 shoot:2'))] },
+  arquero: { deck: 'partido', copies: 3, who: 'def', title: 'Fortuna de arquero',
+    text: 'En el próximo remate rival que lo supere, dos caras de gol pasan a «atajada al córner».',
+    fx: [fx('def', 'shotBeat', F('post wide goal:2 corner:2'))] },
   capitan: { deck: 'partido', copies: 3, who: 'poss', title: 'Capitán inspirado',
-    text: 'Tiki-taka: en su próximo ataque que le adivinen, una cara «recupera» pasa a «sigue la jugada».',
-    fx: [fx('att', PLAY, 'steal', 'advance', 1, 1)] },
+    text: 'Tiki-taka: en su próximo ataque que le adivinen, dos caras «recupera» pasan a favor de su equipo.',
+    fx: [fx('att', S, F('foul steal:2 advance:2 counter')), fx('att', U, F('corner foul steal shoot:2 counter'))] },
   crack: { deck: 'partido', copies: 3, who: 'poss', title: 'Genialidad del crack',
-    text: 'En su próximo ataque que le adivinen, dos caras «recupera» pasan a «sigue la jugada».',
-    fx: [fx('att', PLAY, 'steal', 'advance', 2, 1)] },
+    text: 'En su próximo ataque que le adivinen, dos caras «recupera» pasan a favor de su equipo.',
+    fx: [fx('att', S, F('foul steal:2 advance:2 counter')), fx('att', U, F('corner foul steal shoot:2 counter'))] },
   polemica: { deck: 'partido', copies: 3, who: 'poss', title: 'Decisión polémica',
-    text: 'Si le adivinan el próximo ataque en el último tercio, una cara «recupera» pasa a penal.',
-    fx: [fx('att', ['attackDef'], 'steal', 'penalty', 1, 1)] },
+    text: 'Si le adivinan el próximo ataque en el último tercio, el dado queda: córner, 2 recupera, 2 penal y contra.',
+    fx: [fx('att', U, F('corner steal:2 penalty:2 counter'))] },
   lluvia: { deck: 'partido', copies: 2, who: 'both', title: 'Lluvia',
-    text: 'Cancha pesada: en el próximo remate de cada equipo que supere al arquero, una cara de gol pasa a «afuera».',
-    fx: [fx('att', ['shotBeat'], 'goal', 'wide', 1, 1)] },
+    text: 'Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera».',
+    fx: [fx('att', 'shotBeat', F('post wide:2 goal:3'), Infinity)] },
   errordt: { deck: 'partido', copies: 2, who: 'winning', tie: 'poss', title: 'Error del DT',
-    text: 'En su próxima defensa acertada, una cara «recupera» pasa a «sigue la jugada» del rival.',
-    fx: [fx('def', PLAY, 'steal', 'advance', 1, 1)] },
-  iluminacion: { deck: 'partido', copies: 2, who: 'poss', title: 'Golpe de iluminación',
-    text: 'En su próximo remate que supere al arquero, el palo también es gol: pega en el palo y entra.',
-    fx: [fx('att', ['shotBeat'], 'post', 'goal', 1, 1)] },
-  chilena: { deck: 'partido', copies: 2, who: 'poss', title: 'Golazo de chilena',
-    text: 'Si le atajan el próximo remate, una cara «atajada» pasa a gol.',
-    fx: [fx('att', ['shotSave'], 'save', 'goal', 1, 1)] },
-  error: { deck: 'partido', copies: 2, who: 'poss', title: 'Error en la defensa',
-    text: 'En su próximo ataque que le adivinen, tres caras «recupera» pasan a «sigue la jugada».',
-    fx: [fx('att', PLAY, 'steal', 'advance', 3, 1)] },
+    text: 'En su próxima defensa acertada pierde la contra y el rival sigue la jugada con 2 caras.',
+    fx: [fx('def', S, F('foul steal:3 advance:2')), fx('def', U, F('corner foul steal:2 shoot:2'))] },
+  iluminacion: { deck: 'partido', copies: 2, who: 'poss', title: 'Tiro colocado',
+    text: 'En su próximo remate que supere al arquero, la cara «afuera» también es gol.',
+    fx: [fx('att', 'shotBeat', F('post goal:5'))] },
+  chilena: { deck: 'partido', copies: 2, who: 'poss', title: 'Arquero nervioso',
+    text: 'Si le atajan el próximo remate, el dado queda: córner, 3 atajada y 2 gol.',
+    fx: [fx('att', 'shotSave', F('corner save:3 goal:2'))] },
+  error: { deck: 'partido', copies: 2, who: 'poss', title: 'Desorden defensivo',
+    text: 'En su próximo ataque que le adivinen, el rival pierde la contra y la jugada sigue con 3 caras.',
+    fx: [fx('att', S, F('foul steal:2 advance:3')), fx('att', U, F('corner foul steal shoot:3'))] },
+  instruccion: { deck: 'partido', copies: 3, who: 'poss', title: 'Instrucción del DT',
+    text: 'En su próximo ataque que le adivinen, el rival pierde la contra: 2 caras de pase largo en la salida o de remate en el último tercio.',
+    fx: [fx('att', S, F('foul steal:3 longpass:2')), fx('att', U, F('corner foul steal:2 shoot:2'))] },
+  defensa: { deck: 'partido', copies: 2, who: 'def', title: 'Defensa sólida',
+    text: 'Si adivina el próximo ataque rival en el último tercio, el dado queda: córner, 3 recupera y 2 contra.',
+    fx: [fx('def', U, F('corner steal:3 counter:2'))] },
   // Disciplina
   warning: { deck: 'disciplina', title: 'Advertencia del árbitro', text: 'El árbitro lo llama y le advierte. El partido sigue su curso.' },
   yellow: { deck: 'disciplina', title: 'Tarjeta amarilla', text: 'Amonestado. Con la segunda, se va expulsado.' },
@@ -79,7 +92,7 @@ export const CARDS = {
     text: 'Con uno menos todo el partido: cuando defiende y adivina, una cara «recupera» pasa a falta en la salida o a córner en el último tercio.' },
 };
 
-const RED_FX = [fx('def', ['buildDef'], 'steal', 'foul', 1, Infinity), fx('def', ['attackDef'], 'steal', 'corner', 1, Infinity)];
+const RED_FX = [fx('def', S, F('foul:2 steal:3 counter'), Infinity), fx('def', U, F('corner:2 foul steal:2 counter'), Infinity)];
 
 const DECKS = {};
 for (const [id, c] of Object.entries(CARDS)) if (c.copies) (DECKS[c.deck] ||= []).push(...Array(c.copies).fill(id));
@@ -126,13 +139,34 @@ export function rollFaces(s, die, A, D) {
   const used = [];
   for (const e of s.sit.fx) {
     if (!e.dice.includes(die) || e.side !== (e.role === 'att' ? A : D)) continue;
-    let k = e.n;
-    for (let i = 0; i < 6 && k; i++) if (f[i] === e.from) { f[i] = e.to; k--; }
+    applyFx(f, die, e);
     used.push(e);
   }
   for (const e of used) if (e.uses !== null) e.uses--;
   s.sit.fx = s.sit.fx.filter((e) => e.uses === null || e.uses > 0);
   return f;
+}
+
+// Lo que la carta cambia respecto del dado base: saca las caras que sobran y
+// pone las que faltan, en el mismo lugar (así se suma a otros efectos).
+function applyFx(f, die, e) {
+  const count = (list) => list.reduce((m, k) => ((m[k] = (m[k] || 0) + 1), m), {});
+  const base = count(BASE_DICE[die]), to = e.to ? count(e.to) : null;
+  const out = [], add = [];
+  if (to) {
+    for (const k of new Set([...Object.keys(base), ...Object.keys(to)])) {
+      const d = (to[k] || 0) - (base[k] || 0);
+      for (let i = 0; i < -d; i++) out.push(k);
+      for (let i = 0; i < d; i++) add.push(k);
+    }
+  } else {
+    // formato viejo (partidas guardadas): from → to en n caras
+    for (let i = 0; i < e.n; i++) { out.push(e.from); add.push(e.to); }
+  }
+  for (let i = 0; i < Math.min(out.length, add.length); i++) {
+    const j = f.indexOf(out[i]);
+    if (j >= 0) f[j] = add[i];
+  }
 }
 
 // Falta: se roba del mazo de disciplina. D cometió la falta, A la recibe.
@@ -187,11 +221,11 @@ export function afterPlay(s, ev, halfLen, rng) {
   else if (c.who === 'losing') sides = [lead === null ? tie : 1 - lead];
   else if (c.who === 'winning') sides = [lead === null ? tie : lead];
   else sides = [c.who === 'poss' ? P : R];
-  for (const side of sides) {
-    for (const e of c.fx) {
-      // En el segundo tiempo la lluvia dura hasta el final.
-      sit.fx.push({ ...e, uses: e.uses === Infinity ? null : e.uses, side, card: id, half: e.half && s.half === 1 });
-    }
+  // Si ya está lloviendo, una segunda Lluvia no cambia nada.
+  const already = id === 'lluvia' && sit.rain;
+  if (id === 'lluvia') sit.rain = true;
+  for (const side of already ? [] : sides) {
+    for (const e of c.fx) sit.fx.push({ ...e, uses: e.uses === Infinity ? null : e.uses, side, card: id });
   }
   ev.card = { deck: 'partido', id, side: sides.length > 1 ? -1 : sides[0] };
 }

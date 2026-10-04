@@ -31,6 +31,7 @@ export const FACE_SYM = {
   foul: `<circle cx="9.5" cy="14" r="6" fill="currentColor"/><path d="M9.5 8.3h11.5v4.4h-6.3" fill="currentColor"/><circle cx="9.5" cy="14" r="2" fill="${PAPER}"/><path d="M4.5 9.5C2.5 7 3 4 5.5 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>`,
   steal: `<path d="M4.5 10a7.8 7.8 0 0 1 13.4-3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19.5 14a7.8 7.8 0 0 1-13.4 3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19.6 2.6v5h-5z" fill="currentColor"/><path d="M4.4 21.4v-5h5z" fill="currentColor"/>${ball(12, 12, 3.4)}`,
   advance: `<path d="M5 12.5l7-7 7 7M5 19.5l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`,
+  longpass: `<path d="M3 21C5 9 12 4.5 17 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.2 1.8" stroke-linecap="round"/><path d="M2 21h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>${ball(18.5, 6.5, 3.6)}`,
   shoot: `<path d="M2 8.5h7M1 12h8M2 15.5h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>${ball(16, 12, 5.2)}`,
   penalty: `${net(3, 3, 21, 11)}<path d="M3 11V3h18v8" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 21.5a5.5 5.5 0 0 1 11 0" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/>${ball(12, 17, 3)}`,
 };

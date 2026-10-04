@@ -846,11 +846,12 @@ export class Renderer {
       await this.wait(0.4);
       return true;
     }
-    if (o === 'advance' || o === 'longball' || o === 'chance') {
+    if (o === 'advance' || o === 'longball' || o === 'longpass' || o === 'chance') {
       this.give(this.nearest(A, this.ball.x, this.ball.y, true));
-      this.ui.banner(o === 'longball' ? '¡PELOTAZO!' : '¡SIGUE LA JUGADA!', { small: true });
+      this.ui.banner(o === 'longball' ? '¡PELOTAZO!' : o === 'longpass' ? '¡PASE LARGO!' : o === 'chance' ? '¡A REMATAR!' : '¡SIGUE LA JUGADA!', { small: true });
       const lane = LANE_U[ev.att] ?? 34;
       if (o === 'advance') await this.dribble(A, [lane, 73], 0.7);
+      else if (o === 'longpass') await this.pass(A, [clamp(lane + rnd(-4, 4), 8, 60), 76], { dur: 1.2, h: 4.5 });
       else if (o === 'longball') await this.pass(A, [34 + rnd(-6, 6), 84], { dur: 1.1, h: 4 });
       else await this.dribble(A, [clamp(lerp(this.ballUV(A)[0], 34, 0.6), 24, 44), 89], 0.6);
       return true;
@@ -1631,6 +1632,24 @@ export class Renderer {
     g.fillRect(bx + (f === 0 ? 1 : f === 1 ? 0 : sz - 2), by + (f === 2 ? 0 : 1), 1, 1);
   }
 
+  // Lluvia sobre la transmisión: tono gris azulado y gotas en diagonal.
+  drawRain(c, Wd, Hd, now) {
+    c.fillStyle = 'rgba(35,50,80,0.3)'; c.fillRect(0, 0, Wd, Hd);
+    if (!this.drops || this.drops.w !== Wd) {
+      this.drops = Array.from({ length: Math.round(Wd * Hd / 1600) }, () => ({ x: Math.random(), y: Math.random(), v: 0.8 + Math.random() * 0.6, l: 8 + Math.random() * 10 }));
+      this.drops.w = Wd;
+    }
+    const t = (now || 0) / 1000, u = Math.max(1, Wd / 600);
+    c.strokeStyle = 'rgba(215,228,245,0.7)'; c.lineWidth = Math.max(1.2, u * 1.3);
+    c.beginPath();
+    for (const d of this.drops) {
+      const y = ((d.y + t * d.v * 1.6) % 1) * (Hd + 40) - 20;
+      const x = ((d.x - t * d.v * 0.25) % 1 + 1) % 1 * (Wd + 40) - 20;
+      c.moveTo(x, y); c.lineTo(x - d.l * u * 0.3, y + d.l * u);
+    }
+    c.stroke();
+  }
+
   draw(now) {
     const g = this.wctx;
     if (!this.kits) {
@@ -1697,6 +1716,8 @@ export class Renderer {
       this.vignette = v;
     }
     c.drawImage(this.vignette, 0, 0);
+    if (this.cut) this.cut.rain = !!this.rain;
+    if (this.rain) this.drawRain(c, Wd, Hd, now);
     if (this.ts < 0.8) {
       // tono de repetición en cámara lenta
       c.fillStyle = `rgba(20,30,60,${(0.8 - this.ts) * 0.22})`;
