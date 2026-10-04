@@ -7,6 +7,7 @@ import { LEAGUES } from './leagues/index.js';
 import { newCareer, myFixture, playRound, seasonOver, totalRounds, table, topScorers, nextSeason, resultFrom } from './career.js';
 import { newCup, myMatch, teamsLeft, champion, finishRound, resultOf, levelFor, ROUND_NAMES } from './cup.js';
 import { Renderer } from './render.js';
+import { CARDS, activeEffects } from './situations.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
 import { playerName } from './squads.js';
@@ -100,6 +101,12 @@ const HELP = `
 <li>Si el arquero adivina, ataja; una cara da rebote al córner y otra un saque rápido de contra.</li>
 <li>Si le ganas al arquero, la imagen se congela con la pelota en el aire y el dado decide: 4 caras de gol, 1 de palo y 1 afuera. Igual para cualquier remate.</li>
 <li>Una gambeta exitosa puede terminar en <b>penal</b>.</li>
+</ul>
+<h3>Situaciones de juego</h3>
+<p>Dos mazos de cartas le ponen sorpresas al partido. Las cartas no hacen goles solas: cambian el próximo duelo o el próximo dado, y los dos ven la carta antes de elegir.</p>
+<ul>
+<li><b>Mazo de partido</b>: sale cuatro veces por partido (dos por tiempo). Genialidad del crack, Error en la defensa, Cambio táctico (para el que va perdiendo), Ánimo de la hinchada y Golpe de iluminación. A quién le toca depende de quién tiene la pelota en ese momento.</li>
+<li><b>Mazo de disciplina</b>: sale con cada falta. Amarilla (la segunda es roja), roja (con uno menos el rival tiene más caras a favor en el dado) o tiro libre directo.</li>
 </ul>
 <h3>Duración</h3>
 <p>En el menú eliges partido <b>corto</b> (unos 3 a 5 minutos), <b>normal</b> (5 a 8) o <b>largo</b> (10 a 14). En una sala manda la duración de quien la crea.</p>
@@ -204,6 +211,7 @@ class MatchView {
     renderer.kickoffNow(state.poss);
     this.paintHud(state);
     this.paintPens(state);
+    this.paintFx(state);
     this.feed(`En vivo: ${teams[0].name} vs ${teams[1].name}.`);
     if (this.spectator) this.watchingPanel(state.phase === 'toss' ? 'Sorteo inicial…' : 'Los dos eligen su carta…');
     if (state.phase === 'end') this.showEnd(state);
@@ -218,6 +226,7 @@ class MatchView {
       renderer.kickoffNow(0);
       this.paintHud(state);
       this.paintPens(state);
+      this.paintFx(state);
       this.lastSeq = -1;
       const st = renderer.stadium;
       const len = state.length && state.length !== 'normal' ? ` Partido ${LENGTHS[state.length].label.toLowerCase()}.` : '';
@@ -242,8 +251,9 @@ class MatchView {
       this.duelStart(ev);
       await renderer.play(ev);
       if (this.dead) return;
-      this.feed(this.shotText(ev) || commentary(ev, this.names()));
+      this.feed(this.usedText(ev) || this.shotText(ev) || commentary(ev, this.names()));
       this.paintHud(state);
+      this.paintFx(state);
       this.paintPens(state);
       if (ev.shootoutEnd) {
         audio.sound('whistle3');
@@ -267,8 +277,58 @@ class MatchView {
         await renderer.kickoff(ev.kickoffAfter);
         audio.sound('whistle');
       }
+      if (ev.card) await this.situationCard(ev.card, state);
+      if (this.dead) return;
+      if (ev.sparkJump != null || (ev.card && (ev.card.id === 'error' || ev.card.id === 'freekick'))) {
+        if (ev.sparkJump != null && !ev.card) this.feed(`¡Golpe de iluminación! ${this.names()[ev.sparkJump]} se salta el medio campo.`);
+        await renderer.cardMove(state.poss, state.situation);
+      }
+      this.paintFx(state);
       return this.prompt(state);
     }
+  }
+
+  // Carta de situación de juego: aparece grande sobre la cancha unos segundos.
+  async situationCard(card, state) {
+    const info = CARDS[card.id];
+    const teams = state.teams.map(teamById);
+    const t = teams[card.side];
+    let who;
+    if (card.deck === 'disciplina' && card.id !== 'freekick') who = `${playerName(t.id, card.player)} (${t.short})`;
+    else who = this.spectator ? t.name : card.side === this.mySide ? `${t.name} (tú)` : `${t.name} (rival)`;
+    const good = card.deck === 'disciplina' && card.id !== 'freekick' ? card.side !== this.mySide : card.side === this.mySide;
+    const title = card.second ? 'Segunda amarilla: ¡roja!' : info.title;
+    const el = $('#sitcard');
+    el.className = `sitcard ${card.deck} k-${card.id}${this.spectator ? '' : good ? ' good' : ' bad'}`;
+    el.innerHTML = `<div class="sc-box"><small>${card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA'}</small><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em><p>${info.text}</p></div>`;
+    audio.sound(card.id === 'red' || card.id === 'yellow' ? 'whistle' : 'card');
+    requestAnimationFrame(() => el.classList.add('show'));
+    const verb = card.deck === 'disciplina' && card.id !== 'freekick' ? 'para' : 'a favor de';
+    this.feed(`${title} ${verb} ${card.deck === 'disciplina' && card.id !== 'freekick' ? who : t.name}.`);
+    await wait(2900);
+    el.classList.remove('show');
+    await wait(250);
+  }
+
+  // Efectos que siguen activos (cartas por usar y expulsados), sobre la cancha.
+  paintFx(state) {
+    const el = $('#fxbar');
+    if (!el) return;
+    const shorts = state.teams.map((id) => teamById(id).short);
+    const chips = activeEffects(state).map((f) => `<span class="fx-chip k-${f.id}"><b>${shorts[f.side]}</b>${f.title}</span>`);
+    const reds = state.sit ? state.sit.reds : [0, 0];
+    [0, 1].forEach((side) => { for (let k = 0; k < reds[side]; k++) chips.push(`<span class="fx-chip k-red"><i></i><b>${shorts[side]}</b>con uno menos</span>`); });
+    el.innerHTML = chips.join('');
+  }
+
+  // Relato cuando una carta activa cambió la jugada.
+  usedText(ev) {
+    const n = this.names();
+    if (ev.used === 'crack') return `¡Genialidad del crack! ${n[ev.poss]} estaba marcado y se la inventa igual.`;
+    if (ev.used === 'crowd') return `¡La hinchada de ${n[1 - ev.poss]} empuja y sale de contragolpe!`;
+    if (ev.used === 'red') return `${n[1 - ev.poss]}, con uno menos, no llega a cerrar.`;
+    if (ev.used === 'tactic' && ev.outcome === 'goal') return `¡Todo al ataque! ${n[ev.poss]} la mete igual.`;
+    return '';
   }
 
   // Al empezar la jugada: tu carta boca arriba, la del rival boca abajo.
@@ -317,11 +377,13 @@ class MatchView {
       const r = $('#panel-role'); r.textContent = 'EN VIVO'; r.className = 'role live';
       return;
     }
+    if (ev.used === 'crack') $('#panel-title').textContent = '¡Genialidad del crack!';
     const goal = ev.outcome === 'goal';
     const text = goal ? (iAttack ? '¡GOOOL!' : 'GOL EN CONTRA') : won ? '¡GANASTE EL DUELO!' : 'PERDISTE EL DUELO';
     const stamp = $('#stamp');
     if (stamp) { stamp.textContent = text; stamp.className = 'stamp show ' + (won ? 'good' : 'bad'); }
-    $('#panel-title').textContent = won ? (iAttack ? 'El rival no lo vio venir.' : '¡Le leíste la jugada!') : (iAttack ? 'El rival te leyó la jugada.' : 'No adivinaste.');
+    $('#panel-title').textContent = ev.used === 'crack' ? (iAttack ? 'Te leyeron, pero tu crack se la inventó.' : 'La leíste, pero su crack se la inventó.')
+      : won ? (iAttack ? 'El rival no lo vio venir.' : '¡Le leíste la jugada!') : (iAttack ? 'El rival te leyó la jugada.' : 'No adivinaste.');
     const r = $('#panel-role'); r.textContent = won ? 'GANASTE' : 'PERDISTE'; r.className = 'role ' + (won ? 'good' : 'bad');
     audio.sound(won ? 'win-duel' : 'lose-duel');
   }
@@ -540,7 +602,7 @@ class MatchView {
       <div class="scorers"><ul>${goalList(0)}</ul><ul>${goalList(1)}</ul></div>
       ${mvpHtml}
       <ul class="leaders">${best('st', 'Más recuperaciones')}${best('sv', 'Más atajadas')}${best('sh', 'Más remates')}</ul>
-      <table class="stats">${row('Remates', 'shots')}${row('Al arco', 'onTarget')}${row('Córners', 'corners')}${row('Recuperaciones', 'steals')}</table>`;
+      <table class="stats">${row('Remates', 'shots')}${row('Al arco', 'onTarget')}${row('Córners', 'corners')}${row('Recuperaciones', 'steals')}${st.yellows && st.yellows[0] + st.yellows[1] ? row('Amarillas', 'yellows') : ''}${st.reds && st.reds[0] + st.reds[1] ? row('Rojas', 'reds') : ''}</table>`;
     if (this.endButtons) { modal(html, this.endButtons(state)); return; }
     const btns = [];
     if (this.onRematch) btns.push(['Revancha', 'primary', () => { this.onRematch(); }]);

@@ -804,6 +804,18 @@ export class Renderer {
     await this.dribble(D, [clamp(u + rnd(-4, 4), 4, 64), v + 6], 0.7);
   }
 
+  // Una carta de situación cambió la jugada que viene: la pelota avanza sola
+  // al último tercio (attack) o queda para rematar (shot).
+  async cardMove(side, situation) {
+    this.clearOverrides();
+    this.possSide = side;
+    this.ensureOwner(side);
+    const [u] = this.ballUV(side);
+    this.cam.tzoom = 1.45; this.cam.follow = null;
+    await this.dribble(side, [clamp(lerp(u, 34, 0.5), 22, 46), situation === 'shot' ? 84 : 73], 0.9);
+    this.release();
+  }
+
   async playBuild(ev, A, D) {
     this.cam.tzoom = 1.3; this.cam.follow = null;
     this.possSide = A;

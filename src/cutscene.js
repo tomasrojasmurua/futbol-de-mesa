@@ -153,7 +153,7 @@ export class Cutscene {
 
   showCard() {
     const o = this.o;
-    const title = { remate: '¡REMATE!', cabezazo: '¡CABEZAZO!', mano: '¡MANO A MANO!', penal: '¡PENAL!' }[o.kind] || '¡REMATE!';
+    const title = { remate: '¡REMATE!', cabezazo: '¡CABEZAZO!', mano: '¡MANO A MANO!', penal: '¡PENAL!', libre: '¡TIRO LIBRE!' }[o.kind] || '¡REMATE!';
     const plate = (p, kit, cls) => `<div class="cut-plate ${cls}" style="--c:${kit.shirt};--c2:${kit.alt2}"><small>${p.team}</small><b>${p.name}</b><i>${p.num}</i></div>`;
     this.card.innerHTML = `${plate(o.shooter, o.kitA, 'a')}<div class="cut-title">${title}</div>${plate(o.keeper, { shirt: o.gkColor, alt2: '#fff' }, 'd')}`;
     this.card.classList.remove('out');
