@@ -294,3 +294,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .champ em { font-style: normal; color: var(--gold); font-size: 20px; }
 body.watching .cards .duel-card { pointer-events: none; }
 .champ-sw { display: flex; gap: 8px; }
+
+/* Torneo */
+#screen-cup { overflow-y: auto; align-items: center; }
+#btn-cup-continue[hidden] { display: none; }
+.next-match { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; background: rgba(0,0,0,.45); box-shadow: 0 0 0 3px #0c0f15; }
+.next-match small { font-family: var(--px); font-size: 10px; color: var(--gold); letter-spacing: 2px; }
+.next-match .vsrow { display: flex; align-items: center; gap: 18px; font-family: var(--px); font-size: 16px; }
+.next-match .vsrow span { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.next-match .vsrow .kit-swatch { width: 34px; height: 34px; display: block; }
+.next-match .vsrow b { color: var(--mute); font-size: 11px; font-weight: normal; }
+.next-match em { font-style: normal; color: var(--mute); font-size: 19px; }
+.next-match.out small { color: #ff6b6b; }
+.next-match.out b { font-weight: normal; font-size: 20px; }
+.cup-rounds .fx.mine { background: rgba(255,210,63,.12); }
+.cup-rounds .fx .lose { opacity: .45; }
+.cup-rounds .fx .win { color: #fff; }
+.modal .note { color: var(--gold); }
+.team-btn span:last-child { min-width: 0; }
+.team-btn.long { font-size: 15px; }

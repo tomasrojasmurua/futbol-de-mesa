@@ -3,6 +3,7 @@ import { optionsFor, SHOT_TITLES, TURN_SECONDS, fmtMinute, commentary, diceReaso
 import { Host, Cpu, LEVELS } from './host.js';
 import { createRoom, joinRoom } from './net.js';
 import { LeagueHost } from './league.js';
+import { newCup, myMatch, teamsLeft, champion, finishRound, resultOf, levelFor, ROUND_NAMES } from './cup.js';
 import { Renderer } from './render.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
@@ -53,7 +54,7 @@ function buildTeamGrid() {
       const h = document.createElement('h3'); h.textContent = group; grid.appendChild(h);
     }
     const b = document.createElement('button');
-    b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '');
+    b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (Math.max(...t.name.split(' ').map((w) => w.length)) > 10 ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
     b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
     b.onclick = () => {
@@ -104,6 +105,8 @@ const HELP = `
 <p>Si el partido termina empatado, se define por penales: cinco por lado y, si siguen iguales, muerte súbita. Cada penal es un duelo de remate contra arquero, con el mismo dado si el arquero no adivina.</p>
 <h3>Estadio</h3>
 <p>Juegas de local en una versión pixelada del estadio de tu equipo. Al final ves los goleadores, la figura del partido y las estadísticas.</p>
+<h3>Torneo</h3>
+<p>Eliminación directa de 8 o 16 equipos contra la IA, entre clubes o entre selecciones según tu equipo. Los empates se definen por penales y la IA se pone más difícil en cada ronda. El torneo queda guardado en tu celular para seguirlo después.</p>
 <h3>Liga</h3>
 <p>Crea una liga y comparte el código: entran hasta 4 jugadores y se enfrentan todos contra todos (con 2, ida y vuelta). Con 4 los dos partidos de cada fecha se juegan al mismo tiempo; con 3, el que descansa mira el otro partido en vivo. Gana 3 puntos, empata 1 (en la liga no hay penales). Por defecto los partidos son cortos.</p>
 <h3>Salas</h3>
@@ -607,6 +610,8 @@ let view = null;
 let session = null; // { cleanup }
 
 function leaveMatch() {
+  cupPlaying = false;
+  paintCupButton();
   if (view) view.destroy();
   view = null;
   // Limpia lo que haya quedado a medio mostrar (escena, dado, carteles).
@@ -673,6 +678,7 @@ function startHostGame(conn, guestTeam) {
 
 // Abandonar: contra la IA vuelve al menú; en una sala le avisa al rival.
 function confirmQuit() {
+  if (cupPlaying && cup) { confirmQuitCup(); return; }
   if (league) {
     if (view && view.spectator) showTable();
     else confirmLeaveLeague();
@@ -1063,6 +1069,123 @@ function leagueClosed(text) {
   modal(`<h2>Liga terminada</h2><p>${text}</p>`, [['Volver al menú', 'primary', () => leaveMatch()]]);
 }
 
+// ---------- torneo contra la IA ----------
+// Eliminación directa; se guarda en el celular para seguirlo después.
+let cup = null;
+let cupPlaying = false;
+
+function saveCup() { try { if (cup) localStorage.setItem('fdm-cup', JSON.stringify(cup)); else localStorage.removeItem('fdm-cup'); } catch { /* sin storage */ } }
+function loadCup() { try { const c = JSON.parse(localStorage.getItem('fdm-cup')); return c && c.v === 1 && c.rounds ? c : null; } catch { return null; } }
+function paintCupButton() {
+  const saved = loadCup();
+  const b = $('#btn-cup-continue');
+  b.hidden = !saved || !!champion(saved);
+  if (saved) b.textContent = `Continuar torneo con ${teamById(saved.me).short}`;
+}
+
+function cupMenu() {
+  const mine = teamById(myTeamId);
+  const national = mine.group === 'Selecciones';
+  const saved = loadCup();
+  const warn = saved && !champion(saved) ? '<p class="note">Empezar uno nuevo borra el torneo que tienes guardado.</p>' : '';
+  modal(`<h2>Torneo</h2>
+    <p>Eliminación directa contra la IA con ${mine.name}, entre ${national ? 'selecciones' : 'clubes'}. Si empatas, se define por penales. La IA se pone más difícil en cada ronda.</p>${warn}`,
+  [['8 equipos', 'primary', () => startCup(8)], ['16 equipos', '', () => startCup(16)], ['Volver', 'ghost', () => {}]]);
+}
+
+function startCup(size) {
+  audio.unlock();
+  const national = teamById(myTeamId).group === 'Selecciones';
+  const pool = TEAMS.filter((t) => (t.group === 'Selecciones') === national).map((t) => t.id);
+  cup = newCup({ me: myTeamId, pool, size: Math.min(size, pool.length - (pool.length % 2)), length: myLength });
+  saveCup();
+  showCup();
+}
+
+function cupResultLine(m) {
+  const A = teamById(m.a), B = teamById(m.b);
+  const mine = m.a === cup.me || m.b === cup.me;
+  const mid = m.res ? `<b>${m.res.ga} - ${m.res.gb}</b>` : '<b>vs</b>';
+  const pens = m.res && m.res.pens ? `<small>penales ${m.res.pens[0]} - ${m.res.pens[1]}</small>` : '';
+  const w = (id) => (m.res && m.res.winner === id ? ' class="win"' : m.res ? ' class="lose"' : '');
+  return `<p class="fx${mine ? ' mine' : ''}"><span${w(m.a)}>${A.short}</span>${mid}<span${w(m.b)}>${B.short}</span>${pens}</p>`;
+}
+
+function showCup() {
+  if (!cup) return;
+  const left = teamsLeft(cup);
+  const champ = champion(cup);
+  const me = teamById(cup.me);
+  const m = myMatch(cup);
+  const playing = !cup.out && m && !m.res;
+  let head;
+  if (champ) {
+    const c = teamById(champ);
+    head = `<div class="champ"><small>CAMPEÓN</small><span class="kit-swatch" style="background:${swatchCss(c.kit)}"></span><b>${c.name}</b><em>${champ === cup.me ? '¡Ganaste el torneo!' : cup.out ? `Quedaste fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.` : ''}</em></div>`;
+    if (champ === cup.me && !cup.cheered) { cup.cheered = true; audio.sound('win'); }
+  } else if (playing) {
+    const rival = teamById(m.a === cup.me ? m.b : m.a);
+    head = `<div class="next-match"><small>${ROUND_NAMES[left].toUpperCase()}</small>
+      <div class="vsrow"><span><i class="kit-swatch" style="background:${swatchCss(me.kit)}"></i>${me.short}</span><b>vs</b><span><i class="kit-swatch" style="background:${swatchCss(rival.kit)}"></i>${rival.short}</span></div>
+      <em>${rival.name} · IA ${LEVELS[levelFor(left)].label.toLowerCase()}</em></div>`;
+  } else {
+    head = `<div class="next-match out"><small>ELIMINADO</small><b>${me.name} quedó fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.</b></div>`;
+  }
+  $('#cup-title').textContent = champ ? 'Torneo terminado' : `${ROUND_NAMES[left]}`;
+  $('#cup-head').innerHTML = head;
+  // El cuadro, de la ronda actual hacia atrás.
+  $('#cup-rounds').innerHTML = cup.rounds.map((r) => `<h3>${ROUND_NAMES[r.length * 2]}</h3>${r.map(cupResultLine).join('')}`).reverse().join('');
+  const act = $('#cup-actions');
+  act.innerHTML = '';
+  const btn = (txt, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = txt; b.onclick = fn; act.appendChild(b); };
+  if (playing) btn('Jugar partido', 'primary', () => playCupMatch());
+  else if (!champ) btn('Simular hasta el final', 'primary', () => { while (!champion(cup)) finishRound(cup, null); saveCup(); showCup(); });
+  if (champ) btn('Nuevo torneo', 'primary', () => cupMenu());
+  btn(champ || !playing ? 'Volver al menú' : 'Salir (queda guardado)', 'ghost', () => { if (champion(cup)) { cup = null; saveCup(); } show('screen-menu'); paintCupButton(); });
+  show('screen-cup');
+}
+
+function playCupMatch() {
+  const m = myMatch(cup);
+  const rival = m.a === cup.me ? m.b : m.a;
+  const level = levelFor(teamsLeft(cup));
+  audio.unlock();
+  let host, cpu;
+  const deliver = (x) => setTimeout(() => { view && view.onMessage(x); cpu.onMessage(x); }, 0);
+  host = new Host({ home: cup.me, away: rival, callerSide: 0, broadcast: deliver, length: cup.length });
+  cpu = new Cpu(1, (x) => host.receive(1, x), level);
+  lastHost = host;
+  cupPlaying = true;
+  view = new MatchView({ mySide: 0, isHost: true, send: (x) => host.receive(0, x), endButtons: (state) => [['Continuar', 'primary', () => cupAfterMatch(resultOf(state, cup.me, rival))]] });
+  session = { cleanup: () => { host.broadcast = () => {}; } };
+  $('#feed').textContent = `${ROUND_NAMES[teamsLeft(cup)]} contra ${teamById(rival).name}.`;
+  host.start();
+}
+
+// Tu resultado (visto desde tu equipo) se guarda en el sentido del cuadro.
+function cupAfterMatch(r) {
+  const m = myMatch(cup);
+  const res = m.a === cup.me ? r : { ga: r.gb, gb: r.ga, pens: r.pens && [r.pens[1], r.pens[0]], winner: r.winner };
+  cupPlaying = false;
+  clearPitch();
+  if (session) { try { session.cleanup(); } catch { /* ya cerrada */ } }
+  session = null;
+  finishRound(cup, res);
+  saveCup();
+  showCup();
+}
+
+function confirmQuitCup() {
+  modal('<h2>¿Abandonar el partido?</h2><p>Si abandonas, pierdes 3 a 0 y quedas eliminado del torneo.</p>', [
+    ['Abandonar', 'primary', () => {
+      const m = myMatch(cup);
+      const rival = m.a === cup.me ? m.b : m.a;
+      cupAfterMatch({ ga: 0, gb: 3, pens: null, winner: rival });
+    }],
+    ['Seguir jugando', 'ghost', () => {}],
+  ]);
+}
+
 // ---------- arranque ----------
 paintMyTeam();
 buildTeamGrid();
@@ -1083,6 +1206,9 @@ paintLength();
 $('#btn-quit').onclick = () => confirmQuit();
 $('#btn-create').onclick = () => createOnline();
 $('#btn-league').onclick = () => createLeague();
+$('#btn-cup').onclick = () => cupMenu();
+$('#btn-cup-continue').onclick = () => { cup = loadCup(); if (cup) showCup(); };
+paintCupButton();
 $('#lg-start').onclick = () => startLeague();
 $('#lg-leave').onclick = () => leaveLeague();
 document.querySelectorAll('#lg-len [data-len]').forEach((b) => (b.onclick = () => {
@@ -1107,4 +1233,4 @@ if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 
 // Para pruebas automáticas.
-window.__fdm = { get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };
+window.__fdm = { get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };
