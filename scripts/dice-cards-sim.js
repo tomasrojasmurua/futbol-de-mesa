@@ -17,18 +17,34 @@ const BASE = {
 };
 if (process.env.FALTAS) BASE.attackDef = ['corner', 'foul', 'steal', 'steal', 'steal', 'counter'];
 
-// Cartas: a quién (según la jugada), qué dado, qué caras cambian y cuántos usos.
-//  who: 'poss' tiene la pelota | 'def' no la tiene | 'losing' va perdiendo (empate: tie) | 'both'
+// Cartas: a quién le toca (según la jugada) y qué caras cambian en qué dado.
+//  who: 'poss' tiene la pelota | 'def' no la tiene | 'losing' va perdiendo |
+//       'winning' va ganando | 'both' los dos. tie: a quién si van empatados.
+//  Efecto: role 'att' = cuando ese equipo ataca, 'def' = cuando defiende;
+//  from → to en n caras; uses = cuántas tiradas dura; half = hasta el entretiempo.
+const ATT_DEF = ['buildDef', 'attackDef'];
+const e = (role, dice, from, to, n, uses, half) => ({ role, dice, from, to, n, uses, half });
 const CARDS = {
-  hinchada: { copies: 4, who: 'losing', tie: 'poss', role: 'att', dice: ['shotBeat'], from: 'wide', to: 'goal', n: 1, uses: 1 },
-  tactico: { copies: 3, who: 'losing', tie: 'def', role: 'def', dice: ['buildDef', 'attackDef'], from: 'steal', to: 'counter', n: 1, uses: 3 },
-  lluvia: { copies: 2, who: 'both', role: 'att', dice: ['shotBeat'], from: 'goal', to: 'wide', n: 1, uses: Infinity, half: true },
-  arquero: { copies: 2, who: 'def', role: 'def', dice: ['shotBeat'], from: 'goal', to: 'corner', n: 1, uses: 1 },
-  crack: { copies: 2, who: 'poss', role: 'att', dice: ['buildDef', 'attackDef'], from: 'steal', to: 'advance', n: 2, uses: 1 },
-  iluminacion: { copies: 2, who: 'poss', role: 'att', dice: ['shotSave'], from: 'save', to: 'goal', n: 1, uses: 1 },
-  error: { copies: 1, who: 'poss', role: 'att', dice: ['buildDef', 'attackDef'], from: 'steal', to: 'advance', n: 3, uses: 1 },
+  // Comunes
+  hinchada: { copies: 4, who: 'losing', tie: 'poss', fx: [e('att', ['shotBeat'], 'wide', 'goal', 1, 1)] },
+  suplentes: { copies: 4, who: 'def', fx: [e('def', ATT_DEF, 'steal', 'counter', 1, 2)] },
+  lesion: { copies: 4, who: 'def', fx: [e('def', ATT_DEF, 'steal', 'advance', 1, 3)] },
+  pelotazo: { copies: 4, who: 'poss', fx: [e('att', ['buildDef'], 'steal', 'shot', 1, 1)] },
+  tactico: { copies: 4, who: 'losing', tie: 'def', fx: [e('att', ATT_DEF, 'steal', 'advance', 1, 3), e('def', ATT_DEF, 'steal', 'advance', 1, 1)] },
+  // Normales
+  arquero: { copies: 3, who: 'def', fx: [e('def', ['shotBeat'], 'goal', 'corner', 1, 1)] },
+  tikitaka: { copies: 3, who: 'poss', fx: [e('att', ATT_DEF, 'steal', 'advance', 1, 3)] },
+  crack: { copies: 3, who: 'poss', fx: [e('att', ATT_DEF, 'steal', 'advance', 2, 1)] },
+  polemica: { copies: 3, who: 'poss', fx: [e('att', ['attackDef'], 'steal', 'penalty', 1, 1)] },
+  // Raras
+  lluvia: { copies: 2, who: 'both', fx: [e('att', ['shotBeat'], 'goal', 'wide', 1, Infinity, true)] },
+  errordt: { copies: 2, who: 'winning', tie: 'poss', fx: [e('def', ATT_DEF, 'steal', 'advance', 1, 2)] },
+  iluminacion: { copies: 2, who: 'poss', fx: [e('att', ['shotBeat'], 'post', 'goal', 1, 1)] },
+  // Muy raras
+  chilena: { copies: 1, who: 'poss', fx: [e('att', ['shotSave'], 'save', 'goal', 1, 1)] },
+  error: { copies: 1, who: 'poss', fx: [e('att', ATT_DEF, 'steal', 'advance', 3, 1)] },
 };
-const DISC = { amarilla: 7, roja: 1, libre: 2 };
+const DISC = { amarilla: 15, libre: 4, roja: 1 };
 
 const deckOf = (spec) => Object.entries(spec).flatMap(([k, v]) => Array(typeof v === 'number' ? v : v.copies).fill(k));
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -37,18 +53,18 @@ const d6 = () => Math.floor(Math.random() * 6);
 function play({ cards = true, read = [0, 0] } = {}) {
   const m = { score: [0, 0], poss: Math.random() < 0.5 ? 0 : 1, sit: 'build', clock: 0, half: 1 };
   const first = m.poss, kickoff = m.poss;
-  const partido = ONLY ? Array(16).fill(ONLY) : deckOf(CARDS);
+  const partido = ONLY ? Array(40).fill(ONLY) : deckOf(CARDS);
   const disc = deckOf(DISC);
   let deckP = shuffle(partido), deckD = shuffle(disc);
-  let fx = []; // efectos vivos: { card, side, uses }
+  let fx = []; // efectos vivos: { eff, side, uses }
   const yellows = [new Set(), new Set()];
   let drawn = 0;
-  const st = { cards: 0, fouls: 0, yellow: 0, red: 0, error: 0 };
+  const st = { cards: 0, fouls: 0, yellow: 0, red: 0, seen: new Set() };
 
   const faces = (die, att, def) => {
     const f = [...BASE[die]];
     for (const e of fx) {
-      const c = CARDS[e.card] || e.def;
+      const c = e.eff;
       if (!c.dice.includes(die)) continue;
       if (e.side !== (c.role === 'att' ? att : def)) continue;
       let k = c.n;
@@ -73,20 +89,22 @@ function play({ cards = true, read = [0, 0] } = {}) {
     let c = deckD.pop(); st.cards++;
     const D = 1 - m.poss, player = Math.floor(Math.random() * 8);
     if (c === 'amarilla') { if (yellows[D].has(player)) c = 'roja'; else { yellows[D].add(player); st.yellow++; } }
-    if (c === 'roja') { st.red++; fx.push({ def: { role: 'def', dice: ['buildDef', 'attackDef'], from: 'steal', to: m.sit === 'build' ? 'foul' : 'corner', n: 1 }, side: D, uses: Infinity }); }
+    if (c === 'roja') { st.red++; fx.push({ eff: e('def', ['buildDef'], 'steal', 'foul', 1), side: D, uses: Infinity }, { eff: e('def', ['attackDef'], 'steal', 'corner', 1), side: D, uses: Infinity }); }
     if (c === 'libre') m.sit = 'shot';
   };
   const drawPartido = () => {
     if (!deckP.length) deckP = shuffle(partido);
     const id = deckP.pop(), c = CARDS[id]; st.cards++;
-    if (id === 'error') st.error++;
+    st.seen.add(id);
     const P = m.poss, R = 1 - P;
-    const [a, b] = m.score, losing = a === b ? null : a < b ? 0 : 1;
+    const [a, b] = m.score, lead = a === b ? null : a > b ? 0 : 1;
+    const tie = c.tie === 'poss' ? P : R;
     let sides;
     if (c.who === 'both') sides = [0, 1];
-    else if (c.who === 'losing') sides = [losing ?? (c.tie === 'poss' ? P : R)];
+    else if (c.who === 'losing') sides = [lead == null ? tie : 1 - lead];
+    else if (c.who === 'winning') sides = [lead == null ? tie : lead];
     else sides = [c.who === 'poss' ? P : R];
-    for (const side of sides) fx.push({ card: id, side, uses: c.uses, half: c.half });
+    for (const side of sides) for (const eff of c.fx) fx.push({ eff, side, uses: eff.uses, half: eff.half });
   };
 
   while (true) {
@@ -99,6 +117,7 @@ function play({ cards = true, read = [0, 0] } = {}) {
         const f = cards ? faces('buildDef', A, D)[d6()] : BASE.buildDef[d6()];
         if (f === 'foul') foul();
         else if (f === 'advance') m.sit = 'attack';
+        else if (f === 'shot') m.sit = 'shot';
         else turnover(f === 'counter' ? 'attack' : 'build');
         break;
       }
@@ -108,7 +127,7 @@ function play({ cards = true, read = [0, 0] } = {}) {
         const f = cards ? faces('attackDef', A, D)[d6()] : BASE.attackDef[d6()];
         if (f === 'corner') m.sit = 'corner';
         else if (f === 'foul') foul();
-        else if (f === 'advance') m.sit = 'shot';
+        else if (f === 'advance' || f === 'penalty') m.sit = 'shot';
         else turnover(f === 'counter' ? 'attack' : 'build');
         break;
       }
@@ -143,17 +162,20 @@ function play({ cards = true, read = [0, 0] } = {}) {
 
 function row(label, opts) {
   let g = 0, fw = 0, dec = 0, w = 0, l = 0, w35 = 0;
-  const t = { cards: 0, fouls: 0, yellow: 0, red: 0, error: 0 };
+  const t = { cards: 0, fouls: 0, yellow: 0, red: 0 };
+  const seen = {};
   for (let i = 0; i < N; i++) {
     const { m, first, st } = play(opts);
     const [a, b] = m.score; g += a + b;
-    for (const k in t) t[k] += k === 'error' ? +(st[k] > 0) : st[k];
+    for (const k in t) t[k] += st[k];
+    for (const id of st.seen) seen[id] = (seen[id] || 0) + 1;
     if (a !== b) { dec++; if ((a > b ? 0 : 1) === first) fw++; }
     const r = play({ ...opts, read: [0.2, 0] }).m.score; if (r[0] > r[1]) w++; else if (r[0] < r[1]) l++;
     const r3 = play({ ...opts, read: [0.35, 0] }).m.score; if (r3[0] > r3[1]) w35++;
   }
   const f = (x, d = 2) => (x / N).toFixed(d);
-  console.log(`${label.padEnd(16)} goles ${f(g)}  gana quien saca ${(100 * fw / dec).toFixed(1)}%  lee 20%: ${(100 * w / N).toFixed(0)}-${(100 * l / N).toFixed(0)}  lee 35%: gana ${(100 * w35 / N).toFixed(0)}  faltas ${f(t.fouls)}  amarillas ${f(t.yellow)}  rojas ${f(t.red, 3)}  partidos con error ${(100 * t.error / N).toFixed(0)}%`);
+  console.log(`${label.padEnd(16)} goles ${f(g)}  gana quien saca ${(100 * fw / dec).toFixed(1)}%  lee 20%: ${(100 * w / N).toFixed(0)}-${(100 * l / N).toFixed(0)}  lee 35%: gana ${(100 * w35 / N).toFixed(0)}  cartas ${f(t.cards, 1)}  faltas ${f(t.fouls)}  amarillas ${f(t.yellow)}  rojas ${f(t.red, 3)}`);
+  if (opts.cards && !ONLY) console.log('  sale en este % de partidos:', Object.entries(seen).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${(100 * v / N).toFixed(0)}%`).join(', '));
 }
 
 row('sin cartas', { cards: false });
