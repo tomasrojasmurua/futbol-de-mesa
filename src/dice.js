@@ -170,3 +170,89 @@ export async function rollDice(wrap, { value, faces, labels, title, reason, soun
   wrap.classList.remove('show');
   wrap.innerHTML = '';
 }
+
+// ---------- moneda del sorteo ----------
+// Relieve: el dibujo va dos veces, una línea clara corrida y encima el oro oscuro.
+const emboss = (d) => `<g fill="#fff3b0" opacity=".75" transform="translate(-.7 -.7)">${d}</g><g fill="#7a5300">${d}</g>`;
+const rim = () => Array.from({ length: 36 }, (_, i) => {
+  const a = (i / 36) * Math.PI * 2;
+  return `<rect x="${(24 + Math.cos(a) * 20.6 - 0.7).toFixed(2)}" y="${(24 + Math.sin(a) * 20.6 - 0.7).toFixed(2)}" width="1.4" height="1.4"/>`;
+}).join('');
+const leaves = (s) => Array.from({ length: 6 }, (_, i) => {
+  const a = Math.PI * (0.62 + i * 0.075), x = 24 + Math.cos(a) * 14 * s, y = 26 + Math.sin(a) * 14;
+  return `<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="1.3" ry="2.6" transform="rotate(${((a * 180) / Math.PI + 90) * s} ${x.toFixed(2)} ${y.toFixed(2)})"/>`;
+}).join('');
+const COIN_ART = {
+  // Cara: el perfil de un jugador con la cinta de capitán en el pelo, y estrellas.
+  cara: rim() +
+    '<path d="M17 37c-1.4-5-3.2-7.6-2.6-12.8C15.2 16.6 20.6 12 27 12.4c5 .3 8.2 3.6 8.6 7.4l2.2 3.8-2 .9.5 2-1 .9.4 2.2c-.7 2-3.4 2.4-5.8 2.1l.2 5.3z"/>' +
+    '<path d="M14.6 20.4c3-4.6 8.4-6.6 14-5.4l-.5 1.8c-5-1-9.6.6-12.4 4.6z"/>' +
+    '<rect x="10" y="12" width="2" height="2"/><rect x="36" y="11" width="2" height="2"/><rect x="38" y="33" width="2" height="2"/>',
+  // Sello: una pelota entre dos ramas de laurel.
+  sello: rim() + leaves(1) + `<g transform="translate(48 0) scale(-1 1)">${leaves(1)}</g>` +
+    '<circle cx="24" cy="23" r="8.6" fill="none" stroke="currentColor" stroke-width="1.8"/>' +
+    '<path d="M24 18.8l3.6 2.6-1.4 4.2h-4.4l-1.4-4.2z"/><path d="M24 14.4v4.4M27.6 21.4l4.2-1.6M26.2 25.6l2.6 3.6M21.8 25.6l-2.6 3.6M20.4 21.4l-4.2-1.6" fill="none" stroke="currentColor" stroke-width="1.4"/>' +
+    '<rect x="18" y="35" width="12" height="2"/>',
+};
+const coinSvg = (k) => `<svg viewBox="0 0 48 48" aria-hidden="true" style="color:#7a5300">${emboss(COIN_ART[k])}</svg>`;
+
+export async function tossCoin(wrap, { result, text, sound }) {
+  const k = result === 'sello' ? 'sello' : 'cara';
+  const label = { cara: 'Cara', sello: 'Sello' };
+  const edge = [-2, -1, 0, 1, 2].map((z) => `<i class="ce" style="transform:translateZ(${z}px)"></i>`).join('');
+  wrap.innerHTML = `<div class="tbox">
+    <div class="thead"><small>Sorteo inicial</small><h2>¿Cara o sello?</h2>
+      <div class="tleg">${['cara', 'sello'].map((f) => `<span data-k="${f}"><i class="mc">${coinSvg(f)}</i>${label[f]}</span>`).join('')}</div></div>
+    <div class="tray" style="background-image:url(${grass()})"><div class="tshade"></div>
+      <div class="tcoin"><div class="c3">${edge}<div class="cf f">${coinSvg('cara')}</div><div class="cf b">${coinSvg('sello')}</div></div></div></div>
+    <div class="tres"><span class="rd">La moneda está en el aire…</span></div></div>`;
+  const tray = wrap.querySelector('.tray'), coin = wrap.querySelector('.tcoin'), c3 = wrap.querySelector('.c3');
+  const shade = wrap.querySelector('.tshade'), res = wrap.querySelector('.tres');
+  wrap.classList.add('show');
+  const W = tray.clientWidth, H = tray.clientHeight, D = coin.offsetWidth;
+  const lx = W / 2 + (Math.random() * 2 - 1) * Math.min(50, W * 0.15), ly = H / 2 + 6;
+  const dx = (Math.random() * 2 - 1) * 30, dy = H - D * 0.6 - ly;
+  coin.style.left = `${lx - D / 2}px`; coin.style.top = `${ly - D / 2}px`;
+  shade.style.left = `${lx - D / 2}px`; shade.style.top = `${ly - D / 2 + 6}px`;
+
+  const red = reduced();
+  const T = red ? 300 : 1350;
+  const turns = 5 + Math.floor(Math.random() * 3);
+  const F = turns * 360 + (k === 'sello' ? 180 : 0);
+  const tilt = (Math.random() * 2 - 1) * 25;
+  sound('coin');
+  // Sube girando sobre sí misma, baja, pica una vez y se asienta tambaleando.
+  const fly = coin.animate([
+    { transform: `translate(${dx}px,${dy}px) scale(1.05) rotate(${tilt}deg)` },
+    { transform: `translate(${dx * 0.5}px,${dy * 0.4 - 70}px) scale(1.75) rotate(${tilt * 0.6}deg)`, offset: 0.36, easing: 'ease-in' },
+    { transform: `translate(0,0) scale(1) rotate(${tilt * 0.2}deg)`, offset: 0.66, easing: 'ease-out' },
+    { transform: `translate(0,-10px) scale(1.1) rotate(${tilt * 0.1}deg)`, offset: 0.76, easing: 'ease-in' },
+    { transform: 'translate(0,0) scale(1) rotate(0deg)', offset: 0.86 },
+    { transform: 'translate(0,0) scale(1) rotate(0deg)' },
+  ], { duration: T, fill: 'both' });
+  const spin = c3.animate([
+    { transform: 'rotateX(0deg)' },
+    { transform: `rotateX(${F - 40}deg)`, offset: 0.66 },
+    { transform: `rotateX(${F + 28}deg)`, offset: 0.76 },
+    { transform: `rotateX(${F - 12}deg)`, offset: 0.86 },
+    { transform: `rotateX(${F + 4}deg)`, offset: 0.94 },
+    { transform: `rotateX(${F}deg)` },
+  ], { duration: T, easing: 'linear', fill: 'both' });
+  shade.animate([
+    { transform: `translate(${dx}px,${dy}px) scale(.9)`, opacity: 0.5 },
+    { transform: `translate(${dx * 0.5}px,${dy * 0.4}px) scale(.45)`, opacity: 0.18, offset: 0.36 },
+    { transform: 'translate(0,0) scale(1)', opacity: 0.55, offset: 0.66 },
+    { transform: 'translate(0,0) scale(.85)', opacity: 0.4, offset: 0.76 },
+    { transform: 'translate(0,0) scale(1)', opacity: 0.55 },
+  ], { duration: T, fill: 'both' });
+  if (!red) setTimeout(() => sound('clink'), T * 0.66);
+  await Promise.all([fly.finished, spin.finished].map((p) => p.catch(() => {})));
+
+  coin.classList.add('land');
+  sound('clink');
+  wrap.querySelector(`.tleg span[data-k="${k}"]`)?.classList.add('hit');
+  res.innerHTML = `<b class="rk">¡${label[k]}!</b>${text ? `<span class="rd">${text}</span>` : ''}`;
+  await wait(1900);
+  wrap.classList.remove('show');
+  wrap.innerHTML = '';
+}

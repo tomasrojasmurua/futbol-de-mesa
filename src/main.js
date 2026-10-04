@@ -10,7 +10,7 @@ import { Renderer } from './render.js';
 import { CARDS, activeEffects } from './situations.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
-import { rollDice } from './dice.js';
+import { rollDice, tossCoin } from './dice.js';
 import { playerName } from './squads.js';
 
 const $ = (s) => document.querySelector(s);
@@ -696,17 +696,7 @@ const ui = {
     await rollDice($('#dice'), { value, faces, labels: DIE_LABELS, title, reason, sound: (n) => audio.sound(n) });
   },
   async coin(result, text) {
-    const wrap = $('#coin'), c = $('#coin-face');
-    $('#coin-text').textContent = 'La moneda está en el aire…';
-    c.textContent = '';
-    wrap.classList.add('show'); c.classList.add('flip');
-    audio.sound('coin');
-    await wait(1500);
-    c.classList.remove('flip');
-    c.textContent = result.toUpperCase();
-    $('#coin-text').textContent = `Salió ${result}. ${text}`;
-    await wait(1800);
-    wrap.classList.remove('show');
+    await tossCoin($('#coin'), { result, text, sound: (n) => audio.sound(n) });
   },
   fadeOut() { $('#fade').classList.add('on'); return wait(260); },
   fadeIn() { $('#fade').classList.remove('on'); return wait(260); },
