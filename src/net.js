@@ -57,21 +57,23 @@ function decode(buf) {
   try { return JSON.parse(new TextDecoder().decode(buf)); } catch { return null; }
 }
 
-// Canal de mensajes entre los dos jugadores sobre un cliente MQTT.
-function channel(client, inTopic, outTopic, myId) {
+// Canal de mensajes entre dos jugadores sobre un cliente MQTT. Con `peerId`
+// sólo acepta mensajes de ese jugador y le dirige los propios (para salas con
+// varios invitados sobre el mismo tópico).
+function channel(client, inTopic, outTopic, myId, peerId = null) {
   const handlers = { message: [], close: [] };
   let closed = false, last = Date.now();
   const close = () => { if (closed) return; closed = true; clearInterval(ping); handlers.close.forEach((h) => h()); };
   client.on('message', (topic, payload) => {
     if (topic !== inTopic) return;
     const m = decode(payload);
-    if (!m || m.from === myId || (m.to && m.to !== myId)) return;
+    if (!m || m.from === myId || (m.to && m.to !== myId) || (peerId && m.from !== peerId)) return;
     last = Date.now();
     if (m.t === 'ping') return;
     if (m.t === 'bye') { close(); return; }
     handlers.message.forEach((h) => h(m));
   });
-  const send = (m) => { if (!closed) client.publish(outTopic, JSON.stringify({ ...m, from: myId }), { qos: 1 }); };
+  const send = (m) => { if (!closed) client.publish(outTopic, JSON.stringify(peerId ? { ...m, from: myId, to: peerId } : { ...m, from: myId }), { qos: 1 }); };
   const ping = setInterval(() => {
     send({ t: 'ping' });
     if (Date.now() - last > 25000) close();
@@ -85,17 +87,20 @@ function channel(client, inTopic, outTopic, myId) {
   };
 }
 
-// Crea una sala. onGuest(conn) se llama cuando entra el rival.
-export function createRoom({ onReady, onGuest, onError }) {
-  let client = null, conn = null, dead = false;
+// Crea una sala. onGuest(conn, hello) se llama cuando entra cada invitado.
+// max: cuántos invitados acepta (1 en un partido, hasta 3 en una liga).
+export function createRoom({ onReady, onGuest, onError, max = 1, mode = 'match' }) {
+  let client = null, dead = false, locked = false;
+  const guests = new Map();
   const code = makeCode();
   const base = PREFIX + code;
   const hostId = 'h_' + rid();
+  const closeRoom = () => { if (client) client.publish(base + '/room', '', { qos: 1, retain: true }); };
   connectAny().then(({ client: c, idx }) => {
     if (dead) { c.end(true); return; }
     client = c;
     // Aviso "retenido": así quien entra con el código sabe que la sala existe.
-    client.publish(base + '/room', JSON.stringify({ open: true, at: Date.now() }), { qos: 1, retain: true });
+    client.publish(base + '/room', JSON.stringify({ open: true, mode, at: Date.now() }), { qos: 1, retain: true });
     client.subscribe([base + '/h'], { qos: 1 }, (err) => {
       if (err) { onError({ type: 'network' }); return; }
       onReady(code, idx);
@@ -104,24 +109,29 @@ export function createRoom({ onReady, onGuest, onError }) {
       if (topic !== base + '/h') return;
       const m = decode(payload);
       if (!m || m.t !== 'join') return;
-      if (conn) {
-        if (m.from !== conn.guestId) client.publish(base + '/g', JSON.stringify({ t: 'full', to: m.from, from: hostId }), { qos: 1 });
+      const welcome = () => client.publish(base + '/g', JSON.stringify({ t: 'welcome', mode, to: m.from, from: hostId }), { qos: 1 });
+      if (guests.has(m.from)) { welcome(); return; } // reintento del mismo invitado
+      if (locked || guests.size >= max) {
+        client.publish(base + '/g', JSON.stringify({ t: 'full', to: m.from, from: hostId }), { qos: 1 });
         return;
       }
-      client.publish(base + '/g', JSON.stringify({ t: 'welcome', to: m.from, from: hostId }), { qos: 1 });
-      // La sala ya no está disponible para otros.
-      client.publish(base + '/room', '', { qos: 1, retain: true });
-      conn = channel(client, base + '/h', base + '/g', hostId);
+      welcome();
+      const conn = channel(client, base + '/h', base + '/g', hostId, m.from);
       conn.guestId = m.from;
+      guests.set(m.from, conn);
+      // La sala ya no está disponible para otros.
+      if (guests.size >= max) closeRoom();
       onGuest(conn, m);
     });
   }).catch((e) => onError(e));
   return {
+    // No acepta más invitados (la liga empezó).
+    lock: () => { locked = true; closeRoom(); },
     destroy: () => {
       dead = true;
       if (client) {
-        client.publish(base + '/room', '', { qos: 1, retain: true });
-        if (conn) conn.close(); else setTimeout(() => client.end(true), 300);
+        closeRoom();
+        if (guests.size) guests.forEach((g) => g.close()); else setTimeout(() => client.end(true), 300);
       }
     },
   };
@@ -158,7 +168,7 @@ export function joinRoom(rawCode, { onOpen, onError, team, brokerHint = 0 }) {
         if (m.t === 'full') { onError({ type: 'full' }); return; }
         if (m.t === 'welcome') {
           welcomed = true;
-          onOpen(channel(client, base + '/g', base + '/h', guestId));
+          onOpen(channel(client, base + '/g', base + '/h', guestId), m);
         }
       }
     });

@@ -29,6 +29,10 @@ Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una
 
 Cada carta tiene 12 segundos; si se acaba el tiempo, se elige sola. La duración se elige en el menú: corto (unas 21 decisiones, 3 a 5 minutos), normal (unas 34, 5 a 8 minutos) o largo (unas 53, 10 a 14 minutos). En una sala manda la de quien la crea.
 
+## Liga
+
+En el menú, «Crear liga» abre una sala para 2 a 4 jugadores, que entran con el mismo código. Se juega todos contra todos (con 2 jugadores, ida y vuelta): con 4, los dos partidos de cada fecha van en simultáneo; con 3, el que descansa mira el otro partido en vivo, y quien termina antes puede mirar el que sigue. Triunfo 3 puntos, empate 1 (sin penales); desempate por diferencia de gol y goles a favor. Los partidos son cortos por defecto. Quien crea la liga es la autoridad de todos los partidos y arranca cada fecha; si alguien se va, pierde 3-0 sus partidos pendientes.
+
 ## Desarrollo
 
 ```bash
@@ -53,6 +57,7 @@ El repositorio ya trae `netlify.toml` (build `npm run build`, carpeta `dist`). E
 - `src/game.js`: reglas puras del partido (situaciones, dados, reloj, relato).
 - `src/host.js`: autoridad del partido y rival de la IA (Fácil, Normal, Difícil).
 - `src/net.js`: salas por relevo MQTT.
+- `src/league.js`: fixture, tabla y autoridad de la liga.
 - `src/render.js`: cancha, jugadores, cámara y animación de cada jugada.
 - `src/cutscene.js`: escena animada de cada remate.
 - `src/squads.js`: planteles con los nombres de los jugadores.

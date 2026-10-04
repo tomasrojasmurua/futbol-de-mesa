@@ -31,6 +31,7 @@
         <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
       </div>
       <button id="btn-create" class="btn primary">Crear sala</button>
+      <button id="btn-league" class="btn">Crear liga (2 a 4 jugadores)</button>
       <div class="join-row">
         <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
         <button id="btn-join" class="btn">Unirse</button>
@@ -57,6 +58,40 @@
       <p class="waiting"><span class="ball-spin"></span> Esperando al rival…</p>
       <button id="btn-cancel" class="btn ghost">Cancelar</button>
       <p id="lobby-msg" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- LIGA: SALA -->
+  <section id="screen-league" class="screen">
+    <div class="menu-inner">
+      <h2 class="h2" id="lg-title">Liga creada</h2>
+      <div id="lg-code-box" class="lg-code-box">
+        <p>Comparte el código con hasta 3 amigos:</p>
+        <div id="lg-code" class="room-code">·····</div>
+        <button id="lg-share" class="btn primary">Compartir enlace</button>
+      </div>
+      <ul id="lg-players" class="lg-players"></ul>
+      <div class="len-row" id="lg-len">
+        <small>Duración</small>
+        <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
+      </div>
+      <button id="lg-start" class="btn primary">Empezar liga</button>
+      <p id="lg-wait" class="waiting"></p>
+      <button id="lg-leave" class="btn ghost">Salir</button>
+      <p id="lg-msg" class="msg"></p>
+    </div>
+  </section>
+
+  <!-- LIGA: TABLA -->
+  <section id="screen-table" class="screen">
+    <div class="table-inner">
+      <h2 class="h2" id="tb-title">Tabla</h2>
+      <div id="tb-champ"></div>
+      <table id="tb-table" class="league-table"></table>
+      <div id="tb-live"></div>
+      <div id="tb-results"></div>
+      <div id="tb-next"></div>
+      <div id="tb-actions" class="tb-actions"></div>
     </div>
   </section>
 

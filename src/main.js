@@ -2,6 +2,7 @@ import { TEAMS, teamById, matchKits } from './teams.js';
 import { optionsFor, SHOT_TITLES, TURN_SECONDS, fmtMinute, commentary, diceReason, diceFaces, DIE_LABELS, LENGTHS, randomChoice } from './game.js';
 import { Host, Cpu, LEVELS } from './host.js';
 import { createRoom, joinRoom } from './net.js';
+import { LeagueHost } from './league.js';
 import { Renderer } from './render.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
@@ -103,6 +104,8 @@ const HELP = `
 <p>Si el partido termina empatado, se define por penales: cinco por lado y, si siguen iguales, muerte súbita. Cada penal es un duelo de remate contra arquero, con el mismo dado si el arquero no adivina.</p>
 <h3>Estadio</h3>
 <p>Juegas de local en una versión pixelada del estadio de tu equipo. Al final ves los goleadores, la figura del partido y las estadísticas.</p>
+<h3>Liga</h3>
+<p>Crea una liga y comparte el código: entran hasta 4 jugadores y se enfrentan todos contra todos (con 2, ida y vuelta). Con 4 los dos partidos de cada fecha se juegan al mismo tiempo; con 3, el que descansa mira el otro partido en vivo. Gana 3 puntos, empata 1 (en la liga no hay penales). Por defecto los partidos son cortos.</p>
 <h3>Salas</h3>
 <p>Crea una sala, comparte el código o el enlace, y tu rival entra desde su celular. Tienes ${TURN_SECONDS} segundos para cada carta: si se acaba el tiempo, se elige sola.</p>`;
 
@@ -142,8 +145,12 @@ const QUESTIONS = {
 
 // ---------- vista del partido ----------
 class MatchView {
-  constructor({ mySide, send, isHost, onRematch }) {
+  // spectator: sólo mira (la liga, cuando no te toca jugar). endButtons: botones
+  // propios para el cuadro final.
+  constructor({ mySide, send, isHost, onRematch, spectator = false, endButtons = null }) {
     this.mySide = mySide;
+    this.spectator = spectator;
+    this.endButtons = endButtons;
     this.send = send;
     this.isHost = isHost;
     this.onRematch = onRematch;
@@ -156,7 +163,8 @@ class MatchView {
     show('screen-game');
     renderer.resize();
     $('#feed').textContent = '¡Bienvenidos al estadio!';
-    this.clearCards('Preparando la cancha…');
+    this.clearCards(spectator ? 'Mirando el partido…' : 'Preparando la cancha…');
+    document.body.classList.toggle('watching', spectator);
   }
 
   onMessage(msg) {
@@ -170,12 +178,29 @@ class MatchView {
     this.busy = true;
     while (this.queue.length) {
       const m = this.queue.shift();
-      try { await this.handle(m.state, m.ev); } catch (e) { console.error(e); }
+      try {
+        // Entrar a mirar un partido ya empezado: se arma la cancha con el estado actual.
+        if (!this.kits && m.ev.type !== 'start') this.joinLive(m.state);
+        else await this.handle(m.state, m.ev);
+      } catch (e) { console.error(e); }
     }
     this.busy = false;
   }
 
   names() { return this.state.teams.map((id) => teamById(id).name); }
+
+  joinLive(state) {
+    this.state = state;
+    const teams = state.teams.map(teamById);
+    this.kits = matchKits(teams[0], teams[1]);
+    renderer.setup(teams, this.kits, this.mySide);
+    renderer.kickoffNow(state.poss);
+    this.paintHud(state);
+    this.paintPens(state);
+    this.feed(`En vivo: ${teams[0].name} vs ${teams[1].name}.`);
+    if (this.spectator) this.watchingPanel(state.phase === 'toss' ? 'Sorteo inicial…' : 'Los dos eligen su carta…');
+    if (state.phase === 'end') this.showEnd(state);
+  }
 
   async handle(state, ev) {
     this.state = state;
@@ -248,10 +273,12 @@ class MatchView {
     const r = $('#panel-role'); r.textContent = '? ? ?'; r.className = 'role suspense';
     const me = cardInfo(ev.situation, myRole, mine, iAttack);
     const them = cardInfo(ev.situation, theirRole, theirs, iAttack);
+    const shorts = this.state.teams.map((id) => teamById(id).short);
+    const tagMe = this.spectator ? shorts[this.mySide] : 'TÚ', tagThem = this.spectator ? shorts[1 - this.mySide] : 'RIVAL';
     $('#cards').innerHTML = `
-      <div class="duel-card mine ${myRole}"><div class="card ${myRole}">${cardHtml(me, myRole, 'TÚ')}</div></div>
+      <div class="duel-card mine ${myRole}"><div class="card ${myRole}">${cardHtml(me, myRole, tagMe)}</div></div>
       <div class="vs">VS</div>
-      <div class="duel-card theirs ${theirRole}"><div class="flip"><div class="face back"><img src="${icon('back')}" alt=""><span>RIVAL</span></div><div class="face front card ${theirRole}">${cardHtml(them, theirRole, 'RIVAL')}</div></div></div>
+      <div class="duel-card theirs ${theirRole}"><div class="flip"><div class="face back"><img src="${icon('back')}" alt=""><span>${tagThem}</span></div><div class="face front card ${theirRole}">${cardHtml(them, theirRole, tagThem)}</div></div></div>
       <div id="stamp" class="stamp"></div>`;
     $('#cards').classList.add('reveal');
     $('#panel').classList.add('tense');
@@ -277,6 +304,12 @@ class MatchView {
     if (winCard) winCard.classList.add('win');
     const lose = document.querySelector(won ? '.duel-card.theirs' : '.duel-card.mine');
     if (lose) lose.classList.add('lose');
+    if (this.spectator) {
+      const winSide = ev.match ? 1 - ev.poss : ev.poss;
+      $('#panel-title').textContent = ev.outcome === 'goal' ? `¡Gol de ${this.names()[ev.poss]}!` : `${this.names()[winSide]} gana el duelo.`;
+      const r = $('#panel-role'); r.textContent = 'EN VIVO'; r.className = 'role live';
+      return;
+    }
     const goal = ev.outcome === 'goal';
     const text = goal ? (iAttack ? '¡GOOOL!' : 'GOL EN CONTRA') : won ? '¡GANASTE EL DUELO!' : 'PERDISTE EL DUELO';
     const stamp = $('#stamp');
@@ -344,7 +377,8 @@ class MatchView {
     $('#cards').classList.remove('locked', 'reveal');
     $('#panel').classList.remove('tense');
     if (!waitText) $('#panel-title').textContent = 'El partido está en juego…';
-    $('#panel-role').textContent = '';
+    const r = $('#panel-role');
+    if (this.spectator) { r.textContent = 'EN VIVO'; r.className = 'role live'; } else { r.textContent = ''; r.className = 'role'; }
     $('#timer-bar').style.width = '0';
   }
 
@@ -396,6 +430,7 @@ class MatchView {
   }
 
   promptToss(state) {
+    if (this.spectator) { this.watchingPanel('Sorteo inicial…'); return; }
     if (state.callerSide !== this.mySide) {
       this.clearCards('El rival elige cara o sello…');
       $('#panel-title').textContent = 'Sorteo inicial';
@@ -409,6 +444,7 @@ class MatchView {
 
   prompt(state) {
     if (this.dead || state.phase !== 'play') return;
+    if (this.spectator) { this.watchingPanel('Los dos eligen su carta…'); return; }
     const att = state.poss === this.mySide;
     const role = att ? 'att' : 'def';
     const sit = state.situation;
@@ -437,6 +473,13 @@ class MatchView {
     this.renderCards(title, att ? 'ATACAS' : 'DEFIENDES', role, opts, (choice) => this.send({ t: 'choice', seq, choice }));
   }
 
+  // Panel de quien mira: no hay cartas que elegir.
+  watchingPanel(text) {
+    this.clearCards(text);
+    const t = this.state.teams.map((id) => teamById(id).short);
+    $('#panel-title').textContent = `Mirando ${t[0]} vs ${t[1]}`;
+  }
+
   showEnd(state) {
     if (this.dead) return;
     this.stopTimer();
@@ -445,7 +488,7 @@ class MatchView {
     const [a, b] = state.score;
     const me = this.mySide;
     const winner = state.pens ? state.winner : a === b ? -1 : a > b ? 0 : 1;
-    const res = winner === -1 ? 'Empate' : winner === me ? '¡Ganaste!' : 'Perdiste';
+    const res = this.spectator ? (winner === -1 ? 'Final: empate' : `Gana ${teams[winner].name}`) : winner === -1 ? 'Empate' : winner === me ? '¡Ganaste!' : 'Perdiste';
     if (res === '¡Ganaste!') audio.sound('win');
     const st = state.stats;
     const row = (label, k) => `<tr><td>${st[k][0]}</td><td>${label}</td><td>${st[k][1]}</td></tr>`;
@@ -491,13 +534,14 @@ class MatchView {
       ${mvpHtml}
       <ul class="leaders">${best('st', 'Más recuperaciones')}${best('sv', 'Más atajadas')}${best('sh', 'Más remates')}</ul>
       <table class="stats">${row('Remates', 'shots')}${row('Al arco', 'onTarget')}${row('Córners', 'corners')}${row('Recuperaciones', 'steals')}</table>`;
+    if (this.endButtons) { modal(html, this.endButtons(state)); return; }
     const btns = [];
     if (this.onRematch) btns.push(['Revancha', 'primary', () => { this.onRematch(); }]);
     btns.push(['Volver al menú', 'ghost', () => { leaveMatch(); }]);
     modal(html, btns);
   }
 
-  destroy() { this.dead = true; this.stopTimer(); this.queue = []; }
+  destroy() { this.dead = true; this.stopTimer(); this.queue = []; document.body.classList.remove('watching'); }
 }
 
 // ---------- capa de UI para el motor ----------
@@ -629,6 +673,11 @@ function startHostGame(conn, guestTeam) {
 
 // Abandonar: contra la IA vuelve al menú; en una sala le avisa al rival.
 function confirmQuit() {
+  if (league) {
+    if (view && view.spectator) showTable();
+    else confirmLeaveLeague();
+    return;
+  }
   if (!session && !view) { show('screen-menu'); return; }
   modal('<h2>¿Abandonar el partido?</h2><p>Si abandonas, el partido se da por perdido.</p>', [
     ['Abandonar', 'primary', () => quitMatch()],
@@ -707,10 +756,11 @@ function joinOnline(code) {
   const j = joinRoom(code, {
     team: myTeamId,
     brokerHint: hint,
-    onOpen: (c) => {
+    onOpen: (c, welcome) => {
       conn = c;
       $('#menu-msg').textContent = '';
       $('#btn-join').disabled = false;
+      if (welcome && welcome.mode === 'league') { joinLeague(c, welcome, j); return; }
       c.on('close', onDisconnect);
       c.on('message', (m) => {
         if (m.t === 'quit') { onRivalQuit(); return; }
@@ -735,6 +785,284 @@ function joinOnline(code) {
   session = { cleanup: () => { if (conn) conn.close(); j.destroy(); }, send: (m) => conn && conn.send(m) };
 }
 
+// ---------- liga ----------
+// Hasta 4 jugadores, todos contra todos. Quien crea la liga es la autoridad
+// (LeagueHost); los demás reciben la fecha, juegan o miran, y ven la tabla.
+let league = null;
+
+const teamOfPlayer = (id) => {
+  const p = league && league.players.find((x) => x.id === id);
+  return teamById(p ? p.team : 'rac');
+};
+
+function createLeague() {
+  audio.unlock();
+  const guests = new Map();
+  league = { isHost: true, me: 'h', players: [{ id: 'h', team: myTeamId }], length: 'short', live: [], lastByMid: {}, table: null, partial: null, lh: null, guests };
+  const lg = league;
+  // Entrega a un jugador: al anfitrión en el mismo celular, al resto por la sala.
+  const sendTo = (id, msg) => {
+    if (id === 'h') { setTimeout(() => league === lg && leagueMsg(msg), 0); return; }
+    const g = guests.get(id);
+    if (!g) return;
+    const out = { ...msg, n: ++g.n };
+    g.hist.push(out);
+    if (g.hist.length > 120) g.hist.shift();
+    g.conn.send(out);
+  };
+  lg.sendTo = sendTo;
+  lg.up = (m) => lg.lh && lg.lh.receive('h', m);
+  const lobby = () => lg.players.forEach((p) => sendTo(p.id, { t: 'lg', kind: 'lobby', players: lg.players, length: lg.length }));
+  lg.lobby = lobby;
+  const gone = (id) => {
+    if (!guests.has(id)) return;
+    if (lg.lh) { lg.lh.leave(id); return; }
+    guests.delete(id);
+    lg.players = lg.players.filter((p) => p.id !== id);
+    lobby();
+  };
+  const room = createRoom({
+    max: 3,
+    mode: 'league',
+    onReady: (code, broker) => {
+      $('#lg-code').textContent = code;
+      const url = `${location.origin}${location.pathname}?sala=${code}&b=${broker}`;
+      $('#lg-share').onclick = async () => {
+        const text = `¡Súmate a mi liga de Calcciopoli! Entra con el código ${code}`;
+        try {
+          if (navigator.share) await navigator.share({ title: 'Calcciopoli', text, url });
+          else { await navigator.clipboard.writeText(`${text}: ${url}`); $('#lg-msg').textContent = 'Enlace copiado.'; }
+        } catch { /* cancelado */ }
+      };
+    },
+    onGuest: (conn, hello) => {
+      const id = conn.guestId;
+      // Cada jugador con un equipo distinto: si ya está tomado, se le asigna otro.
+      let team = teamById(hello.team).id;
+      const used = new Set(lg.players.map((p) => p.team));
+      if (used.has(team)) {
+        const free = TEAMS.filter((t) => !used.has(t.id));
+        team = free[Math.floor(Math.random() * free.length)].id;
+      }
+      guests.set(id, { conn, n: 0, hist: [] });
+      lg.players.push({ id, team });
+      conn.on('message', (m) => {
+        if (m.t === 'sync') { guests.get(id)?.hist.filter((x) => x.n > (m.n || 0)).forEach((x) => conn.send(x)); return; }
+        if (m.t === 'reconnected') { guests.get(id)?.hist.slice(-10).forEach((x) => conn.send(x)); return; }
+        if (m.t === 'quit') { gone(id); return; }
+        if (lg.lh) lg.lh.receive(id, m);
+      });
+      conn.on('close', () => gone(id));
+      lobby();
+    },
+    onError: (e) => { $('#lg-msg').textContent = errorText(e); },
+  });
+  lg.room = room;
+  lg.cleanup = () => {
+    if (lg.lh) lg.lh.matches.forEach((m) => clearTimeout(m.timer));
+    guests.forEach((g) => g.conn.close());
+    room.destroy();
+  };
+  session = { cleanup: () => { lg.cleanup(); if (league === lg) league = null; }, send: null };
+  $('#lg-code').textContent = '·····';
+  $('#lg-msg').textContent = '';
+  renderLobby();
+  show('screen-league');
+}
+
+function startLeague() {
+  const lg = league;
+  if (!lg || !lg.isHost || lg.lh || lg.players.length < 2) return;
+  lg.room.lock();
+  lg.lh = new LeagueHost({ players: lg.players, length: lg.length, send: lg.sendTo });
+  lg.lh.start();
+}
+
+// Invitado: entró con el código a una sala que es una liga.
+function joinLeague(c, welcome, j) {
+  let lastN = 0;
+  league = { isHost: false, me: welcome.to, players: [], length: 'short', live: [], lastByMid: {}, table: null, partial: null, up: (m) => c.send(m) };
+  const lg = league;
+  c.on('message', (m) => {
+    if (m.t === 'reconnected') { c.send({ t: 'sync', n: lastN }); return; }
+    if (m.n) { if (m.n <= lastN) return; lastN = m.n; }
+    if (league === lg) leagueMsg(m);
+  });
+  c.on('close', () => { if (league === lg) leagueClosed('Se perdió la conexión con quien creó la liga.'); });
+  session = { cleanup: () => { c.close(); j.destroy(); if (league === lg) league = null; }, send: (m) => c.send(m) };
+  renderLobby();
+  show('screen-league');
+}
+
+function leagueMsg(m) {
+  const lg = league;
+  if (m.t === 'state') {
+    lg.lastByMid[m.mid] = m;
+    if (m.state.phase === 'end') lg.live = lg.live.filter((x) => x !== m.mid);
+    if (view && view.mid === m.mid) view.onMessage(m);
+    return;
+  }
+  if (m.t !== 'lg') return;
+  if (m.players) lg.players = m.players;
+  if (m.kind === 'lobby') { lg.length = m.length; renderLobby(); return; }
+  if (m.kind === 'round') {
+    Object.assign(lg, { round: m.round, total: m.total, fixtures: m.fixtures, resting: m.resting, live: m.fixtures.map((f) => f.mid), lastByMid: {}, table: null });
+    if (m.play) playLeagueMatch(m.play.mid, m.play.side);
+    else if (m.watch) watchLeagueMatch(m.watch);
+    else showTable();
+    return;
+  }
+  if (m.kind === 'wait') {
+    lg.partial = m.table;
+    lg.live = [m.watch];
+    if (!view) renderTable();
+    return;
+  }
+  if (m.kind === 'table') {
+    lg.table = m; lg.partial = m.table; lg.live = [];
+    if (!view) showTable();
+    return;
+  }
+  if (m.kind === 'walkover') {
+    if (view && view.mid === m.mid && !view.spectator) {
+      view.destroy(); view = null;
+      audio.sound('win');
+      modal(`<h2>Tu rival abandonó</h2><p>${teamById(m.team).name} dejó la liga. Ganas 3 a 0.</p>`, [['Ver tabla', 'primary', () => showTable()]]);
+    }
+    return;
+  }
+  if (m.kind === 'closed') leagueClosed('Quien creó la liga la cerró.');
+}
+
+function clearPitch() {
+  if (view) view.destroy();
+  view = null;
+  if (renderer && renderer.cut) renderer.cut.hide();
+  ['#dice', '#coin'].forEach((q) => $(q).classList.remove('show'));
+  $('#fade').classList.remove('on');
+  $('#pens').classList.remove('on');
+  document.querySelector('.pitch-wrap').classList.remove('cinema');
+  closeModal();
+}
+
+function leagueEndButtons() {
+  const other = league && league.live.find((x) => !view || x !== view.mid);
+  const btns = [];
+  if (other) btns.push(['Mirar el otro partido', 'primary', () => watchLeagueMatch(other)]);
+  btns.push(['Ver tabla', other ? 'ghost' : 'primary', () => showTable()]);
+  return btns;
+}
+
+function playLeagueMatch(mid, side) {
+  clearPitch();
+  const lg = league;
+  view = new MatchView({ mySide: side, isHost: lg.isHost, send: (x) => lg.up({ ...x, mid }), endButtons: leagueEndButtons });
+  view.mid = mid;
+  const fx = lg.fixtures.find((f) => f.mid === mid);
+  $('#feed').textContent = `Liga, fecha ${lg.round + 1}: ${teamOfPlayer(fx.home).name} vs ${teamOfPlayer(fx.away).name}.`;
+  if (lg.lastByMid[mid]) view.onMessage(lg.lastByMid[mid]);
+}
+
+function watchLeagueMatch(mid) {
+  clearPitch();
+  view = new MatchView({ mySide: 0, isHost: false, send: () => {}, spectator: true, endButtons: leagueEndButtons });
+  view.mid = mid;
+  const last = league.lastByMid[mid];
+  if (last) view.onMessage(last);
+}
+
+function showTable() {
+  if (!league) return;
+  clearPitch();
+  renderTable();
+  show('screen-table');
+}
+
+function renderLobby() {
+  const lg = league;
+  if (!lg) return;
+  $('#lg-code-box').hidden = !lg.isHost;
+  $('#lg-title').textContent = lg.isHost ? 'Liga creada' : 'Liga';
+  $('#lg-players').innerHTML = lg.players.map((p, k) => {
+    const t = teamById(p.team);
+    const tags = [p.id === lg.me ? 'tú' : '', k === 0 ? 'anfitrión' : ''].filter(Boolean).join(', ');
+    return `<li><span class="kit-swatch" style="background:${swatchCss(t.kit)}"></span><b>${t.name}</b>${tags ? `<small>${tags}</small>` : ''}</li>`;
+  }).join('') + Array.from({ length: 4 - lg.players.length }, () => '<li class="empty">Lugar libre</li>').join('');
+  document.querySelectorAll('#lg-len [data-len]').forEach((b) => {
+    b.classList.toggle('on', b.dataset.len === lg.length);
+    b.disabled = !lg.isHost;
+  });
+  const n = lg.players.length;
+  $('#lg-start').hidden = !lg.isHost;
+  $('#lg-start').disabled = n < 2;
+  $('#lg-start').textContent = n < 2 ? 'Empezar liga' : `Empezar liga (${n} jugadores)`;
+  $('#lg-wait').innerHTML = `<span class="ball-spin"></span> ${lg.isHost ? (n < 4 ? 'Esperando jugadores…' : 'Liga completa.') : 'Esperando que el anfitrión empiece la liga…'}`;
+}
+
+function renderTable() {
+  const lg = league;
+  if (!lg) return;
+  const t = lg.table;
+  const final = t && t.final;
+  const rows = (t && t.table) || lg.partial || lg.players.map((p) => ({ id: p.id, pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0, pts: 0 }));
+  const gone = (id) => lg.players.find((p) => p.id === id)?.gone;
+  $('#tb-title').textContent = final ? 'Liga terminada' : `Fecha ${lg.round + 1} de ${lg.total}`;
+  if (final) {
+    // Igualados en puntos, diferencia y goles: el título se comparte.
+    const same = (r) => r.pts === rows[0].pts && r.gf - r.gc === rows[0].gf - rows[0].gc && r.gf === rows[0].gf;
+    const top = rows.filter(same);
+    const mine = top.some((r) => r.id === lg.me);
+    const sw = (r) => `<span class="kit-swatch" style="background:${swatchCss(teamOfPlayer(r.id).kit)}"></span>`;
+    $('#tb-champ').innerHTML = `<div class="champ"><small>${top.length > 1 ? 'CAMPEONES' : 'CAMPEÓN'}</small><div class="champ-sw">${top.map(sw).join('')}</div><b>${top.map((r) => teamOfPlayer(r.id).name).join(' y ')}</b><em>${top.length > 1 ? `Empate en la cima con ${rows[0].pts} puntos` : mine ? '¡Eres el campeón!' : `${rows[0].pts} puntos`}</em></div>`;
+    if (mine && !lg.cheered) { lg.cheered = true; audio.sound('win'); }
+  } else $('#tb-champ').innerHTML = '';
+  const dg = (r) => (r.gf - r.gc > 0 ? '+' : '') + (r.gf - r.gc);
+  $('#tb-table').innerHTML = '<tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr>' + rows.map((r, k) => {
+    const tm = teamOfPlayer(r.id);
+    return `<tr class="${r.id === lg.me ? 'me' : ''}${gone(r.id) ? ' gone' : ''}"><td>${k + 1}</td><td><span class="kit-swatch" style="background:${swatchCss(tm.kit)}"></span>${tm.short}${gone(r.id) ? ' <small>se fue</small>' : ''}</td><td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td><td>${dg(r)}</td><td><b>${r.pts}</b></td></tr>`;
+  }).join('');
+  const line = (h, a, mid) => `<span>${teamOfPlayer(h).short}</span>${mid}<span>${teamOfPlayer(a).short}</span>`;
+  const results = (t ? t.results : []);
+  $('#tb-results').innerHTML = results.length ? `<h3>Resultados de la fecha</h3>${results.map((r) => `<p class="fx">${line(r.home, r.away, `<b>${r.hs} - ${r.as}</b>`)}${r.walkover ? '<small>abandono</small>' : ''}</p>`).join('')}` : '';
+  const live = lg.live[0] && lg.fixtures && lg.fixtures.find((f) => f.mid === lg.live[0]);
+  $('#tb-live').innerHTML = live ? `<h3>En juego</h3><p class="fx">${line(live.home, live.away, '<b>vs</b>')}</p><button class="btn" id="tb-watch">Mirar en vivo</button>` : '';
+  if (live) $('#tb-watch').onclick = () => watchLeagueMatch(live.mid);
+  const next = t && t.next;
+  $('#tb-next').innerHTML = next ? `<h3>Próxima fecha</h3>${next.map((f) => (f.away ? `<p class="fx">${line(f.home, f.away, '<b>vs</b>')}</p>` : `<p class="fx rest">Descansa ${teamOfPlayer(f.home).name}</p>`)).join('')}` : '';
+  const act = $('#tb-actions');
+  act.innerHTML = '';
+  const btn = (txt, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = txt; b.onclick = fn; act.appendChild(b); };
+  if (final) btn('Volver al menú', 'primary', () => leaveLeague());
+  else {
+    if (t && lg.isHost) btn('Siguiente fecha', 'primary', () => lg.lh.nextRound());
+    else if (t) act.insertAdjacentHTML('beforeend', '<p class="waiting"><span class="ball-spin"></span> Esperando que el anfitrión arranque la fecha…</p>');
+    else if (!live) act.insertAdjacentHTML('beforeend', '<p class="waiting"><span class="ball-spin"></span> Terminando la fecha…</p>');
+    btn('Salir de la liga', 'ghost', () => confirmLeaveLeague());
+  }
+}
+
+function confirmLeaveLeague() {
+  const text = league.isHost ? 'Si sales, se termina la liga para todos.' : 'Pierdes 3 a 0 el partido en curso y los que te queden.';
+  modal(`<h2>¿Salir de la liga?</h2><p>${text}</p>`, [['Salir', 'primary', () => leaveLeague()], ['Seguir', 'ghost', () => {}]]);
+}
+
+function leaveLeague() {
+  const lg = league;
+  if (!lg) { leaveMatch(); return; }
+  const done = lg.table && lg.table.final;
+  if (lg.isHost) { if (!done) lg.players.forEach((p) => p.id !== 'h' && lg.sendTo(p.id, { t: 'lg', kind: 'closed' })); }
+  else if (!done) lg.up({ t: 'quit' });
+  league = null;
+  setTimeout(leaveMatch, 300);
+}
+
+function leagueClosed(text) {
+  if (view) view.destroy();
+  view = null;
+  league = null;
+  modal(`<h2>Liga terminada</h2><p>${text}</p>`, [['Volver al menú', 'primary', () => leaveMatch()]]);
+}
+
 // ---------- arranque ----------
 paintMyTeam();
 buildTeamGrid();
@@ -754,6 +1082,14 @@ document.querySelectorAll('#len-row [data-len]').forEach((b) => (b.onclick = () 
 paintLength();
 $('#btn-quit').onclick = () => confirmQuit();
 $('#btn-create').onclick = () => createOnline();
+$('#btn-league').onclick = () => createLeague();
+$('#lg-start').onclick = () => startLeague();
+$('#lg-leave').onclick = () => leaveLeague();
+document.querySelectorAll('#lg-len [data-len]').forEach((b) => (b.onclick = () => {
+  if (!league || !league.isHost || league.lh) return;
+  league.length = b.dataset.len;
+  league.lobby();
+}));
 $('#btn-join').onclick = () => joinOnline($('#join-code').value);
 $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
 $('#btn-help').onclick = () => modal(HELP, [['Entendido', 'primary', () => {}]]);
@@ -771,4 +1107,4 @@ if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 
 // Para pruebas automáticas.
-window.__fdm = { get view() { return view; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };
+window.__fdm = { get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };

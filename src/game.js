@@ -92,8 +92,9 @@ export function d6(rng = Math.random) {
   return 1 + Math.floor(rng() * 6);
 }
 
-export function newMatch({ home, away, callerSide = 1, length = 'normal' }) {
+export function newMatch({ home, away, callerSide = 1, length = 'normal', shootout = true }) {
   return {
+    shootout,
     length: LENGTHS[length] ? length : 'normal',
     clock: 0,
     phase: 'toss',
@@ -255,7 +256,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       ev.kickoffAfter = s.poss;
     } else {
       ev.halfEnd = 2;
-      if (s.score[0] === s.score[1]) {
+      if (s.score[0] === s.score[1] && s.shootout !== false) {
         // Empate: tanda de penales. Patea primero el que no sacó al inicio.
         ev.shootoutStart = true;
         s.situation = 'shootout'; s.shotKind = 'penal';
