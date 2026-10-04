@@ -27,6 +27,17 @@ El dado aparece en momentos clave. Cada cara muestra un símbolo de lo que pasa,
 
 Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una defensa al azar), así que gana quien lee mejor al rival. `node scripts/fair-sim.js` lo comprueba.
 
+### Situaciones de juego
+
+Dos mazos (`src/situations.js`) le ponen sorpresas al partido sin decidirlo: cambian el próximo duelo o el próximo dado, y los dos jugadores ven la carta antes de elegir.
+
+| Mazo | Cuándo sale | Cartas |
+|---|---|---|
+| Partido | al 40% y al 80% de cada tiempo | Genialidad del crack (su próximo duelo perdido atacando no cuenta), Error en la defensa (remate inmediato), Cambio táctico (al que va perdiendo: su próximo remate que supera al arquero es gol), Ánimo de la hinchada (al que defiende: su próxima recuperación es contragolpe), Golpe de iluminación (salta directo al último tercio) |
+| Disciplina | con cada falta | Amarilla ×6 (la segunda al mismo jugador es roja), Roja ×1 (el que queda con uno menos pierde una cara del dado cuando adivina defendiendo, dos con dos rojas), Tiro libre directo ×3 |
+
+Las cartas de partido se reparten según quién tiene la pelota, así que le tocan igual a los dos equipos; con cartas un partido corto tiene unos 0,7 goles más y leer al rival pesa lo mismo (`node scripts/fair-sim.js 20000 sin-cartas` para comparar).
+
 Cada carta tiene 12 segundos; si se acaba el tiempo, se elige sola. La duración se elige en el menú: corto (unas 21 decisiones, 3 a 5 minutos), normal (unas 34, 5 a 8 minutos) o largo (unas 53, 10 a 14 minutos). En una sala manda la de quien la crea.
 
 ## Modo carrera

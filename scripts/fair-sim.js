@@ -3,11 +3,13 @@
 import { newMatch, resolveToss, resolvePlay, randomChoice, optionsFor, LENGTHS } from '../src/game.js';
 
 const N = Number(process.argv[2] || 20000);
+// `node scripts/fair-sim.js 20000 sin-cartas` compara sin situaciones de juego.
+const cards = process.argv[3] !== 'sin-cartas';
 
 // Jugador que "lee" al rival con probabilidad `read`: si lo lee, elige la
 // respuesta ganadora; si no, al azar.
 function play(length, read = [0, 0]) {
-  let { state } = resolveToss(newMatch({ home: 'a', away: 'b', length }), 'cara');
+  let { state } = resolveToss(newMatch({ home: 'a', away: 'b', length, cards }), 'cara');
   const first = state.poss;
   let d = 0, outs = 0;
   while (state.phase === 'play') {
