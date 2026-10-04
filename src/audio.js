@@ -1,6 +1,6 @@
 // Sonidos sintetizados con WebAudio (sin archivos): silbato, patadas y el estadio
-// entero: murmullo, cánticos de la hinchada y sus reacciones al gol, al palo,
-// a la atajada y a las tarjetas. Sin banda: solo voces y aplausos.
+// entero: murmullo de la hinchada y sus reacciones al gol, al palo, a la
+// atajada y a las tarjetas. Sin banda ni cánticos.
 let ctx = null;
 let muted = false;
 let master = null; // todo pasa por aquí: el botón de silencio lo baja a 0
@@ -28,7 +28,7 @@ export function unlock() {
   master.connect(ctx.destination);
   noise = noiseBuffer(3);
   buildStadium();
-  if (stadiumOn) startChants();
+  swell(bedLevel(), 0, 1);
 }
 
 function noiseBuffer(sec) {
@@ -202,78 +202,14 @@ function choir(t0, notes, { n = 10, vol = 0.03, out = stadiumBus } = {}) {
   return end;
 }
 
-// Cánticos (melodías propias, en negras: 1 = un tiempo).
-const CHANTS = [
-  // «Olé, olé, olé, olé…»
-  [[52, 1, 'o'], [48, 1, 'e'], [null, 0.5], [52, 0.5, 'o'], [48, 0.5, 'e'], [52, 0.5, 'o'], [48, 2, 'e'],
-   [50, 1, 'o'], [47, 1, 'e'], [null, 0.5], [50, 0.5, 'o'], [47, 0.5, 'e'], [50, 0.5, 'o'], [52, 2, 'e']],
-  // «Va-mos, va-mos, mu-cha-chos…»
-  [[55, 0.5, 'a'], [55, 0.5, 'o'], [55, 0.5, 'a'], [55, 0.5, 'o'], [57, 0.5, 'u'], [55, 0.5, 'a'], [53, 0.5, 'o'], [52, 1.5, 'o'], [null, 0.5],
-   [53, 0.5, 'a'], [53, 0.5, 'o'], [53, 0.5, 'a'], [53, 0.5, 'o'], [55, 0.5, 'e'], [53, 0.5, 'a'], [52, 0.5, 'e'], [50, 1.5, 'o'], [null, 0.5]],
-  // «Da-le, da-le, da-le…» que va subiendo.
-  [[50, 0.5, 'a'], [50, 0.5, 'e'], [52, 0.5, 'a'], [52, 0.5, 'e'], [53, 0.5, 'a'], [53, 0.5, 'e'], [55, 1, 'o'],
-   [53, 0.5, 'a'], [53, 0.5, 'e'], [52, 0.5, 'a'], [52, 0.5, 'e'], [50, 0.5, 'a'], [48, 0.5, 'e'], [50, 1, 'o']],
-  // «Oh, oh, oh, a-le-a-le-ó» con los brazos arriba.
-  [[48, 1, 'o', 1], [52, 1, 'o', 1], [55, 1.5, 'o', 1], [53, 0.5, 'a'], [52, 0.5, 'e'], [50, 0.5, 'a'], [52, 0.5, 'e'], [48, 2, 'o', 1], [null, 1]],
-];
-const toNotes = (ch, beat) => ch.map(([m, d, v, legato]) => ({ m, d: d * beat, v, legato }));
-const lengthOf = (ch, beat) => ch.reduce((s, x) => s + x[1] * beat, 0);
-
 let stadiumOn = false;
-let chantTimer = null;
-let segment = null; // { gain } del cántico que suena ahora
-let excited = 0; // después de un gol la hinchada canta más fuerte un rato
 
-function stopSegment(fade = 0.4) {
-  if (!segment) return;
-  const g = segment;
-  g.gain.setTargetAtTime(0, ctx.currentTime, fade / 3);
-  setTimeout(() => g.disconnect(), fade * 1000 + 500);
-  segment = null;
-}
-
-// Programa el próximo trozo del estadio: un cántico de la hinchada o sólo el
-// murmullo. Después se vuelve a llamar sola.
-function nextSegment() {
-  clearTimeout(chantTimer);
-  if (!stadiumOn || !ctx) return;
-  if (muted || document.hidden) { chantTimer = setTimeout(nextSegment, 2000); return; }
-  const hot = excited > 0;
-  excited = Math.max(0, excited - 1);
-  const beat = 60 / (hot ? 138 : 124 + Math.random() * 8);
-  const g = ctx.createGain();
-  g.gain.value = hot ? 1.4 : 0.9 + Math.random() * 0.3;
-  g.connect(stadiumBus);
-  segment = g;
-  const t0 = ctx.currentTime + 0.15;
-  const r = Math.random();
-  let dur;
-  if (hot || r < 0.6) {
-    const ch = CHANTS[Math.floor(Math.random() * CHANTS.length)];
-    const reps = 2 + Math.floor(Math.random() * 2);
-    const one = lengthOf(ch, beat);
-    for (let k = 0; k < reps; k++) choir(t0 + k * one, toNotes(ch, beat), { n: hot ? 14 : 10, vol: hot ? 0.04 : 0.028, out: g });
-    dur = reps * one;
-  } else {
-    dur = 4 + Math.random() * 3;
-  }
-  chantTimer = setTimeout(nextSegment, (dur + 2 + Math.random() * 5) * 1000);
-}
-
-function startChants() {
-  swell(bedLevel(), 0, 1);
-  clearTimeout(chantTimer);
-  chantTimer = setTimeout(nextSegment, 1500);
-}
-
-// Ambiente de estadio durante el partido (cánticos); fuera del partido
-// queda sólo el murmullo suave.
+// Ambiente de estadio: durante el partido el murmullo sube un poco; fuera del
+// partido queda suave. Sin cánticos ni banda (pedido de Tomás).
 export function stadium(on) {
   if (stadiumOn === on) return;
   stadiumOn = on;
-  if (!ctx) return;
-  if (on) startChants();
-  else { clearTimeout(chantTimer); stopSegment(1); excited = 0; swell(bedLevel(), 0, 1); }
+  if (ctx) swell(bedLevel(), 0, 1);
 }
 
 // Una «G» gritada: golpe de aire grave antes de la vocal.
@@ -320,14 +256,10 @@ function react(kind) {
   switch (kind) {
     case 'goal':
       // ¡GOL! ¡GOL! ¡GOOOOOL!: el estadio entero grita, aplaude y queda eufórico.
-      stopSegment(0.3);
       swell(0.26, 0, 0.06); swell(0.16, 4.5, 1.2); swell(bedLevel() * 1.6, 7, 1.5); swell(bedLevel(), 12, 2);
       golShout(t);
       applause(0.2, 5, 0.26);
       applause(4.6, 4, 0.16);
-      excited = 2;
-      clearTimeout(chantTimer);
-      if (stadiumOn) chantTimer = setTimeout(nextSegment, 4200);
       break;
     case 'post':
       // «¡Uyyyy!»: sube de golpe y se cae.
@@ -355,7 +287,6 @@ function react(kind) {
       swell(0.11, 0, 0.5); swell(bedLevel(), 4, 1.2);
       break;
     case 'end':
-      stopSegment(0.6);
       applause(0.2, 4, 0.2);
       swell(0.12, 0, 0.2); swell(bedLevel(), 3, 1.5);
       break;
