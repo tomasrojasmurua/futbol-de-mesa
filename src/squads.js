@@ -1,0 +1,46 @@
+// Planteles: once titular probable de cada equipo (temporada 2025-26).
+// Orden: 0 arquero, 1 lateral izq, 2-3 centrales, 4 lateral der, 5 volante izq, 6-7 centrales, 8 volante der, 9-10 delanteros.
+export const SQUADS = {
+  // Clubes
+  rac: ['Arias', 'Rojas', 'Di Césare', 'Sosa', 'Martirena', 'Solari', 'Zuculini', 'Nardoni', 'Zaracho', 'Maravilla', 'Conechny'],
+  uc: ['Bernedo', 'Mena', 'Medel', 'Ampuero', 'Cuevas', 'Montes', 'Valencia', 'Canales', 'Giani', 'Zampedri', 'Palavecino'],
+  colo: ['Cortés', 'Wiemberg', 'Amor', 'Villagra', 'Isla', 'Aquino', 'Vidal', 'Pavez', 'Bolados', 'Correa', 'Salomón'],
+  udch: ['Castellón', 'Morales', 'Calderón', 'Zaldivia', 'Hormazábal', 'Assadi', 'Aránguiz', 'Poblete', 'Guerrero', 'Di Yorio', 'Fernández'],
+  boca: ['Marchesín', 'Blanco', 'Costa', 'Di Lollo', 'Advíncula', 'Zeballos', 'Paredes', 'Delgado', 'Aguirre', 'Cavani', 'Merentiel'],
+  river: ['Armani', 'Acuña', 'M. Quarta', 'Paulo Díaz', 'Montiel', 'Juanfer', 'Enzo Pérez', 'Castaño', 'Meza', 'Driussi', 'Salas'],
+  fla: ['Rossi', 'Alex Sandro', 'Léo Pereira', 'Léo Ortiz', 'Varela', 'Samuel Lino', 'Jorginho', 'Arrascaeta', 'Carrascal', 'Pedro', 'Bruno Henrique'],
+  pal: ['Weverton', 'Piquerez', 'Gustavo Gómez', 'Murilo', 'Giay', 'Facundo Torres', 'Aníbal Moreno', 'Andreas', 'F. Anderson', 'Vitor Roque', 'Flaco López'],
+  rma: ['Courtois', 'Carreras', 'Huijsen', 'Militão', 'Trent', 'Vinícius Jr.', 'Tchouaméni', 'Güler', 'Valverde', 'Mbappé', 'Bellingham'],
+  bar: ['Joan García', 'Balde', 'Cubarsí', 'Eric García', 'Koundé', 'Raphinha', 'Pedri', 'De Jong', 'Lamine Yamal', 'Lewandowski', 'Fermín'],
+  atm: ['Oblak', 'Hancko', 'Le Normand', 'Giménez', 'Llorente', 'Baena', 'Koke', 'Barrios', 'Giuliano', 'Julián Álvarez', 'Sørloth'],
+  mci: ['Donnarumma', 'Aït-Nouri', 'Gvardiol', 'Rúben Dias', 'Nunes', 'Doku', 'Rodri', 'Reijnders', 'Cherki', 'Haaland', 'Foden'],
+  mun: ['Lammens', 'Dorgu', 'Lisandro', 'De Ligt', 'Dalot', 'Cunha', 'Casemiro', 'B. Fernandes', 'Mbeumo', 'Šeško', 'Amad'],
+  liv: ['Alisson', 'Kerkez', 'Van Dijk', 'Konaté', 'Frimpong', 'Gakpo', 'Mac Allister', 'Gravenberch', 'Salah', 'Isak', 'Wirtz'],
+  ars: ['Raya', 'Calafiori', 'Gabriel', 'Saliba', 'Timber', 'Eze', 'Rice', 'Zubimendi', 'Saka', 'Gyökeres', 'Ødegaard'],
+  che: ['Sánchez', 'Cucurella', 'Chalobah', 'Fofana', 'Reece James', 'Neto', 'Caicedo', 'Enzo', 'Estêvão', 'João Pedro', 'Palmer'],
+  bay: ['Neuer', 'Stanišić', 'Tah', 'Upamecano', 'Laimer', 'Luis Díaz', 'Kimmich', 'Pavlović', 'Olise', 'Kane', 'Musiala'],
+  psg: ['Chevalier', 'Nuno Mendes', 'Pacho', 'Marquinhos', 'Hakimi', 'Kvaratskhelia', 'Vitinha', 'João Neves', 'Doué', 'Dembélé', 'Barcola'],
+  juv: ['Di Gregorio', 'Cambiaso', 'Kelly', 'Bremer', 'Kalulu', 'Yıldız', 'Locatelli', 'Thuram', 'Conceição', 'Vlahović', 'David'],
+  int: ['Sommer', 'Dimarco', 'Bastoni', 'Acerbi', 'Dumfries', 'Mkhitaryan', 'Çalhanoğlu', 'Barella', 'Sučić', 'Lautaro', 'Thuram'],
+  mil: ['Maignan', 'Estupiñán', 'Pavlović', 'Tomori', 'Saelemaekers', 'Rabiot', 'Modrić', 'Fofana', 'Pulisic', 'Leão', 'Giménez'],
+  aja: ['Jaroš', 'Wijndal', 'Baas', 'Šutalo', 'Gaaei', 'Godts', 'Taylor', 'Klaassen', 'Berghuis', 'Weghorst', 'Edvardsen'],
+  // Selecciones
+  arg: ['Dibu Martínez', 'Tagliafico', 'Lisandro', 'Cuti Romero', 'Molina', 'Mac Allister', 'Enzo', 'De Paul', 'Almada', 'Messi', 'Julián Álvarez'],
+  chi: ['Vigouroux', 'Suazo', 'Maripán', 'Paulo Díaz', 'Hormazábal', 'Assadi', 'Echeverría', 'Pizarro', 'Osorio', 'Alexis', 'Brereton'],
+  bra: ['Alisson', 'Alex Sandro', 'Gabriel', 'Marquinhos', 'Wesley', 'Vinícius Jr.', 'Casemiro', 'B. Guimarães', 'Estêvão', 'Cunha', 'Raphinha'],
+  uru: ['Rochet', 'Olivera', 'Araujo', 'Giménez', 'Nández', 'M. Araújo', 'Ugarte', 'Valverde', 'Pellistri', 'Darwin', 'Arrascaeta'],
+  col: ['Camilo Vargas', 'Mojica', 'Lucumí', 'D. Sánchez', 'Muñoz', 'Luis Díaz', 'Lerma', 'Richard Ríos', 'Jhon Arias', 'Córdoba', 'James'],
+  per: ['Gallese', 'M. López', 'Zambrano', 'Araujo', 'Advíncula', 'Reyna', 'Tapia', 'Castillo', 'Carrillo', 'Lapadula', 'Guerrero'],
+  mex: ['Malagón', 'Gallardo', 'Montes', 'Vásquez', 'J. Sánchez', 'Alexis Vega', 'Edson Álvarez', 'Lira', 'Quiñones', 'Raúl Jiménez', 'Santi Giménez'],
+  esp: ['Unai Simón', 'Cucurella', 'Laporte', 'Huijsen', 'Porro', 'Nico Williams', 'Rodri', 'Pedri', 'Lamine Yamal', 'Oyarzabal', 'Dani Olmo'],
+  fra: ['Maignan', 'Théo Hernández', 'Upamecano', 'Konaté', 'Koundé', 'Doué', 'Tchouaméni', 'Rabiot', 'Olise', 'Mbappé', 'Dembélé'],
+  ger: ['Baumann', 'Raum', 'Tah', 'Schlotterbeck', 'Kimmich', 'Wirtz', 'Goretzka', 'Pavlović', 'Gnabry', 'Woltemade', 'Havertz'],
+  eng: ['Pickford', 'Spence', 'Guéhi', 'Stones', 'Reece James', 'Rashford', 'Rice', 'Bellingham', 'Saka', 'Kane', 'Eze'],
+  ita: ['Donnarumma', 'Dimarco', 'Bastoni', 'Calafiori', 'Di Lorenzo', 'Frattesi', 'Tonali', 'Barella', 'Politano', 'Retegui', 'Kean'],
+  por: ['Diogo Costa', 'Nuno Mendes', 'Inácio', 'Rúben Dias', 'Cancelo', 'Leão', 'Vitinha', 'João Neves', 'Bernardo', 'Ronaldo', 'B. Fernandes'],
+  ned: ['Verbruggen', 'Van de Ven', 'Van Dijk', 'De Ligt', 'Dumfries', 'Gakpo', 'De Jong', 'Reijnders', 'Simons', 'Depay', 'Malen'],
+  cro: ['Livaković', 'Gvardiol', 'Pongračić', 'Šutalo', 'Stanišić', 'Perišić', 'Modrić', 'Sučić', 'Pašalić', 'Kramarić', 'Budimir'],
+  jpn: ['Zion Suzuki', 'Ito', 'Itakura', 'Taniguchi', 'Sugawara', 'Mitoma', 'Endo', 'Kamada', 'Kubo', 'Ueda', 'Minamino'],
+};
+
+export function playerName(teamId, i) { const s = SQUADS[teamId]; return s ? s[i] : `#${i + 1}`; }

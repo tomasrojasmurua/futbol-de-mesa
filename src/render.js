@@ -3,6 +3,8 @@
 // guiones animados para cada jugada (con un momento de suspenso antes de
 // revelar quién ganó el duelo).
 import { hexRgb } from './teams.js';
+import { playerName } from './squads.js';
+import { Cutscene } from './cutscene.js';
 
 const PW = 68, PL = 105;           // cancha en metros
 const S = 4;                        // píxeles por metro (resolución interna)
@@ -19,6 +21,8 @@ const FORMATION = [
   [9, 38], [27, 34], [41, 34], [59, 38],
   [29, 52], [39, 50],
 ];
+// Números de camiseta por puesto en la formación.
+const NUMS = [1, 3, 4, 2, 6, 11, 8, 5, 7, 9, 10];
 const ROW = (i) => (i === 0 ? 'G' : i <= 4 ? 'D' : i <= 8 ? 'M' : 'F');
 
 const SKINS = ['#f1c7a0', '#e0a77c', '#c68657', '#9c6440', '#6e4428', '#f5d3b5'];
@@ -149,6 +153,10 @@ export class Renderer {
     this.cv = canvas;
     this.ctx = canvas.getContext('2d');
     this.ui = ui;
+    const cut = document.getElementById('cut');
+    this.cut = cut ? new Cutscene(cut, document.getElementById('cut-card')) : null;
+    this.tag = document.getElementById('carrier');
+    this.tagKey = '';
     this.world = document.createElement('canvas');
     this.world.width = WW; this.world.height = WH;
     this.wctx = this.world.getContext('2d');
@@ -238,6 +246,7 @@ export class Renderer {
     done.forEach((t) => t.res());
     this.boardT += real;
     if (!this.kits) return;
+    this.updateTag();
 
     this.updateBall(dt);
     this.computeTargets();
@@ -893,10 +902,37 @@ export class Renderer {
     await this.afterSteal(D);
   }
 
+  // Cartel con el nombre de quien lleva la pelota.
+  updateTag() {
+    if (!this.tag) return;
+    const o = this.ball.owner;
+    const key = o ? `${o.side}:${o.i}:${this.teams[o.side].id}` : '';
+    if (key === this.tagKey) return;
+    this.tagKey = key;
+    if (!o) { this.tag.classList.remove('on'); return; }
+    const info = this.playerInfo(o);
+    const k = this.kits[o.side];
+    this.tag.innerHTML = `<i style="background:${k.shirt}"></i>${info.name} <small>${info.num}</small>`;
+    this.tag.classList.add('on');
+  }
+
+  // Nombre y número del jugador en el plantel de su equipo.
+  playerInfo(p) {
+    const team = this.teams[p.side];
+    return { name: playerName(team.id, p.i), num: NUMS[p.i], team: team.short, skin: p.skin, hair: p.hair };
+  }
+
   async playShot(ev, A, D) {
     this.cam.tzoom = 1.75; this.cam.follow = null;
     this.possSide = A;
-    const shooter = this.ensureOwner(A);
+    let shooter = this.ensureOwner(A);
+    if (ev.shooter != null && shooter.i !== ev.shooter && shooter.i !== 0) {
+      // El que patea lo decide el anfitrión: intercambia identidad con quien tiene la pelota.
+      const other = this.players[A].find((p) => p.i === ev.shooter);
+      if (other) for (const k of ['i', 'skin', 'hair']) [shooter[k], other[k]] = [other[k], shooter[k]];
+      this.tagKey = '';
+    }
+    const keeper = this.players[D][0];
     const kind = ev.shotKind;
     if (kind === 'penal') {
       const [su, sv] = this.U(A, shooter.x, shooter.y);
@@ -909,58 +945,35 @@ export class Renderer {
       const [su, sv] = this.U(A, shooter.x, shooter.y);
       await this.dribble(A, [su + (34 - su) * 0.1, sv + 1.5], 0.35);
     }
+    this.lastShooter = this.playerInfo(shooter);
+    this.lastKeeper = this.playerInfo(keeper);
     const tu = GOAL_U[ev.att];
-    const header = kind === 'cabezazo';
-    const dur = header ? 0.75 : 0.65;
-    const b = this.ball;
-    if (header) { shooter.jump = { t: 0, dur: 0.5, h: 0.6 }; await this.wait(0.15); }
-    // Hacia dónde va realmente la pelota.
+    // Dónde termina la pelota en la cancha.
     let to;
     if (ev.match) to = [tu, 104.5];
     else if (ev.outcome === 'goal') to = [tu + (ev.att === 'L' ? -0.6 : ev.att === 'R' ? 0.6 : 0), 106.6];
-    else if (ev.outcome === 'post') to = [ev.att === 'R' ? 37.66 : 30.34, 105];
-    else to = [tu < 34 ? 28.6 : tu > 34 ? 39.4 : 34, 108.5];
-    const zEnd = ev.outcome === 'wide' && ev.att === 'C' ? 3.4 : ev.att === 'C' ? 1.4 : 0.9;
-    // Si el arquero no adivina, la pelota sale hacia el arco y el dado decide en
-    // el aire si entra, pega en el palo o se va afuera.
-    const aim = ev.match ? to : [tu + (ev.att === 'L' ? -0.6 : ev.att === 'R' ? 0.6 : 0), 106.6];
-    this.launch(this.W(A, aim[0], aim[1]), { dur, h: 0.5, z1: ev.match ? zEnd : (ev.att === 'C' ? 1.4 : 0.9), ground: false });
-    this.ui.sound(header ? 'header' : 'shot');
-    this.burst(b.x, b.y, 'grass', 8);
-    this.cam.shake = 0.3;
-    await this.wait(dur * 0.22);
-    this.climax();
-    this.keeperDive(D, ev.def, dur * 0.65, ev.match ? 0 : 0.4);
-    if (ev.match) await this.wait(dur * 0.78);
-    else {
-      await this.wait(dur * 0.3);
-      // Le ganó al arquero: se congela la imagen y se tira el dado.
-      this.ui.reveal({ ...ev, outcome: 'beaten' });
-      if (ev.outcome !== 'goal') ev._revealed = true;
-      const slow = this.tsTarget;
-      this.ts = this.tsTarget = 0;
-      await this.diceMoment(ev);
-      this.ts = this.tsTarget = slow;
-      if (ev.outcome !== 'goal') this.launch(this.W(A, to[0], to[1]), { dur: dur * 0.5, h: 0.2, z1: zEnd, ground: false });
-      await this.wait(dur * 0.52);
-    }
+    else if (ev.outcome === 'post') to = [ev.att === 'R' ? 41 : 27, 101];
+    else to = [tu < 34 ? 28.6 : tu > 34 ? 39.4 : 34, 109.5];
+
+    // La escena del remate: se ve completa y ahí se revela el duelo y se tira el dado.
+    await this.shotScene(ev, A, D, shooter, keeper);
+
+    const b = this.ball;
+    b.owner = null; b.flight = null; b.head = false;
+    this.trail = [];
     const goalWorld = this.W(A, 34, 105);
     const gi = goalWorld[1] < 50 ? 0 : 1;
     if (ev.match) {
-      this.ui.sound('save');
-      this.burst(b.x, b.y, 'spark', 10);
-      this.reveal(ev);
-      await this.wait(0.1);
-      this.release();
       if (ev.outcome === 'save_corner') {
-        this.launch(this.W(A, tu < 34 ? 27 : tu > 34 ? 41 : 39, 107.6), { dur: 0.7, h: 2.5 });
+        const [x, y] = this.W(A, tu < 34 ? 27 : tu > 34 ? 41 : 39, 107.6);
+        b.x = x; b.y = y; b.z = 0;
         this.ui.banner('¡ATAJADA!', { small: true });
-        await this.wait(0.8);
+        await this.wait(0.7);
         await this.diceMoment(ev);
         await this.setCorner(A, ev.cornerSide || (tu < 34 ? 'L' : 'R'));
         return;
       }
-      this.give(this.players[D][0]);
+      this.give(keeper);
       this.ui.banner('¡ATAJADA!', { small: true });
       await this.wait(0.6);
       await this.diceMoment(ev);
@@ -968,34 +981,46 @@ export class Renderer {
       await this.wait(0.3);
       return;
     }
+    const [x, y] = this.W(A, to[0], to[1]);
+    b.x = x; b.y = y; b.z = ev.outcome === 'goal' ? 0.4 : 0;
     if (ev.outcome === 'goal') {
-      this.netShake[gi] = 1.4;
-      b.flight = null; b.z = 0.4;
-      this.cam.shake = 1;
+      this.netShake[gi] = 1.0;
       this.reveal(ev);
-      await this.wait(0.15);
-      this.release();
       await this.celebrate(ev, A, shooter);
       return;
     }
-    if (ev.outcome === 'post') {
-      this.ui.sound('post');
-      this.burst(b.x, b.y, 'spark', 8);
-      this.cam.shake = 0.6;
-      this.reveal(ev);
-      await this.wait(0.1);
-      this.release();
-      this.launch(this.W(A, to[0] < 34 ? 22 : 46, 108), { dur: 0.6, h: 1.5 });
-      this.ui.banner('¡AL PALO!', { small: true });
-    } else {
-      this.reveal(ev);
-      await this.wait(0.1);
-      this.release();
-      this.ui.banner('¡AFUERA!', { small: true });
-    }
+    this.reveal(ev);
+    this.ui.banner(ev.outcome === 'post' ? '¡AL PALO!' : '¡AFUERA!', { small: true });
     await this.wait(0.7);
     await this.diceMoment(ev);
     await this.goalKick(D);
+  }
+
+  async shotScene(ev, A, D, shooter, keeper) {
+    if (!this.cut) return;
+    ev._scene = true;
+    const sh = this.lastShooter, kp = this.lastKeeper;
+    await this.ui.fadeOut();
+    const scene = this.cut.play({
+      kind: ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.outcome,
+      shooter: sh, keeper: kp,
+      kitA: this.kits[A], kitD: this.kits[D], gkColor: this.kits[D].gk,
+      crowd: [this.kits[A].shirt, this.kits[D].shirt],
+      sound: (n) => this.ui.sound(n),
+      onContact: () => this.reveal(ev),
+      onFreeze: async () => {
+        // Le ganó al arquero: se revela el duelo y el dado decide.
+        this.ui.reveal({ ...ev, outcome: 'beaten' });
+        if (ev.outcome !== 'goal') ev._revealed = true;
+        await this.diceMoment(ev);
+        if (ev.outcome === 'goal') this.reveal(ev);
+      },
+    });
+    await this.ui.fadeIn();
+    await scene;
+    await this.ui.fadeOut();
+    this.cut.hide();
+    await this.ui.fadeIn();
   }
 
   async playCorner(ev, A, D) {
@@ -1022,7 +1047,7 @@ export class Renderer {
   }
 
   async celebrate(ev, A, scorer) {
-    this.ui.sound('goal');
+    if (!ev._scene) this.ui.sound('goal');
     this.crowdJump = { side: A, t: 4.5 };
     this.flash = 0.6;
     this.confetti(A);

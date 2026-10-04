@@ -79,6 +79,30 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .pitch-wrap { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 #pitch { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.carrier { position: absolute; left: 8px; bottom: 8px; display: none; align-items: center; gap: 6px; font-family: var(--px); font-size: 9px; background: rgba(0,0,0,.6); padding: 5px 7px 5px 5px; box-shadow: 0 0 0 2px #000; pointer-events: none; }
+.carrier.on { display: flex; }
+.carrier i { width: 10px; height: 10px; box-shadow: 0 0 0 1px #000; }
+.carrier small { color: var(--mute); font-family: inherit; font-size: 8px; }
+.cut { position: absolute; inset: 0; width: 100%; height: 100%; display: none; image-rendering: pixelated; background: #0d1424; z-index: 1; }
+.cut.on { display: block; }
+.cut-card { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: center; gap: 14px; pointer-events: none; z-index: 3; }
+.cut-card.on { display: flex; }
+.cut-title { align-self: center; font-family: var(--px); font-size: 22px; color: #ffd23f; text-shadow: 3px 3px 0 #000, -2px -2px 0 #000; animation: cutpop .35s cubic-bezier(.3,1.6,.6,1) both .1s; }
+.cut-plate { display: flex; align-items: center; gap: 8px; max-width: 82%; padding: 8px 12px; background: linear-gradient(90deg, var(--c) 0 8px, rgba(0,0,0,.82) 8px); box-shadow: 0 0 0 3px #000; font-family: var(--px); }
+.cut-plate small { font-size: 8px; color: var(--mute); }
+.cut-plate b { font-size: 12px; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cut-plate i { font-style: normal; font-size: 12px; color: #ffd23f; margin-left: auto; }
+.cut-plate.a { align-self: flex-start; animation: cutleft .35s ease-out both; }
+.cut-plate.d { align-self: flex-end; background: linear-gradient(270deg, var(--c) 0 8px, rgba(0,0,0,.82) 8px); animation: cutright .35s ease-out both .15s; }
+.cut-card.out .cut-plate.a { animation: cutleftout .3s ease-in both; }
+.cut-card.out .cut-plate.d { animation: cutrightout .3s ease-in both; }
+.cut-card.out .cut-title { animation: cutfade .3s both; }
+@keyframes cutleft { from { transform: translateX(-110%); } }
+@keyframes cutright { from { transform: translateX(110%); } }
+@keyframes cutleftout { to { transform: translateX(-110%); } }
+@keyframes cutrightout { to { transform: translateX(110%); } }
+@keyframes cutpop { from { transform: scale(.3); opacity: 0; } }
+@keyframes cutfade { to { opacity: 0; } }
 
 .feed { padding: 6px 12px; background: #0f1218; font-size: 21px; min-height: 36px; line-height: 1.1; color: #e8e6dc; border-top: 3px solid #000; }
 .feed.flash { animation: feedflash .6s; }
@@ -151,13 +175,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #timer-bar.low { background: var(--red); }
 
 /* superposiciones */
-.banner { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-family: var(--px); font-size: 26px; color: #fff; text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000; pointer-events: none; opacity: 0; transform: scale(.4); transition: opacity .15s, transform .25s cubic-bezier(.3,1.6,.6,1); }
+.banner { position: absolute; z-index: 3; left: 0; right: 0; top: 38%; text-align: center; font-family: var(--px); font-size: 26px; color: #fff; text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000; pointer-events: none; opacity: 0; transform: scale(.4); transition: opacity .15s, transform .25s cubic-bezier(.3,1.6,.6,1); }
 .banner.show { opacity: 1; transform: scale(1); }
 .banner.small { font-size: 16px; top: 22%; }
 .banner.goal { font-size: 40px; animation: goalcolors .25s steps(2) infinite; }
 @keyframes goalcolors { 50% { color: var(--c2, #ffd23f); } }
 
-.dice-wrap, .coin-wrap { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(0,0,0,.35); pointer-events: none; }
+.dice-wrap, .coin-wrap { position: absolute; inset: 0; z-index: 3; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: rgba(0,0,0,.35); pointer-events: none; }
 .dice-wrap.show, .coin-wrap.show { display: flex; }
 .dice-wrap p, .coin-wrap p { margin: 0; font-family: var(--px); font-size: 12px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,.6); padding: 8px 10px; text-align: center; max-width: 90%; line-height: 1.5; }
 .die { width: 80px; height: 80px; background: #fff; box-shadow: 0 0 0 4px #000, inset -6px -6px 0 #cfcfcf; display: flex; align-items: center; justify-content: center; }
@@ -175,7 +199,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .coin { width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe680, #e0a800 60%, #8a6200); box-shadow: 0 0 0 4px #000; display: flex; align-items: center; justify-content: center; font-family: var(--px); font-size: 11px; color: #5a3c00; }
 .coin.flip { animation: flip .18s linear infinite; }
 @keyframes flip { 50% { transform: scaleX(.05); } }
-.fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .25s; }
+.fade { position: absolute; inset: 0; z-index: 6; background: #000; opacity: 0; pointer-events: none; transition: opacity .25s; }
 .fade.on { opacity: 1; }
 
 /* modal */

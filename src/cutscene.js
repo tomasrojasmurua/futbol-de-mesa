@@ -1,0 +1,593 @@
+// Escena de remate: una animación a pantalla completa vista desde atrás del
+// tirador, con el arquero, el arco y la hinchada. Se dibuja en su propio canvas
+// a baja resolución y se escala en pixel art.
+
+const LW = 180; // ancho lógico de la escena
+
+const INK = '#14171f';
+const SKY = '#0d1424';
+const LINE = '#eef0e6';
+const NET = '#c9d2dc';
+const GRASS = ['#3f9c3b', '#48ab43'];
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => t * t * (3 - 2 * t);
+const easeOut = (t) => 1 - (1 - t) * (1 - t);
+
+// Fuente de 3x5 para números y nombres en la espalda y en los carteles.
+const FONT = {
+  A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111',
+  F: '111100110100100', G: '011100101101011', H: '101101111101101', I: '111010010010111', J: '001001001101010',
+  K: '101101110101101', L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010',
+  P: '110101110100100', Q: '010101101110011', R: '110101110101101', S: '011100010001110', T: '111010010010010',
+  U: '101101101101111', V: '101101101101010', W: '101101111111101', X: '101101010101101', Y: '101101010010010',
+  Z: '111001010100111', 0: '111101101101111', 1: '010110010010111', 2: '110001010100111', 3: '110001010001110',
+  4: '101101111001001', 5: '111100110001110', 6: '011100111101111', 7: '111001010010010', 8: '111101111101111',
+  9: '111101111001110', '.': '000000000000010', '-': '000000111000000', "'": '010010000000000',
+};
+const plain = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+
+function text(g, str, x, y, color, k = 1) {
+  const s = plain(str);
+  g.fillStyle = color;
+  for (let c = 0; c < s.length; c++) {
+    const gl = FONT[s[c]];
+    if (!gl) continue;
+    for (let i = 0; i < 15; i++) if (gl[i] === '1') g.fillRect(x + (c * 4 + (i % 3)) * k, y + Math.floor(i / 3) * k, k, k);
+  }
+}
+const textW = (str, k = 1) => plain(str).length * 4 * k - k;
+
+function disc(g, x, y, r, fill, edge) {
+  x = Math.round(x); y = Math.round(y);
+  const R = Math.max(1, Math.round(r));
+  for (let dy = -R; dy <= R; dy++) {
+    const w = Math.round(Math.sqrt(Math.max(0, R * R - dy * dy + R * 0.6)));
+    g.fillStyle = edge || fill;
+    g.fillRect(x - w, y + dy, w * 2 + 1, 1);
+  }
+  if (edge && R >= 2) {
+    const r2 = R - 1;
+    for (let dy = -r2; dy <= r2; dy++) {
+      const w = Math.round(Math.sqrt(Math.max(0, r2 * r2 - dy * dy + r2 * 0.6)));
+      g.fillStyle = fill;
+      g.fillRect(x - w, y + dy, w * 2 + 1, 1);
+    }
+  }
+}
+
+function seeded(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+export class Cutscene {
+  constructor(canvas, card) {
+    this.cv = canvas;
+    this.g = canvas.getContext('2d');
+    this.card = card;
+    this.on = false;
+  }
+
+  size() {
+    const r = this.cv.parentElement.getBoundingClientRect();
+    const H = clamp(Math.round((LW * r.height) / Math.max(1, r.width)), 150, 400);
+    this.cv.width = LW; this.cv.height = H;
+    this.H = H;
+    // Plano: arco al 40% del alto; el tirador ocupa la parte baja.
+    this.gy = Math.round(H * 0.4);         // línea de gol (pie de los palos)
+    this.gTop = this.gy - 40;              // travesaño
+    this.gL = 30; this.gR = 150;           // palos
+    this.standsB = this.gTop - 12;         // fin de la tribuna
+  }
+
+  // o: { kind, att, def, match, outcome, shooter, keeper, kitA, kitD, gkColor, crowd: [colA, colD],
+  //      onContact(), onFreeze() }
+  async play(o) {
+    this.o = o;
+    this.size();
+    this.buildCrowd();
+    this.s = 0; this.speed = 1; this.paused = false; this.shake = 0; this.flash = 0;
+    const header = o.kind === 'cabezazo';
+    const runup = o.kind === 'penal' ? 1.5 : header ? 1.0 : 1.1;
+    this.T = { intro: 0.9, kick: 0.9 + runup, F: header ? 0.95 : o.kind === 'penal' ? 0.85 : 0.9 };
+    this.T.hit = this.T.kick + this.T.F;
+    this.T.end = this.T.hit + (o.outcome === 'goal' ? 1.5 : 1.2);
+    this.showCard();
+    this.cv.classList.add('on');
+    this.on = true;
+    this.last = performance.now();
+    const loop = (now) => {
+      if (!this.on) return;
+      const dt = Math.min(0.05, (now - this.last) / 1000);
+      this.last = now;
+      if (!this.paused) this.s += dt * this.speed;
+      this.shake = Math.max(0, this.shake - dt * 3);
+      this.flash = Math.max(0, this.flash - dt * 4);
+      this.draw();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+
+    o.sound('tension');
+    await this.until(this.T.intro - 0.1);
+    this.hideCard();
+    o.sound('heart');
+    if (header) {
+      await this.until(this.T.kick - 0.75);
+      o.sound('longball');
+    }
+    await this.until(this.T.kick);
+    o.sound(header ? 'header' : 'shot');
+    this.shake = 0.6;
+    this.speed = 0.42; // cámara lenta mientras la pelota viaja
+    if (o.match) {
+      await this.until(this.T.hit);
+      this.speed = 1;
+      o.sound('save');
+      this.shake = 0.8; this.flash = 0.6;
+      o.onContact();
+    } else {
+      await this.until(this.T.kick + this.T.F * 0.62);
+      // Le ganó al arquero: imagen congelada y el dado decide.
+      this.paused = true;
+      await o.onFreeze();
+      this.paused = false;
+      this.speed = 0.6;
+      await this.until(this.T.hit);
+      this.speed = 1;
+      if (o.outcome === 'goal') { o.sound('goal'); this.shake = 1.2; this.flash = 1; }
+      else if (o.outcome === 'post') { o.sound('post'); this.shake = 0.9; this.flash = 0.5; }
+      else o.sound('kick');
+    }
+    await this.until(this.T.end);
+    this.on = false;
+  }
+
+  hide() { this.on = false; this.cv.classList.remove('on'); this.hideCard(); }
+
+  until(s) {
+    return new Promise((res) => {
+      const check = () => { if (this.s >= s || !this.on) res(); else requestAnimationFrame(check); };
+      check();
+    });
+  }
+
+  showCard() {
+    const o = this.o;
+    const title = { remate: '¡REMATE!', cabezazo: '¡CABEZAZO!', mano: '¡MANO A MANO!', penal: '¡PENAL!' }[o.kind] || '¡REMATE!';
+    const plate = (p, kit, cls) => `<div class="cut-plate ${cls}" style="--c:${kit.shirt};--c2:${kit.alt2}"><small>${p.team}</small><b>${p.name}</b><i>${p.num}</i></div>`;
+    this.card.innerHTML = `${plate(o.shooter, o.kitA, 'a')}<div class="cut-title">${title}</div>${plate(o.keeper, { shirt: o.gkColor, alt2: '#fff' }, 'd')}`;
+    this.card.classList.remove('out');
+    this.card.classList.add('on');
+  }
+
+  hideCard() { this.card.classList.add('out'); setTimeout(() => this.card.classList.remove('on', 'out'), 350); }
+
+  buildCrowd() {
+    const [ca, cd] = this.o.crowd;
+    this.crowd = [];
+    const pal = [ca, ca, cd, '#e8e2d0', '#2a2f3a', ca, '#9aa3ad'];
+    for (let y = 10; y < this.standsB - 3; y += 5) {
+      for (let x = (y / 5) % 2 ? 0 : 2; x < LW; x += 4) {
+        const n = x * 13 + y * 7;
+        this.crowd.push({ x, y, c: pal[Math.floor(seeded(n) * pal.length)], skin: seeded(n + 1) < 0.7 ? '#e0a77c' : '#9c6440', ph: seeded(n + 2) * 6.28, fanA: seeded(n + 3) < 0.55 });
+      }
+    }
+  }
+
+  // ---------- trayectorias ----------
+  // Puntos en pantalla según el lado (en el marco del atacante = pantalla, vista desde atrás).
+  target(side) {
+    const x = { L: this.gL + 16, C: 90, R: this.gR - 16 }[side];
+    const y = side === 'C' ? this.gTop + 15 : this.gTop + 12;
+    return [x, y];
+  }
+
+  ballStart() {
+    const H = this.H;
+    return this.o.kind === 'cabezazo' ? [90, H - 92] : [93, H - 36];
+  }
+
+  // Posición de la pelota en el tiempo de escena s → [x, y, r, behindGoal]
+  ball(s) {
+    const o = this.o, T = this.T, H = this.H;
+    const start = this.ballStart();
+    if (s < T.kick) {
+      if (o.kind === 'cabezazo') {
+        // centro que llega desde la izquierda
+        const p = clamp((s - (T.kick - 0.75)) / 0.75, 0, 1);
+        if (p <= 0) return null;
+        const x = lerp(-10, start[0], p), y = lerp(H * 0.5, start[1], p) - Math.sin(p * Math.PI) * 30;
+        return [x, y, lerp(2.4, 3.2, p), false];
+      }
+      return [start[0], start[1], 3.4, false];
+    }
+    const aim = this.target(o.att);
+    const end = this.finalPoint();
+    const p = clamp((s - T.kick) / T.F, 0, 1);
+    const k = 0.62;
+    let x, y;
+    if (o.match || p <= k) {
+      const goal = o.match ? end : aim;
+      const q = easeOut(p);
+      x = lerp(start[0], goal[0], q); y = lerp(start[1], goal[1], q) - Math.sin(p * Math.PI) * 18;
+    } else {
+      const qk = easeOut(k);
+      const mx = lerp(start[0], aim[0], qk), my = lerp(start[1], aim[1], qk) - Math.sin(k * Math.PI) * 18;
+      const q = (p - k) / (1 - k);
+      x = lerp(mx, end[0], q); y = lerp(my, end[1], q) - Math.sin(Math.PI * (k + q * (1 - k))) * 18 * (1 - q);
+    }
+    let r = lerp(3.4, 1.4, easeOut(p));
+    if (s <= T.hit) return [x, y, r, false];
+    // Después del contacto.
+    const a = clamp((s - T.hit) / 0.9, 0, 1);
+    switch (o.outcome) {
+      case 'goal': {
+        const drop = easeOut(clamp((s - T.hit - 0.15) / 0.6, 0, 1));
+        return [end[0] + (end[0] - 90) * 0.04 * a, lerp(end[1] - 2, this.gy - 3, drop), 1.9, true];
+      }
+      case 'post': {
+        const out = end[0] < 90 ? -1 : 1;
+        return [end[0] + out * 34 * a, end[1] + 60 * a * a - Math.sin(a * Math.PI) * 14, lerp(1.4, 2.6, a), false];
+      }
+      case 'wide': {
+        return [end[0] + (end[0] - 90) * 0.35 * a, end[1] - 22 * a, lerp(1.4, 0.8, a), true];
+      }
+      case 'save_corner': {
+        const out = end[0] < 90 ? -1 : 1;
+        return [end[0] + out * (40 * a), end[1] - Math.sin(a * Math.PI) * 16 + a * 10, 1.4, a > 0.5];
+      }
+      default: {
+        // la retiene
+        const h = this.keeperHands(s);
+        return [h[0], h[1], 1.4, false];
+      }
+    }
+  }
+
+  finalPoint() {
+    const o = this.o;
+    const aim = this.target(o.att);
+    if (o.match) return aim;
+    if (o.outcome === 'goal') return [aim[0] + (o.att === 'L' ? -4 : o.att === 'R' ? 4 : 0), aim[1] - 2];
+    if (o.outcome === 'post') return o.att === 'C' ? [96, this.gTop] : [o.att === 'L' ? this.gL + 1 : this.gR - 1, this.gTop + 14];
+    // afuera
+    if (o.att === 'C') return [100, this.gTop - 12];
+    return [o.att === 'L' ? this.gL - 12 : this.gR + 12, this.gTop + 8];
+  }
+
+  // Arquero: estado en s → { x, y, pose, dir, lift }
+  keeper(s) {
+    const o = this.o, T = this.T;
+    const x0 = 90, y0 = this.gy - 1;
+    const start = T.kick + T.F * 0.22;
+    if (s < start) {
+      const bounce = Math.abs(Math.sin(s * 7)) * 2;
+      const sway = Math.sin(s * 2.3) * 4;
+      return { x: x0 + sway, y: y0 - (s > T.intro ? bounce : 0), pose: 'ready' };
+    }
+    const p = clamp((s - start) / (T.F * 0.7), 0, 1);
+    if (o.def === 'C') {
+      return { x: x0, y: y0 - Math.sin(Math.min(p, 1) * Math.PI * 0.5) * 6, pose: 'up' };
+    }
+    const dir = o.def === 'L' ? -1 : 1;
+    // El centro del cuerpo termina de modo que las manos lleguen al rincón.
+    const aim = this.target(o.def);
+    const tx = aim[0] - dir * 24;
+    if (p < 0.18) return { x: x0 + dir * 3, y: y0 + 1, pose: 'load', dir };
+    const q = easeOut((p - 0.18) / 0.82);
+    const peak = this.gy - 10 - aim[1];
+    const lift = Math.sin(clamp(q, 0, 1) * Math.PI * 0.75) * peak;
+    const fall = s > T.hit + 0.15 ? clamp((s - T.hit - 0.15) / 0.45, 0, 1) : 0;
+    return { x: lerp(x0, tx, q), y: this.gy - 10 - lift * (1 - fall) + fall * 4, pose: 'dive', dir };
+  }
+
+  keeperHands(s) {
+    const k = this.keeper(s);
+    if (k.pose === 'dive') return [k.x + k.dir * 24, k.y];
+    if (k.pose === 'up') return [k.x, k.y - 33];
+    return [k.x, k.y - 20];
+  }
+
+  // ---------- dibujo ----------
+  draw() {
+    const g = this.g, H = this.H, s = this.s, o = this.o, T = this.T;
+    g.save();
+    // Cámara: entra desde un plano abierto y se acerca al arco.
+    const intro = ease(clamp(s / T.intro, 0, 1));
+    const z = lerp(1.35, 1.16, intro) + (s > T.kick ? 0.5 * ease(clamp((s - T.kick) / T.F, 0, 1)) : 0);
+    const fy = s > T.kick ? lerp(H * 0.6, this.gy - 14, ease(clamp((s - T.kick) / T.F, 0, 1))) : H * 0.6;
+    const sh = this.shake > 0 ? Math.round((Math.random() - 0.5) * 4 * this.shake) : 0;
+    g.translate(LW / 2 + sh, H * 0.5);
+    g.scale(z, z);
+    g.translate(-LW / 2, -fy + (this.shake > 0 ? Math.round((Math.random() - 0.5) * 3 * this.shake) : 0));
+
+    this.drawStands(s);
+    this.drawPitch();
+    const b = this.ball(s);
+    const goalSide = o.outcome === 'goal' && s > T.hit;
+    this.drawNet(goalSide ? b : null, s);
+    if (b && b[3]) this.drawBall(b, s);
+    this.drawKeeper(this.keeper(s));
+    this.drawPosts();
+    if (b && !b[3]) {
+      // sombra
+      if (s >= T.kick || o.kind !== 'cabezazo') {
+        const shY = s < T.kick ? b[1] + 3 : lerp(this.ballStart()[1] + 3, this.gy + 4, clamp((s - T.kick) / T.F, 0, 1));
+        g.fillStyle = 'rgba(0,0,0,.28)';
+        g.fillRect(Math.round(b[0] - b[2]), Math.round(Math.min(shY, H - 2)), Math.round(b[2] * 2), 1);
+      }
+      this.drawBall(b, s);
+    }
+    this.drawShooter(s);
+    g.restore();
+
+    // viñeta y destello
+    const vg = g.createRadialGradient(LW / 2, H * 0.45, H * 0.25, LW / 2, H * 0.45, H * 0.8);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+    g.fillStyle = vg; g.fillRect(0, 0, LW, H);
+    if (s > T.kick && s < T.hit + 0.2 && this.speed < 1) {
+      g.fillStyle = 'rgba(40,60,120,.12)'; g.fillRect(0, 0, LW, H);
+    }
+    if (this.flash > 0) { g.fillStyle = `rgba(255,255,255,${this.flash * 0.6})`; g.fillRect(0, 0, LW, H); }
+  }
+
+  drawStands(s) {
+    const g = this.g, o = this.o, T = this.T;
+    g.fillStyle = SKY; g.fillRect(-20, -40, LW + 40, this.standsB + 40);
+    // focos
+    for (let i = 0; i < 4; i++) {
+      const x = 14 + i * 50;
+      g.fillStyle = '#fffbe0'; g.fillRect(x, 2, 8, 3);
+      g.fillStyle = 'rgba(255,250,210,.06)'; g.fillRect(x - 6, 5, 20, this.standsB);
+    }
+    g.fillStyle = '#1f2633';
+    g.fillRect(-20, 8, LW + 40, this.standsB - 8);
+    const goalJump = o.outcome === 'goal' && s > T.hit;
+    const tense = s > T.kick && s < T.hit;
+    for (const p of this.crowd) {
+      let dy = Math.sin(s * 3 + p.ph) > 0.6 ? -1 : 0;
+      if (goalJump && p.fanA) dy = Math.sin(s * 14 + p.ph) > 0 ? -3 : 0;
+      if (tense) dy = 0;
+      g.fillStyle = p.c; g.fillRect(p.x, p.y + 2 + dy, 3, 3);
+      g.fillStyle = p.skin; g.fillRect(p.x + 1, p.y + dy, 2, 2);
+      if (goalJump && p.fanA && dy < 0) { g.fillStyle = p.skin; g.fillRect(p.x, p.y - 2 + dy, 1, 2); g.fillRect(p.x + 3, p.y - 2 + dy, 1, 2); }
+    }
+    // carteles
+    const by = this.standsB;
+    for (let i = 0; i < 6; i++) {
+      const x = i * 32 - ((s * 6) % 32) - 4;
+      g.fillStyle = i % 2 ? '#1d3e8a' : '#c8102e';
+      g.fillRect(Math.round(x), by, 32, 10);
+    }
+    const label = 'CALCCIOPOLI';
+    text(g, label, Math.round(LW / 2 - textW(label) / 2), by + 3, '#ffffff');
+    g.fillStyle = INK; g.fillRect(-20, by + 10, LW + 40, 1);
+  }
+
+  drawPitch() {
+    const g = this.g, H = this.H;
+    const top = this.standsB + 11;
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const y0 = top + (H - top) * Math.pow(i / n, 1.5);
+      const y1 = top + (H - top) * Math.pow((i + 1) / n, 1.5);
+      g.fillStyle = GRASS[i % 2];
+      g.fillRect(-20, Math.floor(y0), LW + 40, Math.ceil(y1 - y0) + 1);
+    }
+    const gy = this.gy;
+    g.fillStyle = LINE;
+    g.fillRect(-20, gy, LW + 40, 1);
+    // área chica y área grande en perspectiva
+    const box = (wNear, depth, wFar) => {
+      const yF = gy + depth;
+      g.fillRect(Math.round(90 - wNear), yF, Math.round(wNear * 2), 1);
+      for (let y = gy; y <= yF; y++) {
+        const t = (y - gy) / depth;
+        const w = lerp(wFar, wNear, t);
+        g.fillRect(Math.round(90 - w), y, 1, 1);
+        g.fillRect(Math.round(90 + w), y, 1, 1);
+      }
+    };
+    box(52, 14, 46);
+    box(108, 44, 86);
+    g.fillRect(89, gy + 32, 3, 1);
+  }
+
+  drawNet(ball, s) {
+    const g = this.g, gL = this.gL, gR = this.gR, gTop = this.gTop, gy = this.gy;
+    const back = 8; // fondo del arco hacia arriba en pantalla
+    g.fillStyle = 'rgba(10,14,22,.35)';
+    g.fillRect(gL + 2, gTop - back + 2, gR - gL - 4, gy - gTop + back - 2);
+    // abombado de la red con el gol
+    let bx = -99, by = -99, amp = 0;
+    if (ball) {
+      bx = ball[0]; by = ball[1];
+      amp = Math.max(0, 1 - (s - this.T.hit) / 1.2) * 5;
+    }
+    g.fillStyle = NET;
+    for (let x = gL + 3; x < gR - 1; x += 4) {
+      for (let y = gTop - back + 3; y < gy; y++) {
+        const d = Math.hypot(x - bx, y - by);
+        const off = d < 18 ? Math.round((1 - d / 18) * amp * Math.sign(x - bx || 1)) : 0;
+        g.fillRect(x + off, y, 1, 1);
+      }
+    }
+    for (let y = gTop - back + 3; y < gy; y += 4) {
+      for (let x = gL + 3; x < gR - 1; x++) {
+        const d = Math.hypot(x - bx, y - by);
+        const off = d < 18 ? Math.round((1 - d / 18) * amp * 0.6) : 0;
+        g.fillRect(x, y - off, 1, 1);
+      }
+    }
+    // laterales del fondo
+    g.fillStyle = '#aab3bd';
+    g.fillRect(gL + 2, gTop - back + 2, gR - gL - 4, 1);
+    for (let i = 0; i < back; i++) { g.fillRect(gL + 2 + Math.round(i * 0.25), gTop - back + 2 + i, 1, 1); g.fillRect(gR - 3 - Math.round(i * 0.25), gTop - back + 2 + i, 1, 1); }
+  }
+
+  drawPosts() {
+    const g = this.g, gL = this.gL, gR = this.gR, gTop = this.gTop, gy = this.gy;
+    g.fillStyle = '#9aa3ad';
+    g.fillRect(gL + 2, gTop + 2, 1, gy - gTop - 2); g.fillRect(gR - 3, gTop + 2, 1, gy - gTop - 2);
+    g.fillStyle = '#ffffff';
+    g.fillRect(gL - 1, gTop - 1, 3, gy - gTop + 1);
+    g.fillRect(gR - 2, gTop - 1, 3, gy - gTop + 1);
+    g.fillRect(gL - 1, gTop - 1, gR - gL + 2, 3);
+    g.fillStyle = 'rgba(0,0,0,.25)';
+    g.fillRect(gL - 1, gy, 4, 1); g.fillRect(gR - 2, gy, 4, 1);
+  }
+
+  drawBall(b, s) {
+    const g = this.g;
+    const [x, y, r] = b;
+    // estela durante el vuelo
+    if (s > this.T.kick && s < this.T.hit + 0.3) {
+      for (let k = 1; k <= 4; k++) {
+        const pb = this.ball(s - k * 0.035);
+        if (!pb) continue;
+        g.fillStyle = `rgba(255,255,255,${0.22 - k * 0.045})`;
+        const rr = Math.max(1, Math.round(pb[2] * 0.8));
+        g.fillRect(Math.round(pb[0] - rr), Math.round(pb[1] - rr), rr * 2, rr * 2);
+      }
+    }
+    disc(g, x, y, r, '#ffffff', INK);
+    if (r >= 2.5) {
+      const spin = Math.floor(s * 20) % 2;
+      g.fillStyle = INK;
+      g.fillRect(Math.round(x) - 1 + spin, Math.round(y) - 1, 2, 2);
+    }
+  }
+
+  drawKeeper(k) {
+    const g = this.g, o = this.o;
+    const u = 2;
+    const col = o.gkColor, dark = shade(col, -0.35), skin = o.keeper.skin, hair = o.keeper.hair;
+    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x * u, y * u, w * u, h * u); };
+    g.save();
+    // sombra
+    g.fillStyle = 'rgba(0,0,0,.3)';
+    g.fillRect(Math.round(k.x) - (k.pose === 'dive' ? 18 : 10), this.gy, k.pose === 'dive' ? 36 : 20, 2);
+    g.translate(Math.round(k.x), Math.round(k.y));
+    if (k.pose === 'dive') {
+      // cuerpo horizontal alrededor de su centro: la cabeza hacia el lado del vuelo
+      g.rotate(k.dir * Math.PI / 2);
+      g.translate(0, 16);
+    }
+    if (k.pose === 'load') g.translate(0, 2);
+    // piernas
+    R(-3, -6, 2, 5, '#f4f1e6'); R(1, -6, 2, 5, '#f4f1e6');
+    R(-3, -1, 2, 1, INK); R(1, -1, 2, 1, INK);
+    if (k.pose === 'ready' || k.pose === 'load') { R(-4, -6, 1, 4, '#f4f1e6'); R(3, -6, 1, 4, '#f4f1e6'); }
+    R(-3, -8, 6, 2, '#1a1a1a');
+    // torso
+    R(-3, -13, 6, 5, col); R(-3, -9, 6, 1, dark); R(-1, -13, 2, 1, dark);
+    // cabeza
+    R(-1, -16, 2, 3, skin); R(-1, -16, 2, 1, hair);
+    // brazos
+    if (k.pose === 'up' || k.pose === 'dive') {
+      R(-4, -18, 1, 6, col); R(3, -18, 1, 6, col);
+      R(-5, -20, 2, 2, '#ffffff'); R(3, -20, 2, 2, '#ffffff');
+    } else {
+      R(-6, -12, 3, 1, col); R(3, -12, 3, 1, col);
+      R(-7, -13, 1, 2, '#ffffff'); R(6, -13, 1, 2, '#ffffff');
+    }
+    g.restore();
+  }
+
+  drawShooter(s) {
+    const g = this.g, o = this.o, T = this.T, H = this.H;
+    const header = o.kind === 'cabezazo';
+    const u = 3;
+    const kit = o.kitA, sh = o.shooter;
+    // posición: corre hacia la pelota y luego queda detrás de ella
+    let x, y, frame = 0, kick = 0, jump = 0;
+    const runT = clamp((s - T.intro + 0.2) / (T.kick - T.intro + 0.2), 0, 1);
+    if (header) {
+      x = 86; y = H - 8;
+      const j = clamp((s - (T.kick - 0.45)) / 0.9, 0, 1);
+      jump = Math.sin(j * Math.PI) * 26;
+      frame = jump > 2 ? 2 : Math.floor(s * 6) % 2;
+    } else {
+      x = lerp(o.kind === 'penal' ? 60 : 68, 84, ease(runT));
+      y = lerp(H + 26, H - 12, ease(runT));
+      frame = runT < 1 ? Math.floor(s * 9) % 2 : 0;
+      if (s > T.kick - 0.18 && s < T.kick) kick = 1;      // pierna atrás
+      else if (s >= T.kick && s < T.kick + 0.5) kick = 2; // pierna adelante
+    }
+    // se aleja un poco después del remate
+    if (s > T.kick + 0.4 && !header) y += 0;
+    const R = (px, py, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x + px * u), Math.round(y - jump + py * u), w * u, h * u); };
+    // sombra
+    g.fillStyle = 'rgba(0,0,0,.3)';
+    g.fillRect(Math.round(x - 12), Math.round(y + 1), 24, 3);
+    const sock = kit.shorts === '#ffffff' ? '#f4f1e6' : kit.shorts;
+    // piernas (vista desde atrás)
+    if (kick === 1) {
+      R(-3, -6, 2, 6, sh.skin); R(-3, -2, 2, 2, sock); R(-3, 0, 2, 1, INK);
+      R(1, -8, 2, 3, sh.skin); R(1, -5, 2, 2, sock); R(1, -3, 2, 1, INK); // talón arriba
+    } else if (kick === 2) {
+      R(-3, -6, 2, 6, sh.skin); R(-3, -2, 2, 2, sock); R(-3, 0, 2, 1, INK);
+      R(1, -6, 2, 3, sh.skin); R(2, -4, 2, 1, sock); // pierna hacia adelante (escorzo)
+    } else if (frame === 2) {
+      R(-3, -6, 2, 4, sh.skin); R(-3, -2, 2, 1, INK); R(1, -6, 2, 5, sh.skin); R(1, -1, 2, 1, INK);
+    } else {
+      const a = frame ? 1 : 0;
+      R(-3, -6, 2, 6 - a, sh.skin); R(-3, -2 - a, 2, 2, sock); R(-3, -a, 2, 1, INK);
+      R(1, -6, 2, 5 + a, sh.skin); R(1, -2 + a - 1, 2, 2, sock); R(1, -1 + a, 2, 1, INK);
+    }
+    // pantalón
+    R(-4, -9, 8, 3, kit.shorts === kit.shirt ? shade(kit.shorts, -0.15) : kit.shorts);
+    // camiseta con dibujo
+    this.shirt(x, y - jump, u, kit, frame, header && jump > 2);
+    // número y nombre en la espalda
+    const numCol = contrast(kit.shirt);
+    const num = String(sh.num);
+    const nk = 2;
+    const nx = Math.round(x - textW(num, nk) / 2), ny = Math.round(y - jump - 14 * u + 6);
+    g.fillStyle = kit.shirt; // fondo liso para que se lea
+    text(g, num, nx, ny + 4, numCol, nk);
+    const name = plain(sh.name).split(' ').pop();
+    if (textW(name) <= 8 * u) text(g, name, Math.round(x - textW(name) / 2), ny - 2, numCol, 1);
+    // cabeza (de espaldas: pelo)
+    R(-2, -19, 4, 4, sh.hair); R(-2, -15, 4, 1, sh.skin); R(-2, -19, 4, 1, shade(sh.hair, 0.15));
+  }
+
+  shirt(x, y, u, kit, frame, armsUp) {
+    const g = this.g;
+    const X = Math.round(x - 4 * u), Y = Math.round(y - 15 * u), W = 8 * u, Hh = 6 * u;
+    g.fillStyle = kit.shirt; g.fillRect(X, Y, W, Hh);
+    g.fillStyle = kit.alt2;
+    switch (kit.pattern) {
+      case 'stripes': for (let i = 1; i < 8; i += 2) g.fillRect(X + i * u, Y, u, Hh); break;
+      case 'hoops': for (let i = 1; i < 6; i += 2) g.fillRect(X, Y + i * u, W, u); break;
+      case 'band': g.fillRect(X, Y + 2 * u, W, u * 1.5); break;
+      case 'sash': for (let i = 0; i < 6; i++) g.fillRect(X + (5 - i) * u + 1, Y + i * u, u + 2, u); break;
+      case 'center': g.fillRect(X + 3 * u, Y, 2 * u, Hh); break;
+      case 'checks': for (let i = 0; i < 8; i++) for (let j = 0; j < 6; j++) if ((i + j) % 2) g.fillRect(X + i * u, Y + j * u, u, u); break;
+      default: break;
+    }
+    // brazos
+    const sleeve = kit.pattern === 'sleeves' ? kit.alt2 : kit.shirt;
+    const sk = this.o.shooter.skin;
+    if (armsUp) {
+      g.fillStyle = sleeve; g.fillRect(X - u, Y - 2 * u, u, 3 * u); g.fillRect(X + W, Y - 2 * u, u, 3 * u);
+      g.fillStyle = sk; g.fillRect(X - u, Y - 4 * u, u, 2 * u); g.fillRect(X + W, Y - 4 * u, u, 2 * u);
+    } else {
+      const a = frame ? u : 0;
+      g.fillStyle = sleeve; g.fillRect(X - u, Y + u, u, 2 * u); g.fillRect(X + W, Y + u, u, 2 * u);
+      g.fillStyle = sk; g.fillRect(X - u - (a ? u : 0), Y + 3 * u - a, u, 2 * u); g.fillRect(X + W + (a ? 0 : u), Y + 3 * u - (a ? 0 : u), u, 2 * u);
+    }
+    g.fillStyle = 'rgba(0,0,0,.15)'; g.fillRect(X, Y + Hh - 2, W, 2);
+  }
+}
+
+function hex(c) { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function shade(c, k) {
+  const [r, g, b] = hex(c);
+  const f = (v) => Math.round(clamp(k < 0 ? v * (1 + k) : v + (255 - v) * k, 0, 255));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+function contrast(c) {
+  const [r, g, b] = hex(c);
+  return r * 0.3 + g * 0.59 + b * 0.11 > 150 ? '#14171f' : '#ffffff';
+}

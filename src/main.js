@@ -200,7 +200,7 @@ class MatchView {
       this.currentEv = ev;
       this.duelStart(ev);
       await renderer.play(ev);
-      this.feed(commentary(ev, this.names()));
+      this.feed(this.shotText(ev) || commentary(ev, this.names()));
       this.paintHud(state);
       if (ev.halfEnd) {
         audio.sound('whistle3');
@@ -262,6 +262,20 @@ class MatchView {
     $('#panel-title').textContent = won ? (iAttack ? 'El rival no lo vio venir.' : '¡Le leíste la jugada!') : (iAttack ? 'El rival te leyó la jugada.' : 'No adivinaste.');
     const r = $('#panel-role'); r.textContent = won ? 'GANASTE' : 'PERDISTE'; r.className = 'role ' + (won ? 'good' : 'bad');
     audio.sound(won ? 'win-duel' : 'lose-duel');
+  }
+
+  // Relato de remates con los nombres de quien patea y quien ataja.
+  shotText(ev) {
+    if (ev.situation !== 'shot' && ev.situation !== 'penalty') return '';
+    const sh = renderer.lastShooter, kp = renderer.lastKeeper;
+    if (!sh || !kp) return '';
+    const A = this.names()[ev.poss];
+    if (ev.outcome === 'goal') return `¡GOOOL de ${A}! Anota ${sh.name}.`;
+    if (ev.outcome === 'post') return `¡${sh.name} la pega en el palo!`;
+    if (ev.outcome === 'wide') return `Remata ${sh.name}... ¡afuera por poco!`;
+    if (ev.outcome === 'save_corner') return `¡Atajadón de ${kp.name}! Al córner.`;
+    if (ev.outcome === 'save_counter') return `¡Ataja ${kp.name} y sale rápido de contra!`;
+    return `¡Ataja ${kp.name}! Le adivinó el remate a ${sh.name}.`;
   }
 
   paintHud(state) {

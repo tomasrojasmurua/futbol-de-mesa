@@ -7,7 +7,9 @@ Juego de fútbol de cartas para celular, para 2 jugadores en una sala (o contra 
 1. **Sorteo**: el que entra a la sala elige cara o sello. El ganador saca.
 2. **Salida**: quien tiene la pelota elige izquierda, centro o derecha; el rival elige qué zona cierra. Si adivina, recupera la pelota.
 3. **Último tercio**: centro al área, pase filtrado o gambeta, contra cerrar bandas, achicar la línea o doble marca.
-4. **Remate**: el atacante elige palo izquierdo, medio o palo derecho; el arquero rival elige hacia dónde se tira.
+4. **Remate**: el atacante elige palo izquierdo, medio o palo derecho; el arquero rival elige hacia dónde se tira. Cada remate se ve en una escena animada a pantalla completa, desde atrás del tirador, con su nombre y el del arquero.
+
+Cada equipo tiene su once titular probable (temporada 2025-26) en `src/squads.js`; el nombre de quien lleva la pelota aparece en la cancha y en el relato.
 
 El dado aparece en momentos clave. Cada cara muestra un símbolo de lo que pasa, y las reglas son iguales para los dos equipos:
 
@@ -48,5 +50,7 @@ El repositorio ya trae `netlify.toml` (build `npm run build`, carpeta `dist`). E
 - `src/host.js`: autoridad del partido y rival de la IA (Fácil, Normal, Difícil).
 - `src/net.js`: salas por relevo MQTT.
 - `src/render.js`: cancha, jugadores, cámara y animación de cada jugada.
+- `src/cutscene.js`: escena animada de cada remate.
+- `src/squads.js`: planteles con los nombres de los jugadores.
 - `src/main.js`: pantallas, cartas y flujo del partido.
 - `src/teams.js`: equipos y camisetas.

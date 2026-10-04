@@ -75,6 +75,7 @@ export const SHOT_TITLES = {
 // Dado del remate cuando el arquero no adivina: igual para todo tipo de remate
 // y para los dos equipos. 1 = palo, 2..MISS_ON = afuera, el resto es gol.
 export const MISS_ON = 2;
+const SHOOTERS = [9, 9, 10, 10, 5, 8, 6, 7];
 
 // Duración: unidades de reloj por tiempo. El minuto que se ve siempre llega a 45'.
 export const LENGTHS = {
@@ -182,6 +183,8 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       s.stats.shots[A]++;
       const kind = s.situation === 'penalty' ? 'penal' : s.shotKind;
       ev.shotKind = kind;
+      // Quién patea (puesto en la formación), igual en los dos celulares.
+      ev.shooter = kind === 'penal' ? 9 : SHOOTERS[Math.floor(rng() * SHOOTERS.length)];
       if (ev.match) {
         s.stats.onTarget[A]++;
         const r = roll();
