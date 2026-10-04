@@ -336,7 +336,9 @@ export function sound(name) {
     // El dado rueda (un golpecito por cara) y cae.
     case 'roll': burst({ dur: 0.03, freq: 2500, vol: 0.18, type: 'bandpass', q: 2 }); tone({ freq: 300 + Math.random() * 400, dur: 0.03, vol: 0.04 }); break;
     case 'land': burst({ dur: 0.09, freq: 600, vol: 0.5 }); tone({ freq: 880, dur: 0.15, vol: 0.06, type: 'triangle' }); break;
-    case 'coin': tone({ freq: 1500, dur: 0.6, vol: 0.06, type: 'triangle', slide: 400 }); break;
+    case 'coin': tone({ freq: 2400, dur: 0.05, vol: 0.05, type: 'triangle' }); tone({ freq: 1500, dur: 0.6, vol: 0.05, type: 'triangle', slide: 400, at: 0.03 }); break;
+    // La moneda pica en el pasto: un tintineo metálico corto.
+    case 'clink': [3150, 4720].forEach((f, i) => tone({ freq: f, dur: 0.18 - i * 0.06, vol: 0.05, type: 'sine' })); burst({ dur: 0.02, freq: 3000, vol: 0.12, type: 'bandpass', q: 3 }); break;
     case 'win': [0, 0.2, 0.4, 0.6].forEach((at, i) => tone({ freq: [392, 523, 659, 784][i], dur: 0.3, vol: 0.08, at })); break;
   }
 }
