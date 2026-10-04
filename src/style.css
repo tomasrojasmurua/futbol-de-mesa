@@ -332,11 +332,21 @@ body.watching .cards .duel-card { pointer-events: none; }
 
 /* Situaciones de juego */
 .fxbar { position: absolute; z-index: 2; left: 6px; top: 6px; right: 6px; display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
-.fx-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; padding: 3px 6px; background: rgba(10,14,20,.82); color: #fff; box-shadow: 0 0 0 2px #000; }
+.fx-chip { display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 10px; padding: 3px 6px; border: 0; background: rgba(10,14,20,.82); color: #fff; box-shadow: 0 0 0 2px #000; pointer-events: auto; cursor: pointer; }
+.fx-chip::after { content: 'i'; font-family: var(--px); font-size: 7px; color: #9aa4b5; margin-left: 2px; }
+.fx-chip.open { box-shadow: 0 0 0 2px #000, 0 0 0 4px var(--gold); }
+.fxtip { position: absolute; z-index: 3; width: 220px; max-width: calc(100% - 12px); padding: 8px 10px; background: #f4ecd2; color: #1a1a1a; box-shadow: 0 0 0 2px #000, 4px 5px 0 2px rgba(0,0,0,.45); opacity: 0; transform: translateY(-4px); transition: opacity .15s, transform .15s; pointer-events: none; }
+.fxtip.show { opacity: 1; transform: none; pointer-events: auto; }
+.fxtip b { display: block; font-family: var(--px); font-size: 9px; line-height: 1.4; }
+.fxtip em { display: block; font-style: normal; font-size: 11px; font-weight: 700; color: #555; margin-top: 2px; }
+.fxtip p { font-size: 12px; line-height: 1.35; margin: 5px 0 0; }
 .fx-chip b { font-family: var(--px); font-size: 8px; color: var(--gold); }
 .fx-chip.k-red i { width: 7px; height: 10px; background: #e3262b; box-shadow: 0 0 0 1px #000; }
 .sitcard { position: absolute; z-index: 4; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; opacity: 0; transition: opacity .2s; background: rgba(0,0,0,.35); }
-.sitcard.show { opacity: 1; }
+.sitcard.show { opacity: 1; pointer-events: auto; cursor: pointer; }
+.sc-tap { display: block; text-decoration: none; margin-top: 8px; font-family: var(--px); font-size: 8px; color: #6b5a2a; animation: sc-blink 1.2s steps(2) infinite; }
+.sc-tap:empty { display: none; }
+@keyframes sc-blink { 50% { opacity: .35; } }
 .sc-box { width: min(230px, 72%); background: #f4ecd2; color: #1a1a1a; text-align: center; padding: 10px 12px 12px; box-shadow: 0 0 0 3px #000, 0 0 0 6px var(--sc, var(--gold)), 0 0 0 9px #000, 8px 10px 0 9px rgba(0,0,0,.5); transform: scale(.3) rotate(-14deg); transition: transform .35s cubic-bezier(.3,1.6,.6,1); }
 .sitcard.show .sc-box { transform: scale(1) rotate(-2deg); }
 .sc-box small { display: block; font-family: var(--px); font-size: 8px; letter-spacing: 1px; color: #6b5a2a; }
