@@ -144,6 +144,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @keyframes deal { from { transform: translateY(60px) rotate(-8deg) scale(.8); opacity: 0; } }
 .card-top { align-self: stretch; margin: 0 -4px; padding: 4px 0 3px; background: var(--edge); color: #fff; font-family: var(--px); font-size: 7px; letter-spacing: 1px; text-shadow: 1px 1px 0 rgba(0,0,0,.5); }
 .card .ic { width: 52px; height: 52px; image-rendering: pixelated; margin-top: 4px; box-shadow: 0 0 0 2px var(--tag), 2px 3px 0 2px rgba(0,0,0,.2); }
+.card.coin .ic { width: 64px; height: 64px; image-rendering: auto; border-radius: 50%; box-shadow: 0 0 0 2px #000, 2px 3px 0 2px rgba(0,0,0,.25); }
 .card .lb { font-family: var(--px); font-size: 8px; line-height: 1.45; color: var(--tag); padding: 0 2px; }
 .card .hn { font-size: 15px; color: #555; line-height: .95; }
 .card:active { transform: translateY(3px); }
@@ -290,6 +291,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .cards { min-height: 100px; }
   .card { gap: 3px; padding-bottom: 5px; }
   .card .ic { width: 40px; height: 40px; }
+  .card.coin .ic { width: 52px; height: 52px; }
   .card .hn { display: none; }
 }
 

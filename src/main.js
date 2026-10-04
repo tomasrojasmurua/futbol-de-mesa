@@ -10,7 +10,7 @@ import { Renderer } from './render.js';
 import { CARDS, activeEffects } from './situations.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
-import { rollDice, tossCoin } from './dice.js';
+import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 
 const $ = (s) => document.querySelector(s);
@@ -557,8 +557,8 @@ class MatchView {
       return;
     }
     this.renderCards('Sorteo: ¿cara o sello?', 'MONEDA', 'coin', [
-      { id: 'cara', label: 'Cara', img: icon('cara') },
-      { id: 'sello', label: 'Sello', img: icon('sello') },
+      { id: 'cara', label: 'Cara', img: coinFaceUrl('cara') },
+      { id: 'sello', label: 'Sello', img: coinFaceUrl('sello') },
     ], (call) => this.send({ t: 'call', call }));
   }
 
