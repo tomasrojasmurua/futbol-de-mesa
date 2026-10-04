@@ -123,10 +123,14 @@ const HELP = `
 <h3>Salas</h3>
 <p>Crea una sala, comparte el código o el enlace, y tu rival entra desde su celular. Tienes ${TURN_SECONDS} segundos para cada carta: si se acaba el tiempo, se elige sola.</p>`;
 
+// En los remates los lados se nombran siempre desde el pateador: el arquero que
+// se tira a la izquierda tapa el remate a la izquierda.
+const SHOT_SITS = ['shot', 'penalty', 'shootout'];
+
 // Describe una elección desde la pantalla de quien mira (su equipo ataca hacia arriba).
 function describe(sit, role, id, iAttack) {
   const mirror = { L: 'R', C: 'C', R: 'L' };
-  const side = (lane) => ({ L: 'izquierda', C: 'centro', R: 'derecha' })[iAttack ? lane : mirror[lane]];
+  const side = (lane) => ({ L: 'izquierda', C: 'centro', R: 'derecha' })[iAttack || SHOT_SITS.includes(sit) ? lane : mirror[lane]];
   if (sit === 'build') return role === 'att' ? (id === 'C' ? 'Salida por el centro' : `Salida por la ${side(id)}`) : (id === 'C' ? 'Cierra el centro' : `Cierra la ${side(id)}`);
   if (sit === 'shot' || sit === 'penalty' || sit === 'shootout') {
     if (role === 'att') return id === 'C' ? 'Remate al medio' : `Remate a la ${side(id)}`;
@@ -140,7 +144,7 @@ const MIRROR = { L: 'R', C: 'C', R: 'L' };
 
 // Datos de una carta vista desde la pantalla de quien mira.
 function cardInfo(sit, role, id, iAttack) {
-  const screen = iAttack ? id : MIRROR[id];
+  const screen = iAttack || SHOT_SITS.includes(sit) ? id : MIRROR[id];
   return { label: describe(sit, role, id, iAttack), img: iconFor(sit, role, id, screen) };
 }
 
@@ -562,7 +566,12 @@ class MatchView {
       const n = state.pens.kicks[state.poss] + 1;
       title = att ? `Penal ${n} de la tanda: ¿a dónde pateas?` : `Penal ${n} del rival: ¿hacia dónde te tiras?`;
     }
-    if (!att && opts[0].lane) {
+    const shotSit = SHOT_SITS.includes(sit);
+    if (!att && opts[0].lane && shotSit) {
+      // Remates: izquierda y derecha del pateador, igual que en la escena del remate.
+      const name = { L: 'izquierda', R: 'derecha' };
+      opts = ['L', 'C', 'R'].map((id) => ({ ...opts.find((x) => x.id === id), label: id === 'C' ? 'Quedarse al medio' : `Volar a la ${name[id]}` }));
+    } else if (!att && opts[0].lane) {
       // El rival viene de frente: su izquierda es tu derecha. Ordenamos por pantalla.
       const screen = { L: 'derecha', C: 'centro', R: 'izquierda' };
       opts = ['R', 'C', 'L'].map((id) => {
@@ -573,7 +582,7 @@ class MatchView {
         return { ...o, label };
       });
     }
-    opts = opts.map((o) => ({ ...o, img: iconFor(sit, role, o.id, att ? o.id : MIRROR[o.id]) }));
+    opts = opts.map((o) => ({ ...o, img: iconFor(sit, role, o.id, att || shotSit ? o.id : MIRROR[o.id]) }));
     const seq = state.seq;
     this.renderCards(title, att ? 'ATACAS' : 'DEFIENDES', role, opts, (choice) => this.send({ t: 'choice', seq, choice }));
   }
@@ -674,34 +683,46 @@ const ui = {
   },
   async dice(value, reason, faces) {
     const wrap = $('#dice'), die = $('#die'), legend = $('#dice-legend');
-    // Leyenda: qué puede salir y cuántas caras tiene cada cosa.
+    // Leyenda: qué puede salir y en qué números del dado.
     const kinds = [...new Set(faces)];
     legend.innerHTML = kinds.map((k) => {
-      const n = faces.filter((f) => f === k).length;
-      return `<span class="chip" data-k="${k}"><img src="${icon('face', k)}" alt=""><b>${DIE_LABELS[k]}</b><i>${'●'.repeat(n)}${'○'.repeat(6 - n)}</i></span>`;
+      const nums = faces.map((f, i) => (f === k ? i + 1 : null)).filter(Boolean).join(' ');
+      return `<span class="chip" data-k="${k}"><img src="${icon('face', k)}" alt=""><b>${DIE_LABELS[k]}</b><i>${nums}</i></span>`;
     }).join('');
-    const face = (k) => {
-      die.innerHTML = `<img src="${icon('face', k)}" alt="${DIE_LABELS[k]}">`;
-      legend.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.k === k));
-    };
+    // Un cubo con las seis caras: la cara i lleva el número i+1.
+    die.innerHTML = `<div class="toss"><div class="tilt"><div class="cube">${faces.map((k, i) => `<div class="f f${i}"><img src="${icon('face', k)}" alt="${DIE_LABELS[k]}"><i>${i + 1}</i></div>`).join('')}</div></div></div><div class="shadow"></div>`;
+    const toss = die.querySelector('.toss'), cube = die.querySelector('.cube'), shadow = die.querySelector('.shadow');
     $('#dice-text').textContent = 'Tirando el dado…';
     wrap.classList.add('show');
-    // Un momento para mirar qué puede salir antes de tirar.
-    await wait(600);
-    die.classList.add('rolling');
-    // El dado gira y va frenando de a poco, para que se sienta la tensión.
-    for (let i = 0; i < 14; i++) {
-      face(faces[Math.floor(Math.random() * 6)]);
-      audio.sound('roll');
-      await wait(90 + i * i * 1.5);
-    }
-    await wait(250);
+    // Rotación que deja la cara del resultado de frente, más vueltas completas.
+    const FACE = [[0, 0], [0, 180], [0, -90], [0, 90], [-90, 0], [90, 0]];
+    const [fx, fy] = FACE[value - 1];
+    const spinX = fx + 360 * (2 + Math.floor(Math.random() * 2)), spinY = fy + 360 * (2 + Math.floor(Math.random() * 2));
+    const T = 1100;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    // Se lanza desde un costado, rebota dos veces y se asienta.
+    toss.animate([
+      { transform: `translate(${side * 150}px, -120px)`, offset: 0 },
+      { transform: 'translate(0px, 0px)', offset: 0.45 },
+      { transform: `translate(${-side * 6}px, -34px)`, offset: 0.63 },
+      { transform: 'translate(0px, 0px)', offset: 0.8 },
+      { transform: `translate(${side * 2}px, -8px)`, offset: 0.9 },
+      { transform: 'translate(0px, 0px)', offset: 1 },
+    ], { duration: T, easing: 'linear', fill: 'forwards' });
+    shadow.animate([{ opacity: 0.1, transform: 'scale(.5)' }, { opacity: 1, transform: 'scale(1)', offset: 0.45 }, { opacity: 0.6, transform: 'scale(.8)', offset: 0.63 }, { opacity: 1, transform: 'scale(1)' }], { duration: T, fill: 'forwards' });
+    cube.animate([
+      { transform: `rotateX(${Math.random() * 360}deg) rotateY(${Math.random() * 360}deg)` },
+      { transform: `rotateX(${spinX}deg) rotateY(${spinY}deg)` },
+    ], { duration: T, easing: 'cubic-bezier(.2,.7,.3,1)', fill: 'forwards' });
+    // Golpes contra la mesa en cada rebote.
+    for (const at of [0.45, 0.8, 0.95]) setTimeout(() => audio.sound('roll'), T * at);
+    await wait(T + 80);
     const k = faces[value - 1];
-    face(k); die.classList.remove('rolling');
     audio.sound('land');
+    legend.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.k === k));
     legend.querySelector(`.chip[data-k="${k}"]`)?.classList.add('hit');
     $('#dice-text').textContent = reason;
-    await wait(3500);
+    await wait(2000);
     wrap.classList.remove('show');
   },
   async coin(result, text) {
