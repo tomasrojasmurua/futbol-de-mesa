@@ -5,6 +5,7 @@ import { createRoom, joinRoom } from './net.js';
 import { Renderer } from './render.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
+import { playerName } from './squads.js';
 
 const $ = (s) => document.querySelector(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -98,6 +99,10 @@ const HELP = `
 </ul>
 <h3>Duración</h3>
 <p>En el menú eliges partido <b>corto</b> (unos 3 a 5 minutos), <b>normal</b> (5 a 8) o <b>largo</b> (10 a 14). En una sala manda la duración de quien la crea.</p>
+<h3>Empate y penales</h3>
+<p>Si el partido termina empatado, se define por penales: cinco por lado y, si siguen iguales, muerte súbita. Cada penal es un duelo de remate contra arquero, con el mismo dado si el arquero no adivina.</p>
+<h3>Estadio</h3>
+<p>Juegas de local en una versión pixelada del estadio de tu equipo. Al final ves los goleadores, la figura del partido y las estadísticas.</p>
 <h3>Salas</h3>
 <p>Crea una sala, comparte el código o el enlace, y tu rival entra desde su celular. Tienes ${TURN_SECONDS} segundos para cada carta: si se acaba el tiempo, se elige sola.</p>`;
 
@@ -106,7 +111,7 @@ function describe(sit, role, id, iAttack) {
   const mirror = { L: 'R', C: 'C', R: 'L' };
   const side = (lane) => ({ L: 'izquierda', C: 'centro', R: 'derecha' })[iAttack ? lane : mirror[lane]];
   if (sit === 'build') return role === 'att' ? (id === 'C' ? 'Salida por el centro' : `Salida por la ${side(id)}`) : (id === 'C' ? 'Cierra el centro' : `Cierra la ${side(id)}`);
-  if (sit === 'shot' || sit === 'penalty') {
+  if (sit === 'shot' || sit === 'penalty' || sit === 'shootout') {
     if (role === 'att') return id === 'C' ? 'Remate al medio' : `Remate a la ${side(id)}`;
     return id === 'C' ? 'Arquero al medio' : `Arquero a la ${side(id)}`;
   }
@@ -131,6 +136,7 @@ const QUESTIONS = {
   attack: ['¿Rompes la defensa?', '¿Lo frenas?'],
   shot: ['¿Será gol?', '¿Ataja tu arquero?'],
   penalty: ['¿Será gol?', '¿Ataja tu arquero?'],
+  shootout: ['¿Será gol?', '¿Ataja tu arquero?'],
   corner: ['¿Ganas por arriba?', '¿Despejas el córner?'],
 };
 
@@ -179,8 +185,11 @@ class MatchView {
       renderer.setup(teams, this.kits, this.mySide);
       renderer.kickoffNow(0);
       this.paintHud(state);
+      this.paintPens(state);
       this.lastSeq = -1;
-      if (state.length && state.length !== 'normal') this.feed(`Partido ${LENGTHS[state.length].label.toLowerCase()}. ¡Bienvenidos al estadio!`);
+      const st = renderer.stadium;
+      const len = state.length && state.length !== 'normal' ? ` Partido ${LENGTHS[state.length].label.toLowerCase()}.` : '';
+      this.feed(`¡Bienvenidos al ${st.name}${st.city ? `, ${st.city}` : ''}!${len}`);
       return this.promptToss(state);
     }
     if (ev.type === 'toss') {
@@ -202,14 +211,26 @@ class MatchView {
       await renderer.play(ev);
       this.feed(this.shotText(ev) || commentary(ev, this.names()));
       this.paintHud(state);
+      this.paintPens(state);
+      if (ev.shootoutEnd) {
+        audio.sound('whistle3');
+        await ui.banner(`${this.names()[state.winner].toUpperCase()} GANA`, { hold: 2200 });
+        return this.showEnd(state);
+      }
       if (ev.halfEnd) {
         audio.sound('whistle3');
         await ui.banner(ev.halfEnd === 1 ? 'ENTRETIEMPO' : 'FINAL', { hold: 1800 });
+        if (ev.shootoutStart) {
+          await ui.banner('¡PENALES!', { hold: 1800 });
+          this.feed(`Empate: se define por penales. Patea primero ${this.names()[state.poss]}.`);
+          this.paintPens(state);
+          return this.prompt(state);
+        }
         if (ev.halfEnd === 2) return this.showEnd(state);
         this.feed(`Arranca el segundo tiempo. Saca ${this.names()[state.poss]}.`);
         await renderer.kickoff(ev.kickoffAfter);
         audio.sound('whistle');
-      } else if (ev.outcome === 'goal') {
+      } else if (ev.outcome === 'goal' && ev.kickoffAfter != null) {
         await renderer.kickoff(ev.kickoffAfter);
         audio.sound('whistle');
       }
@@ -266,16 +287,37 @@ class MatchView {
 
   // Relato de remates con los nombres de quien patea y quien ataja.
   shotText(ev) {
-    if (ev.situation !== 'shot' && ev.situation !== 'penalty') return '';
+    if (ev.situation !== 'shot' && ev.situation !== 'penalty' && ev.situation !== 'shootout') return '';
     const sh = renderer.lastShooter, kp = renderer.lastKeeper;
     if (!sh || !kp) return '';
     const A = this.names()[ev.poss];
+    if (ev.situation === 'shootout') {
+      if (ev.outcome === 'goal') return `${sh.name} no perdona: gol de ${A}.`;
+      if (ev.outcome === 'save') return `¡${kp.name} le ataja el penal a ${sh.name}!`;
+      return ev.outcome === 'post' ? `¡${sh.name} la estrella en el palo!` : `¡${sh.name} la tira afuera!`;
+    }
     if (ev.outcome === 'goal') return `¡GOOOL de ${A}! Anota ${sh.name}.`;
     if (ev.outcome === 'post') return `¡${sh.name} la pega en el palo!`;
     if (ev.outcome === 'wide') return `Remata ${sh.name}... ¡afuera por poco!`;
     if (ev.outcome === 'save_corner') return `¡Atajadón de ${kp.name}! Al córner.`;
     if (ev.outcome === 'save_counter') return `¡Ataja ${kp.name} y sale rápido de contra!`;
     return `¡Ataja ${kp.name}! Le adivinó el remate a ${sh.name}.`;
+  }
+
+  // Marcador de la tanda: un casillero por penal, en el orden de pantalla.
+  paintPens(state) {
+    const el = $('#pens');
+    if (!state.pens) { el.classList.remove('on'); return; }
+    const teams = state.teams.map(teamById);
+    const order = this.mySide === 0 ? [0, 1] : [1, 0];
+    const row = (side) => {
+      const log = state.pens.log[side];
+      const n = Math.max(5, log.length, state.pens.log[1 - side].length);
+      const cells = Array.from({ length: n }, (_, k) => (k < log.length ? (log[k] ? '<i class="g"></i>' : '<i class="x"></i>') : '<i></i>')).join('');
+      return `<div><b>${teams[side].short}</b>${cells}<em>${state.pens.goals[side]}</em></div>`;
+    };
+    el.innerHTML = order.map(row).join('');
+    el.classList.add('on');
   }
 
   paintHud(state) {
@@ -287,7 +329,7 @@ class MatchView {
       $(`#hud-sw${k}`).style.background = swatchCss(this.kits[side]);
       $(`#hud-s${k}`).textContent = state.score[side];
     });
-    $('#hud-min').textContent = (state.half === 1 ? '1T ' : '2T ') + fmtMinute(Math.max(state.minute, state.half === 2 ? 45 : 0), state.half);
+    $('#hud-min').textContent = state.pens ? 'PENALES' : (state.half === 1 ? '1T ' : '2T ') + fmtMinute(Math.max(state.minute, state.half === 2 ? 45 : 0), state.half);
   }
 
   feed(text) {
@@ -374,6 +416,10 @@ class MatchView {
     let title = att ? def.attTitle : def.defTitle;
     if (att && (sit === 'shot' || sit === 'penalty')) title = SHOT_TITLES[state.shotKind] || title;
     if (!att && sit === 'penalty') title = '¡Penal en contra! ¿Hacia dónde se tira tu arquero?';
+    if (sit === 'shootout') {
+      const n = state.pens.kicks[state.poss] + 1;
+      title = att ? `Penal ${n} de la tanda: ¿a dónde pateas?` : `Penal ${n} del rival: ¿hacia dónde te tiras?`;
+    }
     if (!att && opts[0].lane) {
       // El rival viene de frente: su izquierda es tu derecha. Ordenamos por pantalla.
       const screen = { L: 'derecha', C: 'centro', R: 'izquierda' };
@@ -396,12 +442,52 @@ class MatchView {
     const teams = state.teams.map(teamById);
     const [a, b] = state.score;
     const me = this.mySide;
-    const res = a === b ? 'Empate' : (state.score[me] > state.score[1 - me] ? '¡Ganaste!' : 'Perdiste');
+    const winner = state.pens ? state.winner : a === b ? -1 : a > b ? 0 : 1;
+    const res = winner === -1 ? 'Empate' : winner === me ? '¡Ganaste!' : 'Perdiste';
     if (res === '¡Ganaste!') audio.sound('win');
     const st = state.stats;
     const row = (label, k) => `<tr><td>${st[k][0]}</td><td>${label}</td><td>${st[k][1]}</td></tr>`;
+    const pens = state.pens ? `<p class="pens-line">Penales: ${state.pens.goals[0]} - ${state.pens.goals[1]}</p>` : '';
+    // Goles con autor y minuto, por equipo.
+    const name = (side, i) => playerName(teams[side].id, i);
+    const goalList = (side) => (state.goals || []).filter((g) => g.side === side)
+      .map((g) => `<li>${fmtMinute(g.minute, g.half)} ${name(side, g.i)}${g.kind === 'penal' ? ' (p)' : ''}${g.assist != null ? `<small>asist. ${name(side, g.assist)}</small>` : ''}</li>`).join('') || '<li class="none">—</li>';
+    // Figura del partido: la mejor nota.
+    const ratings = [];
+    if (state.players) {
+      for (let side = 0; side < 2; side++) {
+        state.players[side].forEach((p, i) => {
+          const conceded = state.score[1 - side];
+          let r = 6 + p.g * 1.4 + p.a * 0.8 + p.st * 0.35 + p.ot * 0.25 + p.sh * 0.05 + p.ps * 0.6;
+          if (i === 0) r += p.sv * 0.6 - conceded * 0.35;
+          if (winner === side) r += 0.3;
+          ratings.push({ side, i, p, r: Math.max(3, Math.min(10, r)) });
+        });
+      }
+      ratings.sort((x, y) => y.r - x.r);
+    }
+    const mvp = ratings[0];
+    const mvpLine = (m) => {
+      const bits = [];
+      if (m.p.g) bits.push(`${m.p.g} ${m.p.g === 1 ? 'gol' : 'goles'}`);
+      if (m.p.a) bits.push(`${m.p.a} ${m.p.a === 1 ? 'asistencia' : 'asistencias'}`);
+      if (m.i === 0 && m.p.sv) bits.push(`${m.p.sv} ${m.p.sv === 1 ? 'atajada' : 'atajadas'}`);
+      if (m.p.ps) bits.push(`${m.p.ps} ${m.p.ps === 1 ? 'penal atajado' : 'penales atajados'}`);
+      if (m.p.st) bits.push(`${m.p.st} ${m.p.st === 1 ? 'recuperación' : 'recuperaciones'}`);
+      return bits.join(' · ') || 'partidazo';
+    };
+    const kit = (side) => this.kits ? swatchCss(this.kits[side]) : '#888';
+    const mvpHtml = mvp ? `<div class="mvp"><span class="kit-swatch" style="background:${kit(mvp.side)}"></span><div><small>FIGURA DEL PARTIDO</small><b>${name(mvp.side, mvp.i)}</b><em>${teams[mvp.side].short} · ${mvpLine(mvp)}</em></div><strong>${mvp.r.toFixed(1)}</strong></div>` : '';
+    const best = (key, label) => {
+      const top = ratings.filter((x) => x.p[key] > 0).sort((x, y) => y.p[key] - x.p[key])[0];
+      return top ? `<li><span>${label}</span><b>${name(top.side, top.i)} (${teams[top.side].short})</b><i>${top.p[key]}</i></li>` : '';
+    };
     const html = `<h2>${res}</h2>
       <div class="final-score"><div>${teams[0].short}<small>${teams[0].name}</small></div><div>${a} - ${b}</div><div>${teams[1].short}<small>${teams[1].name}</small></div></div>
+      ${pens}
+      <div class="scorers"><ul>${goalList(0)}</ul><ul>${goalList(1)}</ul></div>
+      ${mvpHtml}
+      <ul class="leaders">${best('st', 'Más recuperaciones')}${best('sv', 'Más atajadas')}${best('sh', 'Más remates')}</ul>
       <table class="stats">${row('Remates', 'shots')}${row('Al arco', 'onTarget')}${row('Córners', 'corners')}${row('Recuperaciones', 'steals')}</table>`;
     const btns = [];
     if (this.onRematch) btns.push(['Revancha', 'primary', () => { this.onRematch(); }]);
@@ -488,12 +574,14 @@ function pickCpuOpponent() {
   return pool[Math.floor(Math.random() * pool.length)].id;
 }
 
+let lastHost = null;
 function startCpu(level = 'normal', awayId = pickCpuOpponent()) {
   audio.unlock();
   let host, cpu;
   const deliver = (m) => setTimeout(() => { view && view.onMessage(m); cpu.onMessage(m); }, 0);
   host = new Host({ home: myTeamId, away: awayId, callerSide: 0, broadcast: deliver, length: myLength });
   cpu = new Cpu(1, (m) => host.receive(1, m), level);
+  lastHost = host;
   view = new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId); } });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `Contra la IA (${LEVELS[level].label}). ¡Bienvenidos al estadio!`;
@@ -648,4 +736,4 @@ if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 
 // Para pruebas automáticas.
-window.__fdm = { get view() { return view; }, get renderer() { return renderer; }, randomChoice, icon };
+window.__fdm = { get view() { return view; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };

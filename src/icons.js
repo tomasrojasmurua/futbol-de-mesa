@@ -201,7 +201,7 @@ export function icon(kind, a, b) {
 export function iconFor(situation, role, id, screenSide) {
   if (situation === 'build') return icon('lane', screenSide, role);
   if (situation === 'attack') return icon(id === 'cross' ? (role === 'att' ? 'cross' : 'wings') : id === 'through' ? (role === 'att' ? 'through' : 'line') : (role === 'att' ? 'dribble' : 'double'));
-  if (situation === 'shot' || situation === 'penalty') return icon(role === 'att' ? 'shot' : 'keeper', screenSide);
+  if (situation === 'shot' || situation === 'penalty' || situation === 'shootout') return icon(role === 'att' ? 'shot' : 'keeper', screenSide);
   if (situation === 'corner') return icon('corner', id);
   return icon(id);
 }

@@ -9,6 +9,10 @@ Juego de fútbol de cartas para celular, para 2 jugadores en una sala (o contra 
 3. **Último tercio**: centro al área, pase filtrado o gambeta, contra cerrar bandas, achicar la línea o doble marca.
 4. **Remate**: el atacante elige palo izquierdo, medio o palo derecho; el arquero rival elige hacia dónde se tira. Cada remate se ve en una escena animada a pantalla completa, desde atrás del tirador, con su nombre y el del arquero.
 
+Si el partido termina empatado se define por penales (cinco por lado y después muerte súbita). Al final aparecen los goleadores con minuto y asistencia, la figura del partido y las estadísticas.
+
+El local juega en una versión pixelada de su estadio (`src/stadiums.js`): colores de butacas, techo, pista de atletismo, letras en la tribuna y rasgos como la cordillera detrás de San Carlos, el arco de Wembley o la torre del Centenario.
+
 Cada equipo tiene su once titular probable (temporada 2025-26) en `src/squads.js`; el nombre de quien lleva la pelota aparece en la cancha y en el relato.
 
 El dado aparece en momentos clave. Cada cara muestra un símbolo de lo que pasa, y las reglas son iguales para los dos equipos:
@@ -52,5 +56,6 @@ El repositorio ya trae `netlify.toml` (build `npm run build`, carpeta `dist`). E
 - `src/render.js`: cancha, jugadores, cámara y animación de cada jugada.
 - `src/cutscene.js`: escena animada de cada remate.
 - `src/squads.js`: planteles con los nombres de los jugadores.
+- `src/stadiums.js`: estadios de cada equipo.
 - `src/main.js`: pantallas, cartas y flujo del partido.
 - `src/teams.js`: equipos y camisetas.

@@ -18,5 +18,5 @@ for (let i = 0; i < N; i++) {
   if (state.score[0] === state.score[1]) draws++;
 }
 console.log(`decisiones/partido: ${(decisions / N).toFixed(1)} (máx ${maxDec})`);
-console.log(`goles/partido: ${(goals / N).toFixed(2)}, empates: ${((draws / N) * 100).toFixed(0)}%`);
+console.log(`goles/partido: ${(goals / N).toFixed(2)}, a penales: ${((draws / N) * 100).toFixed(0)}%`);
 console.log(Object.entries(outcomes).sort().map(([k, v]) => `${k}: ${(v / N).toFixed(2)}`).join('\n'));

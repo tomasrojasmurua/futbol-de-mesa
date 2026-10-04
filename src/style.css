@@ -81,6 +81,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #pitch { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
 .carrier { position: absolute; left: 8px; bottom: 8px; display: none; align-items: center; gap: 6px; font-family: var(--px); font-size: 9px; background: rgba(0,0,0,.6); padding: 5px 7px 5px 5px; box-shadow: 0 0 0 2px #000; pointer-events: none; }
 .carrier.on { display: flex; }
+.pens { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; gap: 4px; background: rgba(0,0,0,.7); padding: 6px 8px; box-shadow: 0 0 0 2px #000; font-family: var(--px); font-size: 9px; pointer-events: none; z-index: 2; }
+.pens.on { display: flex; }
+.pens div { display: flex; align-items: center; gap: 4px; }
+.pens b { width: 34px; font-weight: normal; }
+.pens i { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 2px #5a6170; }
+.pens i.g { background: #3fcf5a; box-shadow: none; }
+.pens i.x { background: #e23b3b; box-shadow: none; }
+.pens em { font-style: normal; color: #ffd23f; margin-left: 4px; }
 .carrier i { width: 10px; height: 10px; box-shadow: 0 0 0 1px #000; }
 .carrier small { color: var(--mute); font-family: inherit; font-size: 8px; }
 .cut { position: absolute; inset: 0; width: 100%; height: 100%; display: none; image-rendering: pixelated; background: #0d1424; z-index: 1; }
@@ -213,6 +221,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .modal-box .btns { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .final-score { font-family: var(--px); font-size: 22px; text-align: center; margin: 10px 0 14px; display: flex; justify-content: center; align-items: center; gap: 12px; }
 .final-score small { font-size: 10px; display: block; margin-top: 6px; }
+.pens-line { text-align: center; font-family: var(--px); font-size: 10px; color: var(--gold); margin: -6px 0 10px !important; }
+.scorers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 12px; }
+.modal-box .scorers ul { list-style: none; padding: 0; margin: 0; font-size: 18px; }
+.scorers ul:last-child { text-align: right; }
+.scorers li small { display: block; font-size: 15px; color: var(--mute); }
+.scorers li.none { color: var(--mute); }
+.mvp { display: flex; align-items: center; gap: 10px; padding: 10px; margin: 0 0 12px; background: rgba(255,210,63,.1); box-shadow: 0 0 0 2px var(--gold); }
+.mvp .kit-swatch { width: 22px; height: 22px; flex: none; }
+.mvp div { flex: 1; min-width: 0; }
+.mvp small { display: block; font-family: var(--px); font-size: 8px; color: var(--gold); }
+.mvp b { display: block; font-family: var(--px); font-size: 12px; margin: 4px 0 2px; font-weight: normal; }
+.mvp em { font-style: normal; font-size: 16px; color: var(--mute); }
+.mvp strong { font-family: var(--px); font-size: 16px; color: var(--gold); }
+.modal-box .leaders { list-style: none; padding: 0; margin: 0 0 12px; font-size: 17px; }
+.leaders li { display: flex; gap: 6px; align-items: baseline; }
+.leaders span { color: var(--mute); }
+.leaders b { font-weight: normal; margin-left: auto; text-align: right; }
+.leaders i { font-style: normal; color: var(--gold); min-width: 18px; text-align: right; }
 .stats { width: 100%; border-collapse: collapse; font-size: 20px; }
 .stats td { padding: 3px 4px; }
 .stats td:nth-child(2) { text-align: center; color: var(--mute); font-size: 17px; }

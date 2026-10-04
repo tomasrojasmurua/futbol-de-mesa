@@ -4,7 +4,8 @@
 // revelar quién ganó el duelo).
 import { hexRgb } from './teams.js';
 import { playerName } from './squads.js';
-import { Cutscene } from './cutscene.js';
+import { Cutscene, text as pxText, textW as pxTextW } from './cutscene.js';
+import { stadiumFor } from './stadiums.js';
 
 const PW = 68, PL = 105;           // cancha en metros
 const S = 4;                        // píxeles por metro (resolución interna)
@@ -42,6 +43,12 @@ function shade(hex, f) {
   const [r, g, b] = hexRgb(hex);
   const m = (c) => Math.round(f < 1 ? c * f : c + (255 - c) * (f - 1));
   return `rgb(${m(r)},${m(g)},${m(b)})`;
+}
+// Aclara (k > 0) u oscurece (k < 0) un color.
+function tone(c, k) {
+  const [r, g, b] = hexRgb(c);
+  const f = (v) => Math.round(Math.max(0, Math.min(255, k < 0 ? v * (1 + k) : v + (255 - v) * k)));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
 }
 function lum(hex) { const [r, g, b] = hexRgb(hex); return 0.299 * r + 0.587 * g + 0.114 * b; }
 
@@ -198,7 +205,10 @@ export class Renderer {
     this.kits = kits;
     this.mySide = mySide;
     this.spriteCache.clear();
+    this.stadium = stadiumFor(teams[0].id);
+    this.noCrowd = [];
     this.bg = this.buildBackground();
+    this.overlay = this.buildOverlay();
     this.buildCrowd();
     this.boards = this.buildBoards();
     for (let s = 0; s < 2; s++) {
@@ -758,6 +768,7 @@ export class Renderer {
     else if (ev.situation === 'attack') await this.playAttack(ev, A, D);
     else if (ev.situation === 'shot' || ev.situation === 'penalty') await this.playShot(ev, A, D);
     else if (ev.situation === 'corner') await this.playCorner(ev, A, D);
+    else if (ev.situation === 'shootout') await this.playShootout(ev, A, D);
     this.reveal(ev);
     this.release();
     this.clearOverrides();
@@ -996,6 +1007,46 @@ export class Renderer {
     await this.goalKick(D);
   }
 
+  // Un penal de la tanda: el resto de los jugadores mira desde el círculo central.
+  async playShootout(ev, A, D) {
+    const shooter = this.players[A].find((p) => p.i === ev.shooter) || this.players[A][9];
+    const keeper = this.players[D][0];
+    await this.fade(() => {
+      let k = 0;
+      this.placeTeam(A, (p) => (p === shooter ? [34, 92] : p.i === 0 ? [30, 50] : [26 + ((k++) % 5) * 2.2, 51.5 + Math.floor(k / 6) * 1.6]));
+      let j = 0;
+      this.placeTeam(D, (p) => (p.i === 0 ? [34, 0.6] : [36 + ((j++) % 5) * 2.2, 52 + Math.floor(j / 6) * 1.6]));
+      for (const team of this.players) for (const p of team) if (p !== shooter) { p.ov = [p.x, p.y]; p.boost = 0.5; }
+      this.give(shooter);
+      [this.ball.x, this.ball.y] = this.W(A, 34, 94);
+      this.focus = [null, null]; this.defStyle = [null, null];
+      this.cam.tzoom = 1.8; this.cam.follow = null;
+    });
+    this.possSide = A;
+    this.lastShooter = this.playerInfo(shooter);
+    this.lastKeeper = this.playerInfo(keeper);
+    await this.wait(0.4);
+    await this.shotScene(ev, A, D, shooter, keeper);
+    const b = this.ball;
+    b.owner = null; b.flight = null;
+    const tu = GOAL_U[ev.att];
+    const to = ev.match ? [tu, 104.5] : ev.outcome === 'goal' ? [tu, 106.6] : ev.outcome === 'post' ? [ev.att === 'R' ? 41 : 27, 101] : [tu < 34 ? 28.6 : tu > 34 ? 39.4 : 34, 109.5];
+    [b.x, b.y] = this.W(A, to[0], to[1]); b.z = 0;
+    this.reveal(ev);
+    if (ev.outcome === 'goal') {
+      const gi = this.W(A, 34, 105)[1] < 50 ? 0 : 1;
+      this.netShake[gi] = 1;
+      this.crowdJump = { side: A, t: 2 };
+      shooter.cheer = 2;
+      this.ui.banner('¡GOL!', { small: true });
+    } else {
+      if (ev.match) this.give(keeper);
+      keeper.cheer = ev.match ? 2 : 0;
+      this.ui.banner(ev.match ? '¡ATAJADO!' : ev.outcome === 'post' ? '¡AL PALO!' : '¡AFUERA!', { small: true });
+    }
+    await this.wait(1.2);
+  }
+
   async shotScene(ev, A, D, shooter, keeper) {
     if (!this.cut) return;
     ev._scene = true;
@@ -1006,6 +1057,7 @@ export class Renderer {
       shooter: sh, keeper: kp,
       kitA: this.kits[A], kitD: this.kits[D], gkColor: this.kits[D].gk,
       crowd: [this.kits[A].shirt, this.kits[D].shirt],
+      stadium: this.stadium,
       sound: (n) => this.ui.sound(n),
       onContact: () => this.reveal(ev),
       onFreeze: async () => {
@@ -1071,9 +1123,11 @@ export class Renderer {
     c.width = WW; c.height = WH;
     const g = c.getContext('2d');
     // estructura de tribunas
-    g.fillStyle = '#20232c'; g.fillRect(0, 0, WW, WH);
+    const st = this.stadium;
+    const seat = st.seats[0];
+    g.fillStyle = tone(seat, -0.6); g.fillRect(0, 0, WW, WH);
     for (let y = 0; y < WH; y += 3) {
-      g.fillStyle = (y / 3) % 2 ? '#262a35' : '#2c313d';
+      g.fillStyle = (y / 3) % 7 === 3 ? tone(st.seats[1], -0.35) : (y / 3) % 2 ? tone(seat, -0.45) : tone(seat, -0.3);
       g.fillRect(0, y, WW, 1);
     }
     // césped con franjas y cuadriculado de corte
@@ -1086,7 +1140,19 @@ export class Renderer {
       g.fillRect(gx0, y0, gw, y1 - y0);
     }
     for (let i = 0; i < 8; i++) {
-      if (i % 2) { g.fillStyle = 'rgba(0,0,0,0.035)'; g.fillRect(MX + (PW * S * i) / 8, gy0, (PW * S) / 8, gh); }
+      if (i % 2) { g.fillStyle = st.mow === 'checks' ? 'rgba(0,0,0,0.07)' : 'rgba(0,0,0,0.035)'; g.fillRect(MX + (PW * S * i) / 8, gy0, (PW * S) / 8, gh); }
+    }
+    // pista de atletismo alrededor de la cancha
+    if (st.track) {
+      const tx0 = MX - 10, ty0 = MY - 10, tw = PW * S + 20, th = PL * S + 20, inner = 5;
+      g.fillStyle = st.track;
+      g.fillRect(tx0, ty0, tw, inner); g.fillRect(tx0, ty0 + th - inner, tw, inner);
+      g.fillRect(tx0, ty0, inner, th); g.fillRect(tx0 + tw - inner, ty0, inner, th);
+      g.fillStyle = 'rgba(255,255,255,0.35)';
+      for (let k = 1; k < inner; k += 2) {
+        g.fillRect(tx0 + k, ty0 + k, tw - 2 * k, 1); g.fillRect(tx0 + k, ty0 + th - 1 - k, tw - 2 * k, 1);
+        g.fillRect(tx0 + k, ty0 + k, 1, th - 2 * k); g.fillRect(tx0 + tw - 1 - k, ty0 + k, 1, th - 2 * k);
+      }
     }
     // textura
     for (let i = 0; i < 5000; i++) {
@@ -1138,12 +1204,105 @@ export class Renderer {
       circle(0, y, 1, top ? 0 : -Math.PI / 2, top ? Math.PI / 2 : 0);
       circle(PW, y, 1, top ? Math.PI / 2 : Math.PI, top ? Math.PI : Math.PI * 1.5);
     }
+    this.drawStadiumFeatures(g);
     // bancos de suplentes
     for (const yy of [PL / 2 - 9, PL / 2 + 3]) {
       const X = MX + PW * S + 11, Y = Math.round(MY + yy * S);
       g.fillStyle = '#11141a'; g.fillRect(X, Y, 6, 22);
       g.fillStyle = '#5a6a80'; g.fillRect(X, Y, 6, 2);
       g.fillStyle = 'rgba(255,255,255,0.1)'; g.fillRect(X + 1, Y + 3, 1, 18);
+    }
+    return c;
+  }
+
+  // Rasgos fijos del estadio sobre las tribunas (letras, torre, palcos).
+  drawStadiumFeatures(g) {
+    const st = this.stadium;
+    const standH = MY - 15;
+    const block = (x, y, w, h) => this.noCrowd.push([x, y, w, h]);
+    if (st.letters) {
+      const k = 2, w = pxTextW(st.letters, k) + 8;
+      for (const y of [Math.round((standH - 10) / 2) - 1, WH - standH + Math.round((standH - 10) / 2) - 2]) {
+        const x = Math.round(WW / 2 - w / 2);
+        g.fillStyle = tone(st.seats[0], -0.15); g.fillRect(x, y - 2, w, 14);
+        pxText(g, st.letters, x + 4, y, st.seats[1] === st.seats[0] ? '#ffffff' : st.seats[1], k);
+        block(x - 1, y - 3, w + 2, 16);
+      }
+    }
+    if (st.features.includes('tower')) {
+      // Torre de los Homenajes detrás de un arco, con su sombra larga.
+      const x = Math.round(WW / 2 + 70), y = WH - standH + 1;
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x + 4, y + 4, 26, 8);
+      g.fillStyle = '#f2f2ee'; g.fillRect(x, y, 12, 12);
+      g.fillStyle = '#c9ccd2'; g.fillRect(x + 2, y + 2, 8, 8);
+      g.fillStyle = '#75aadb'; g.fillRect(x + 4, y + 4, 4, 4);
+      block(x - 1, y - 1, 32, 16);
+    }
+    if (st.features.includes('bombonera')) {
+      // Un lateral recto y vertical lleno de palcos.
+      const x0 = WW - (MX - 11) - 1;
+      for (let y = MY - 12; y < WH - MY + 10; y += 4) {
+        g.fillStyle = '#0b2c7a'; g.fillRect(x0, y, MX - 11, 4);
+        g.fillStyle = '#f7c600'; g.fillRect(x0 + 1, y + 1, MX - 13, 2);
+        g.fillStyle = '#26303c'; g.fillRect(x0 + 3, y + 1, 2, 2); g.fillRect(x0 + 7, y + 1, 2, 2);
+      }
+      block(x0, MY - 12, MX - 10, WH - 2 * MY + 22);
+    }
+  }
+
+  // Techo y forma del estadio: se dibuja encima de la hinchada.
+  buildOverlay() {
+    const st = this.stadium;
+    const c = document.createElement('canvas');
+    c.width = WW; c.height = WH;
+    const g = c.getContext('2d');
+    if (st.shape === 'round') {
+      const R = 46;
+      g.fillStyle = '#12151c';
+      for (const [cx, cy, sx, sy] of [[R, R, -1, -1], [WW - R, R, 1, -1], [R, WH - R, -1, 1], [WW - R, WH - R, 1, 1]]) {
+        for (let y = 0; y < R; y++) for (let x = 0; x < R; x++) {
+          if (Math.hypot(x, y) > R) g.fillRect(cx + sx * x - (sx < 0 ? 1 : 0), cy + sy * y - (sy < 0 ? 1 : 0), 1, 1);
+        }
+      }
+    }
+    if (st.roof) {
+      const b = 4;
+      const dome = st.features.includes('dome');
+      for (let i = 0; i < WW; i++) for (let j = 0; j < b; j++) {
+        const col = dome ? (((i + j) >> 1) % 3 === 0 ? '#ffffff' : st.roof) : (i % 6 === 0 ? tone(st.roof, -0.25) : st.roof);
+        g.fillStyle = col; g.fillRect(i, j, 1, 1); g.fillRect(i, WH - 1 - j, 1, 1);
+      }
+      for (let j = 0; j < WH; j++) for (let i = 0; i < b; i++) {
+        const col = dome ? (((i + j) >> 1) % 3 === 0 ? '#ffffff' : st.roof) : (j % 6 === 0 ? tone(st.roof, -0.25) : st.roof);
+        g.fillStyle = col; g.fillRect(i, j, 1, 1); g.fillRect(WW - 1 - i, j, 1, 1);
+      }
+      g.fillStyle = 'rgba(0,0,0,0.25)';
+      g.fillRect(b, b, WW - 2 * b, 1); g.fillRect(b, WH - b - 1, WW - 2 * b, 1);
+    }
+    if (st.features.includes('ring')) {
+      g.strokeStyle = '#f4f6f8'; g.lineWidth = 2;
+      g.beginPath(); g.ellipse(WW / 2, WH / 2, WW / 2 - 6, WH / 2 - 6, 0, 0, Math.PI * 2); g.stroke();
+    }
+    if (st.features.includes('trusses')) {
+      // torres cilíndricas en las esquinas y vigas rojas sobre el techo
+      g.fillStyle = '#b3261e';
+      for (const [x, y] of [[9, 9], [WW - 9, 9], [9, WH - 9], [WW - 9, WH - 9]]) {
+        for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) if (dx * dx + dy * dy <= 36) g.fillRect(x + dx, y + dy, 1, 1);
+      }
+      g.fillRect(0, 2, WW, 2); g.fillRect(0, WH - 4, WW, 2);
+      g.fillStyle = '#e8e8e8';
+      for (const [x, y] of [[9, 9], [WW - 9, 9], [9, WH - 9], [WW - 9, WH - 9]]) g.fillRect(x - 2, y - 2, 4, 4);
+    }
+    if (st.features.includes('arch')) {
+      // el arco de Wembley sobre la tribuna norte
+      g.fillStyle = '#ffffff';
+      for (let x = 12; x < WW - 12; x++) {
+        const t = (x - WW / 2) / (WW / 2 - 12);
+        const y = Math.round(3 + (1 - t * t) * 0 + t * t * 14);
+        g.fillRect(x, y, 1, 2);
+      }
+      g.fillStyle = 'rgba(0,0,0,0.3)';
+      for (let x = 12; x < WW - 12; x++) { const t = (x - WW / 2) / (WW / 2 - 12); g.fillRect(x + 2, Math.round(5 + t * t * 14), 1, 1); }
     }
     return c;
   }
@@ -1173,14 +1332,18 @@ export class Renderer {
   }
 
   buildCrowd() {
-    const cols = [this.teams[0].kit.shirt, this.teams[0].kit.alt2, this.teams[1].kit.shirt, this.teams[1].kit.alt2, '#c9c9c9', '#7a7a7a', '#3a3a3a', '#8a6a4a'];
+    const st = this.stadium || { seats: ['#7a7a7a', '#c9c9c9'], features: [] };
+    const cols = [this.teams[0].kit.shirt, this.teams[0].kit.alt2, this.teams[1].kit.shirt, this.teams[1].kit.alt2, '#c9c9c9', st.seats[0], '#3a3a3a', st.seats[1]];
+    const kop = st.features.includes('kop');
+    const blocked = (x, y) => (this.noCrowd || []).some(([bx, by, bw, bh]) => x >= bx && x < bx + bw && y >= by && y < by + bh);
     this.crowd = [];
     const add = (x, y) => {
-      if (Math.random() < 0.08) return; // asientos vacíos
+      if (Math.random() < 0.08 || blocked(x, y)) return; // asientos vacíos
       const homeEnd = y > WH / 2;
       const r = Math.random();
       let c;
-      if (r < 0.45) c = homeEnd ? cols[0] : cols[2];
+      if (kop && y > WH - MY + 15) c = r < 0.85 ? cols[0] : cols[1];
+      else if (r < 0.45) c = homeEnd ? cols[0] : cols[2];
       else if (r < 0.6) c = homeEnd ? cols[1] : cols[3];
       else c = cols[4 + Math.floor(Math.random() * 4)];
       this.crowd.push({ x, y, c, ph: Math.random() * 10, team: homeEnd ? 0 : 1, skin: SKINS[Math.floor(Math.random() * SKINS.length)], flag: Math.random() < 0.02 });
@@ -1374,6 +1537,7 @@ export class Renderer {
     } else {
       g.drawImage(this.bg, 0, 0);
       this.drawCrowd(g, now);
+      if (this.overlay) g.drawImage(this.overlay, 0, 0);
       this.drawBoards(g);
       this.drawFlags(g, now);
       const topShake = this.mySide === 0 ? this.netShake[0] : this.netShake[1];

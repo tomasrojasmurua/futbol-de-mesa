@@ -34,7 +34,7 @@ for (const length of Object.keys(LENGTHS)) {
     goals += a + b; dec += d; outs += o;
   }
   const decided = N - draws;
-  console.log(`${length}: ${(dec / N).toFixed(1)} decisiones, ${(goals / N).toFixed(2)} goles, ${(outs / N).toFixed(2)} remates afuera/palo, empates ${(100 * draws / N).toFixed(0)}%, gana el que saca primero ${(100 * firstWins / decided).toFixed(1)}% de los partidos con ganador`);
+  console.log(`${length}: ${(dec / N).toFixed(1)} decisiones, ${(goals / N).toFixed(2)} goles, ${(outs / N).toFixed(2)} remates afuera/palo, a penales ${(100 * draws / N).toFixed(0)}%, gana el que saca primero ${(100 * firstWins / decided).toFixed(1)}% de los partidos con ganador`);
 }
 
 // Valor de cada opción de ataque contra un defensor al azar: probabilidad de gol de esa llegada.

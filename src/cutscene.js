@@ -28,7 +28,7 @@ const FONT = {
 };
 const plain = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 
-function text(g, str, x, y, color, k = 1) {
+export function text(g, str, x, y, color, k = 1) {
   const s = plain(str);
   g.fillStyle = color;
   for (let c = 0; c < s.length; c++) {
@@ -37,7 +37,7 @@ function text(g, str, x, y, color, k = 1) {
     for (let i = 0; i < 15; i++) if (gl[i] === '1') g.fillRect(x + (c * 4 + (i % 3)) * k, y + Math.floor(i / 3) * k, k, k);
   }
 }
-const textW = (str, k = 1) => plain(str).length * 4 * k - k;
+export const textW = (str, k = 1) => plain(str).length * 4 * k - k;
 
 function disc(g, x, y, r, fill, edge) {
   x = Math.round(x); y = Math.round(y);
@@ -73,7 +73,7 @@ export class Cutscene {
     this.cv.width = LW; this.cv.height = H;
     this.H = H;
     // Plano: arco al 40% del alto; el tirador ocupa la parte baja.
-    this.gy = Math.round(H * 0.4);         // línea de gol (pie de los palos)
+    this.gy = Math.round(H * 0.44);         // línea de gol (pie de los palos)
     this.gTop = this.gy - 40;              // travesaño
     this.gL = 30; this.gR = 150;           // palos
     this.standsB = this.gTop - 12;         // fin de la tribuna
@@ -165,8 +165,11 @@ export class Cutscene {
   buildCrowd() {
     const [ca, cd] = this.o.crowd;
     this.crowd = [];
-    const pal = [ca, ca, cd, '#e8e2d0', '#2a2f3a', ca, '#9aa3ad'];
-    for (let y = 10; y < this.standsB - 3; y += 5) {
+    const st = this.o.stadium || { seats: ['#2a2f3a', '#9aa3ad'], features: [] };
+    const pal = [ca, ca, cd, '#e8e2d0', st.seats[0], ca, st.seats[1]];
+    const f = st.features;
+    this.skyH = f.includes('andes') || f.includes('arch') || f.includes('tower') ? 26 : 10;
+    for (let y = this.skyH + 2; y < this.standsB - 3; y += 5) {
       for (let x = (y / 5) % 2 ? 0 : 2; x < LW; x += 4) {
         const n = x * 13 + y * 7;
         this.crowd.push({ x, y, c: pal[Math.floor(seeded(n) * pal.length)], skin: seeded(n + 1) < 0.7 ? '#e0a77c' : '#9c6440', ph: seeded(n + 2) * 6.28, fanA: seeded(n + 3) < 0.55 });
@@ -295,7 +298,7 @@ export class Cutscene {
     // Cámara: entra desde un plano abierto y se acerca al arco.
     const intro = ease(clamp(s / T.intro, 0, 1));
     const z = lerp(1.35, 1.16, intro) + (s > T.kick ? 0.5 * ease(clamp((s - T.kick) / T.F, 0, 1)) : 0);
-    const fy = s > T.kick ? lerp(H * 0.6, this.gy - 14, ease(clamp((s - T.kick) / T.F, 0, 1))) : H * 0.6;
+    const fy = s > T.kick ? lerp(H * 0.5, this.gy - 14, ease(clamp((s - T.kick) / T.F, 0, 1))) : H * 0.5;
     const sh = this.shake > 0 ? Math.round((Math.random() - 0.5) * 4 * this.shake) : 0;
     g.translate(LW / 2 + sh, H * 0.5);
     g.scale(z, z);
@@ -333,15 +336,49 @@ export class Cutscene {
 
   drawStands(s) {
     const g = this.g, o = this.o, T = this.T;
-    g.fillStyle = SKY; g.fillRect(-20, -40, LW + 40, this.standsB + 40);
-    // focos
-    for (let i = 0; i < 4; i++) {
-      const x = 14 + i * 50;
-      g.fillStyle = '#fffbe0'; g.fillRect(x, 2, 8, 3);
-      g.fillStyle = 'rgba(255,250,210,.06)'; g.fillRect(x - 6, 5, 20, this.standsB);
+    const st = o.stadium || { seats: ['#2a2f3a', '#3a404d'], features: [], sky: 'night', name: 'CALCCIOPOLI' };
+    const f = st.features, skyH = this.skyH;
+    // cielo
+    const sky = { night: ['#070b16', '#16203a'], dusk: ['#3b2a5a', '#e08a5a'], day: ['#5f9fd8', '#b8dcf2'] }[st.sky] || ['#070b16', '#16203a'];
+    const gr = g.createLinearGradient(0, -40, 0, this.standsB);
+    gr.addColorStop(0, sky[0]); gr.addColorStop(1, sky[1]);
+    g.fillStyle = gr; g.fillRect(-40, -60, LW + 80, this.standsB + 60);
+    if (f.includes('andes')) {
+      // la cordillera detrás de la tribuna, con nieve en las cumbres
+      for (let x = -40; x < LW + 40; x++) {
+        const h = 10 + Math.sin(x * 0.07) * 5 + Math.sin(x * 0.19 + 1) * 3 + Math.sin(x * 0.031 + 2) * 6;
+        const top = Math.round(skyH - h);
+        g.fillStyle = st.sky === 'day' ? '#6a7a96' : '#4a3f63'; g.fillRect(x, top, 1, skyH - top + 2);
+        g.fillStyle = '#f4f2f0'; g.fillRect(x, top, 1, Math.max(1, Math.round(h / 5)));
+      }
     }
-    g.fillStyle = '#1f2633';
-    g.fillRect(-20, 8, LW + 40, this.standsB - 8);
+    if (f.includes('arch')) {
+      // arco de Wembley cruzando el cielo
+      g.fillStyle = '#f4f6f8';
+      for (let x = -30; x < LW + 30; x++) { const t = (x - LW / 2) / (LW / 2 + 30); g.fillRect(x, Math.round(2 + t * t * (skyH + 4)), 1, 2); }
+    }
+    // techo sobre la tribuna
+    const standTop = skyH;
+    g.fillStyle = tone(st.seats[0], -0.55);
+    g.fillRect(-40, standTop, LW + 80, this.standsB - standTop);
+    for (let y = standTop; y < this.standsB; y += 3) { g.fillStyle = tone(st.seats[0], (y / 3) % 2 ? -0.35 : -0.45); g.fillRect(-40, y, LW + 80, 1); }
+    if (st.roof) {
+      g.fillStyle = st.roof; g.fillRect(-40, standTop - 3, LW + 80, 4);
+      g.fillStyle = tone(st.roof, -0.3);
+      for (let x = -40; x < LW + 40; x += 8) g.fillRect(x, standTop - 3, 1, 4);
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(-40, standTop + 1, LW + 80, 2);
+    }
+    if (f.includes('trusses')) {
+      g.fillStyle = '#b3261e';
+      for (const x of [-6, LW - 6]) g.fillRect(x, standTop - 10, 12, this.standsB - standTop + 10);
+      g.fillRect(-40, standTop - 6, LW + 80, 2);
+    }
+    // focos
+    if (st.sky !== 'day') for (let i = 0; i < 4; i++) {
+      const x = 14 + i * 50;
+      g.fillStyle = '#fffbe0'; g.fillRect(x, standTop - 6, 8, 3);
+      g.fillStyle = 'rgba(255,250,210,.06)'; g.fillRect(x - 6, standTop - 3, 20, this.standsB);
+    }
     const goalJump = o.outcome === 'goal' && s > T.hit;
     const tense = s > T.kick && s < T.hit;
     for (const p of this.crowd) {
@@ -352,15 +389,25 @@ export class Cutscene {
       g.fillStyle = p.skin; g.fillRect(p.x + 1, p.y + dy, 2, 2);
       if (goalJump && p.fanA && dy < 0) { g.fillStyle = p.skin; g.fillRect(p.x, p.y - 2 + dy, 1, 2); g.fillRect(p.x + 3, p.y - 2 + dy, 1, 2); }
     }
-    // carteles
+    if (f.includes('tower')) {
+      // Torre de los Homenajes asomando detrás de la tribuna
+      const x = 128;
+      g.fillStyle = '#e9e7df'; g.fillRect(x, -30, 10, this.standsB + 30 - 2);
+      g.fillStyle = '#c9c6bc'; g.fillRect(x + 7, -30, 3, this.standsB + 28);
+      for (let y = -24; y < this.standsB - 6; y += 6) { g.fillStyle = '#9aa3ad'; g.fillRect(x + 2, y, 4, 2); }
+      g.fillStyle = '#75aadb'; g.fillRect(x - 1, -34, 12, 4);
+    }
+    // carteles con el nombre del estadio
     const by = this.standsB;
-    for (let i = 0; i < 6; i++) {
-      const x = i * 32 - ((s * 6) % 32) - 4;
-      g.fillStyle = i % 2 ? '#1d3e8a' : '#c8102e';
+    for (let i = 0; i < 7; i++) {
+      const x = i * 32 - ((s * 6) % 32) - 8;
+      g.fillStyle = i % 2 ? tone(st.seats[0], -0.2) : '#14171f';
       g.fillRect(Math.round(x), by, 32, 10);
     }
-    const label = 'CALCCIOPOLI';
-    text(g, label, Math.round(LW / 2 - textW(label) / 2), by + 3, '#ffffff');
+    const label = st.name || 'CALCCIOPOLI';
+    const w = textW(label);
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(Math.round(LW / 2 - w / 2) - 3, by + 1, w + 6, 8);
+    text(g, label, Math.round(LW / 2 - w / 2), by + 3, '#ffffff');
     g.fillStyle = INK; g.fillRect(-20, by + 10, LW + 40, 1);
   }
 
@@ -582,6 +629,10 @@ export class Cutscene {
 }
 
 function hex(c) { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function tone(c, k) {
+  if (c.startsWith('rgb')) return c;
+  return shade(c, k);
+}
 function shade(c, k) {
   const [r, g, b] = hex(c);
   const f = (v) => Math.round(clamp(k < 0 ? v * (1 + k) : v + (255 - v) * k, 0, 255));
