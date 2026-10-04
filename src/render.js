@@ -188,7 +188,13 @@ export class Renderer {
     this.boardT = 0;
     this.last = performance.now();
     this.resize();
+    // Al girar el celular, el evento resize puede llegar antes de que el
+    // navegador termine de acomodar la pantalla (sobre todo en iPhone), y el
+    // canvas quedaba con las medidas viejas y la cancha estirada. Por eso
+    // también se revisa el tamaño real en cada cuadro.
     window.addEventListener('resize', () => this.resize());
+    window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 300));
+    if (window.ResizeObserver) new ResizeObserver(() => this.resize()).observe(this.cv);
     requestAnimationFrame((t) => this.loop(t));
   }
 
@@ -228,10 +234,12 @@ export class Renderer {
   }
 
   resize() {
-    const r = this.cv.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    this.cv.width = Math.max(1, Math.round(r.width * dpr));
-    this.cv.height = Math.max(1, Math.round(r.height * dpr));
+    const w = Math.max(1, Math.round(this.cv.clientWidth * dpr));
+    const h = Math.max(1, Math.round(this.cv.clientHeight * dpr));
+    if (w === this.cv.width && h === this.cv.height) return;
+    this.cv.width = w;
+    this.cv.height = h;
     this.ctx.imageSmoothingEnabled = false;
     this.vignette = null;
   }
@@ -245,6 +253,7 @@ export class Renderer {
     this.last = now;
     this.ts = lerp(this.ts, this.tsTarget, Math.min(1, real * 7));
     this.update(real * this.ts, real);
+    if (this.cv.clientWidth) this.resize();
     this.draw(now);
     requestAnimationFrame((t) => this.loop(t));
   }
