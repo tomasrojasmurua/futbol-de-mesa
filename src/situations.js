@@ -4,7 +4,7 @@
 //   fijos (al 40% y al 80% de cada tiempo, en una salida). A quién le toca lo
 //   decide la jugada: el que tiene la pelota, el que defiende, el que va
 //   perdiendo o ganando, o los dos.
-// - Mazo de DISCIPLINA (20 cartas): se roba con cada falta y afecta al equipo
+// - Mazo de DISCIPLINA (uno por duración): se roba con cada falta y afecta al equipo
 //   que la cometió (el tiro libre, al que la recibió).
 //
 // Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los dados.
@@ -71,16 +71,29 @@ export const CARDS = {
     text: 'En su próximo ataque que le adivinen, tres caras «recupera» pasan a «sigue la jugada».',
     fx: [fx('att', PLAY, 'steal', 'advance', 3, 1)] },
   // Disciplina
-  yellow: { deck: 'disciplina', copies: 15, title: 'Tarjeta amarilla', text: 'Amonestado. Con la segunda, se va expulsado.' },
-  freekick: { deck: 'disciplina', copies: 4, title: 'Tiro libre', text: 'La falta fue cerca del área: tiro libre directo al arco.' },
-  red: { deck: 'disciplina', copies: 1, title: 'Tarjeta roja',
+  warning: { deck: 'disciplina', title: 'Advertencia del árbitro', text: 'El árbitro lo llama y le advierte. El partido sigue su curso.' },
+  yellow: { deck: 'disciplina', title: 'Tarjeta amarilla', text: 'Amonestado. Con la segunda, se va expulsado.' },
+  freekick: { deck: 'disciplina', title: 'Tiro libre', text: 'La falta fue cerca del área: tiro libre directo al arco.' },
+  red: { deck: 'disciplina', title: 'Tarjeta roja',
     text: 'Con uno menos todo el partido: cuando defiende y adivina, una cara «recupera» pasa a falta en la salida o a córner en el último tercio.' },
 };
 
 const RED_FX = [fx('def', ['buildDef'], 'steal', 'foul', 1, Infinity), fx('def', ['attackDef'], 'steal', 'corner', 1, Infinity)];
 
 const DECKS = {};
-for (const [id, c] of Object.entries(CARDS)) (DECKS[c.deck] ||= []).push(...Array(c.copies).fill(id));
+for (const [id, c] of Object.entries(CARDS)) if (c.copies) (DECKS[c.deck] ||= []).push(...Array(c.copies).fill(id));
+
+// Mazo de disciplina: uno por duración, para que en cualquier largo de partido
+// haya más o menos una roja cada 5 partidos (en los cortos hay menos faltas, así
+// que el mazo trae más rojas). Contando las de doble amarilla.
+export const DISCIPLINE = {
+  short: { warning: 3, yellow: 6, freekick: 3, red: 8 }, // ~0,5 faltas por partido
+  normal: { warning: 4, yellow: 8, freekick: 3, red: 5 }, // ~0,8
+  long: { warning: 3, yellow: 10, freekick: 3, red: 3 }, // ~1,2
+};
+const deckList = (s, deck) => (deck === 'disciplina'
+  ? Object.entries(DISCIPLINE[s.length] || DISCIPLINE.normal).flatMap(([id, n]) => Array(n).fill(id))
+  : DECKS[deck]);
 
 // Momentos del mazo de partido, como fracción del tiempo.
 const MARKS = [0.4, 0.8];
@@ -96,7 +109,7 @@ function shuffle(list, rng) {
 
 function draw(s, deck, rng) {
   const sit = s.sit;
-  if (!sit.decks[deck] || !sit.decks[deck].length) sit.decks[deck] = shuffle(DECKS[deck], rng);
+  if (!sit.decks[deck] || !sit.decks[deck].length) sit.decks[deck] = shuffle(deckList(s, deck), rng);
   return sit.decks[deck].pop();
 }
 

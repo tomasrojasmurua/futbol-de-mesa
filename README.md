@@ -50,7 +50,13 @@ Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nun
 | Golazo de chilena | 2 | tiene la pelota | atajada: 1 «atajada» pasa a gol | 1 remate |
 | Error en la defensa | 2 | tiene la pelota | al atacar: 3 «recupera» pasan a «sigue la jugada» | 1 tirada |
 
-**Mazo de disciplina** (20 cartas, con cada falta): amarilla ×15 (la segunda al mismo jugador es roja), tiro libre directo ×4, roja ×1 (resto del partido: al defender, 1 «recupera» pasa a falta en la salida o córner en el último tercio).
+**Mazo de disciplina** (se roba con cada falta): advertencia del árbitro (sin efecto), amarilla (la segunda al mismo jugador es roja), tiro libre directo y roja (resto del partido: al defender, 1 «recupera» pasa a falta en la salida o córner en el último tercio). Hay un mazo por duración para que salga una roja cada 5 partidos en promedio, contando las de doble amarilla:
+
+| Duración | Faltas por partido | Advertencia | Amarilla | Tiro libre | Roja | Rojas por partido |
+|---|---|---|---|---|---|---|
+| Corto | 0,5 | 3 | 6 | 3 | 8 | 0,20 |
+| Normal | 0,8 | 4 | 8 | 3 | 5 | 0,20 |
+| Largo | 1,2 | 3 | 10 | 3 | 3 | 0,20 |
 
 Con cartas un partido corto tiene unos 0,2 goles más, el que saca primero sigue ganando la mitad y leer al rival pesa lo mismo (`node scripts/fair-sim.js 20000 sin-cartas` para comparar).
 

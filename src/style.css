@@ -365,5 +365,6 @@ body.watching .cards .duel-card { pointer-events: none; }
 .sitcard.k-chilena .sc-art i::before { content: '⤴'; }
 .sitcard.k-error .sc-art i::before { content: '!'; font-family: var(--px); font-size: 28px; color: #ffd23f; }
 .sitcard.k-freekick .sc-art i::before { content: '◎'; }
+.sitcard.k-warning .sc-art i::before { content: '☝'; }
 .sitcard.k-yellow .sc-art i, .sitcard.k-red .sc-art i { width: 30px; height: 42px; background: #ffd400; box-shadow: 0 0 0 3px #000, 4px 4px 0 3px rgba(0,0,0,.4); transform: rotate(8deg); }
 .sitcard.k-red .sc-art i { background: #e3262b; }
