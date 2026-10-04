@@ -416,3 +416,58 @@ body.watching .cards .duel-card { pointer-events: none; }
 .sitcard.k-warning .sc-art i::before { content: '☝'; }
 .sitcard.k-yellow .sc-art i, .sitcard.k-red .sc-art i { width: 30px; height: 42px; background: #ffd400; box-shadow: 0 0 0 3px #000, 4px 4px 0 3px rgba(0,0,0,.4); transform: rotate(8deg); }
 .sitcard.k-red .sc-art i { background: #e3262b; }
+
+/* ---------- final del partido: el diario del día después ---------- */
+.modal-box.news { --np-ink: #1b1a17; --np-mute: #5b564b; --np-rule: #2a2823; background: #efe7d2;
+  background-image: radial-gradient(rgba(120,100,60,.08) 1px, transparent 1px); background-size: 3px 3px;
+  color: var(--np-ink); padding: 14px 16px 16px; box-shadow: 0 0 0 4px #000, 6px 8px 0 4px rgba(0,0,0,.35); transform: rotate(-.6deg); }
+.np { position: relative; font-family: Georgia, 'Times New Roman', serif; }
+.np-stamp { position: absolute; top: 58px; right: -4px; transform: rotate(8deg); font-family: var(--px); font-size: 9px; color: #b3261e; border: 3px solid #b3261e; padding: 5px 6px; opacity: .85; background: rgba(239,231,210,.7); }
+.np-mast { text-align: center; border-bottom: 3px double var(--np-rule); padding-bottom: 4px; }
+.np-mast h1 { font-family: 'UnifrakturMaguntia', Georgia, serif; font-weight: normal; font-size: 34px; line-height: 1; margin: 0 0 6px; color: var(--np-ink); }
+.np-mast p { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 3px 0; border-top: 1px solid var(--np-rule); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--np-mute); }
+.np-kicker { margin: 10px 0 2px !important; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; color: #b3261e; }
+.np-title { font-family: 'Playfair Display', Georgia, serif !important; font-weight: 900; font-size: 30px !important; line-height: 1.02 !important; margin: 0 0 10px !important; color: var(--np-ink) !important; letter-spacing: -.5px; }
+.np-score { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 0; border-top: 1px solid var(--np-rule); border-bottom: 1px solid var(--np-rule); }
+.np-score div { flex: 1; text-align: center; }
+.np-score b { display: block; font-family: 'Playfair Display', Georgia, serif; font-size: 20px; }
+.np-score small { font-size: 11px; color: var(--np-mute); }
+.np-score strong { font-family: 'Playfair Display', Georgia, serif; font-weight: 900; font-size: 34px; }
+.np-pens { text-align: center; font-style: italic; margin: 4px 0 0 !important; }
+.np-lead { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 15px; line-height: 1.3 !important; margin: 10px 0 !important; }
+.np-lead:empty { display: none; }
+.np h3 { font-family: Georgia, serif !important; font-size: 11px !important; text-transform: uppercase; letter-spacing: 1.2px; margin: 10px 0 6px !important; padding-bottom: 3px; border-bottom: 2px solid var(--np-rule); }
+.np-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.np-cols section + section { border-left: 1px solid var(--np-rule); padding-left: 12px; }
+.modal-box .np ul { list-style: none; padding: 0; margin: 0 0 6px; }
+.modal-box .np li { font-size: 13px; line-height: 1.25; margin: 0 0 5px; }
+.np li b { font-family: 'Playfair Display', Georgia, serif; margin-right: 3px; }
+.np li small { display: block; font-size: 11px; color: var(--np-mute); font-style: italic; }
+.np li.none { color: var(--np-mute); font-style: italic; }
+.np-goals + .np-goals { padding-top: 5px !important; border-top: 1px dotted var(--np-rule); }
+.np-stats { width: 100%; border-collapse: collapse; font-size: 14px; }
+.np-stats th { font-family: 'Playfair Display', Georgia, serif; font-size: 14px; padding-bottom: 2px; }
+.np-stats td { padding: 2px 4px; border-bottom: 1px dotted rgba(42,40,35,.35); }
+.np-stats td:nth-child(2) { text-align: center; color: var(--np-mute); font-size: 12px; }
+.np-stats th:first-child, .np-stats td:first-child { text-align: left; }
+.np-stats th:last-child, .np-stats td:last-child { text-align: right; }
+.np-leaders { margin-top: 8px !important; }
+.np-leaders li { display: flex; gap: 6px; align-items: baseline; font-size: 12px !important; }
+.np-leaders span { color: var(--np-mute); }
+.np-leaders b { font-family: Georgia, serif !important; font-weight: normal; margin-left: auto; text-align: right; }
+.np-leaders i { font-style: normal; font-weight: bold; min-width: 16px; text-align: right; }
+.np-mvp { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; margin-top: 10px; padding: 8px 10px; border: 2px solid var(--np-rule); background: rgba(255,255,255,.35); }
+.np-mvp small { grid-column: 1 / -1; font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: #b3261e; font-weight: bold; }
+.np-mvp b { font-family: 'Playfair Display', Georgia, serif; font-size: 18px; }
+.np-mvp em { grid-column: 1; font-size: 12px; color: var(--np-mute); }
+.np-mvp strong { grid-column: 2; grid-row: 2 / span 2; align-self: center; font-family: 'Playfair Display', Georgia, serif; font-weight: 900; font-size: 30px; }
+@media (max-width: 360px) { .np-cols { grid-template-columns: 1fr; } .np-cols section + section { border-left: 0; padding-left: 0; } .np-title { font-size: 25px !important; } }
+
+/* ---------- tutorial: consejos sobre el partido ---------- */
+.coach { position: fixed; inset: 0; z-index: 9; display: none; align-items: flex-start; justify-content: center; padding: 72px 16px 16px; background: rgba(8,10,14,.55); }
+.coach.show { display: flex; }
+.coach-box { width: min(400px, 100%); background: linear-gradient(#232a38, #181d27); box-shadow: 0 0 0 4px #000, 0 10px 0 4px rgba(0,0,0,.35); border-top: 4px solid var(--gold); padding: 12px 14px 14px; animation: tres .3s ease-out; }
+.coach-box small { font-family: var(--vt); font-size: 18px; color: var(--mute); text-transform: uppercase; letter-spacing: 1px; }
+.coach-box h3 { font-family: var(--px); font-weight: normal; font-size: 12px; line-height: 1.4; color: var(--gold); text-shadow: 2px 2px 0 #000; margin: 4px 0 8px; }
+.coach-box p { font-family: var(--vt); font-size: 21px; line-height: 1.1; color: #d9e0ec; margin: 0 0 12px; }
+.coach-box .btn { width: 100%; }
