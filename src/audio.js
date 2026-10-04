@@ -1,10 +1,10 @@
 // Sonidos sintetizados con WebAudio (sin archivos): silbato, patadas y el estadio
-// entero: murmullo, cánticos de la hinchada, la banda (bombo, redoblante,
-// trompeta) y sus reacciones al gol, al palo, a la atajada y a las tarjetas.
+// entero: murmullo de la hinchada y sus reacciones al gol, al palo, a la
+// atajada y a las tarjetas. Sin banda ni cánticos.
 let ctx = null;
 let muted = false;
 let master = null; // todo pasa por aquí: el botón de silencio lo baja a 0
-let stadiumBus = null; // hinchada y banda: lejanas y con eco de estadio
+let stadiumBus = null; // hinchada: lejana y con eco de estadio
 let bedGain = null; // murmullo de fondo
 let noise = null;
 let claps = null;
@@ -28,7 +28,7 @@ export function unlock() {
   master.connect(ctx.destination);
   noise = noiseBuffer(3);
   buildStadium();
-  if (stadiumOn) startChants();
+  swell(bedLevel(), 0, 1);
 }
 
 function noiseBuffer(sec) {
@@ -202,150 +202,39 @@ function choir(t0, notes, { n = 10, vol = 0.03, out = stadiumBus } = {}) {
   return end;
 }
 
-// ---------- la banda ----------
-function bombo(t, vol = 0.5, out = stadiumBus) {
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = 'sine';
-  o.frequency.setValueAtTime(95, t);
-  o.frequency.exponentialRampToValueAtTime(42, t + 0.18);
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-  o.connect(g).connect(out);
-  o.start(t); o.stop(t + 0.4);
-}
-function redoblante(t, vol = 0.12, out = stadiumBus) {
-  const src = ctx.createBufferSource(); src.buffer = noise;
-  const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1500;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-  src.connect(f).connect(g).connect(out);
-  src.start(t, Math.random() * 2, 0.15);
-}
-function platillo(t, vol = 0.05, out = stadiumBus) {
-  const src = ctx.createBufferSource(); src.buffer = noise;
-  const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 5000;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-  src.connect(f).connect(g).connect(out);
-  src.start(t, Math.random() * 1.5, 1.3);
-}
-// Trompeta: dos sierras un poco desafinadas con vibrato, por un filtro de bronce.
-function trompeta(t0, notes, vol = 0.03, out = stadiumBus) {
-  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 1.2;
-  const g = ctx.createGain(); g.gain.value = 0;
-  f.connect(g).connect(out);
-  const vib = ctx.createOscillator(); vib.frequency.value = 5.5;
-  const vg = ctx.createGain(); vg.gain.value = 10; vib.connect(vg);
-  const os = [-6, 6].map((d) => {
-    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = d;
-    vg.connect(o.detune); o.connect(f); return o;
-  });
-  let t = t0;
-  for (const nt of notes) {
-    if (nt.m != null) {
-      os.forEach((o) => o.frequency.setValueAtTime(mtof(nt.m + 12), t));
-      g.gain.setTargetAtTime(vol, t, 0.015);
-      g.gain.setTargetAtTime(0, t + nt.d * 0.85, 0.03);
-    }
-    t += nt.d;
-  }
-  os.forEach((o) => { o.start(t0); o.stop(t + 0.3); });
-  vib.start(t0); vib.stop(t + 0.3);
-}
-
-// Ritmo de murga: bombo marcado, redoblante en las corcheas.
-function drums(t0, beats, beat, vol = 1, out = stadiumBus) {
-  for (let b = 0; b < beats; b++) {
-    const t = t0 + b * beat;
-    if (b % 4 === 0 || b % 4 === 2) bombo(t, 0.45 * vol, out);
-    if (b % 4 === 3) { bombo(t, 0.3 * vol, out); bombo(t + beat / 2, 0.35 * vol, out); }
-    redoblante(t + beat / 2, 0.08 * vol, out);
-    if (b % 2 === 1) redoblante(t, 0.11 * vol, out);
-    if (b % 8 === 0) platillo(t, 0.04 * vol, out);
-  }
-}
-
-// Cánticos (melodías propias, en negras: 1 = un tiempo).
-const CHANTS = [
-  // «Olé, olé, olé, olé…»
-  [[52, 1, 'o'], [48, 1, 'e'], [null, 0.5], [52, 0.5, 'o'], [48, 0.5, 'e'], [52, 0.5, 'o'], [48, 2, 'e'],
-   [50, 1, 'o'], [47, 1, 'e'], [null, 0.5], [50, 0.5, 'o'], [47, 0.5, 'e'], [50, 0.5, 'o'], [52, 2, 'e']],
-  // «Va-mos, va-mos, mu-cha-chos…»
-  [[55, 0.5, 'a'], [55, 0.5, 'o'], [55, 0.5, 'a'], [55, 0.5, 'o'], [57, 0.5, 'u'], [55, 0.5, 'a'], [53, 0.5, 'o'], [52, 1.5, 'o'], [null, 0.5],
-   [53, 0.5, 'a'], [53, 0.5, 'o'], [53, 0.5, 'a'], [53, 0.5, 'o'], [55, 0.5, 'e'], [53, 0.5, 'a'], [52, 0.5, 'e'], [50, 1.5, 'o'], [null, 0.5]],
-  // «Da-le, da-le, da-le…» que va subiendo.
-  [[50, 0.5, 'a'], [50, 0.5, 'e'], [52, 0.5, 'a'], [52, 0.5, 'e'], [53, 0.5, 'a'], [53, 0.5, 'e'], [55, 1, 'o'],
-   [53, 0.5, 'a'], [53, 0.5, 'e'], [52, 0.5, 'a'], [52, 0.5, 'e'], [50, 0.5, 'a'], [48, 0.5, 'e'], [50, 1, 'o']],
-  // «Oh, oh, oh, a-le-a-le-ó» con los brazos arriba.
-  [[48, 1, 'o', 1], [52, 1, 'o', 1], [55, 1.5, 'o', 1], [53, 0.5, 'a'], [52, 0.5, 'e'], [50, 0.5, 'a'], [52, 0.5, 'e'], [48, 2, 'o', 1], [null, 1]],
-];
-const toNotes = (ch, beat) => ch.map(([m, d, v, legato]) => ({ m, d: d * beat, v, legato }));
-const lengthOf = (ch, beat) => ch.reduce((s, x) => s + x[1] * beat, 0);
-
 let stadiumOn = false;
-let chantTimer = null;
-let segment = null; // { gain } del cántico que suena ahora
-let excited = 0; // después de un gol la hinchada canta más fuerte un rato
 
-function stopSegment(fade = 0.4) {
-  if (!segment) return;
-  const g = segment;
-  g.gain.setTargetAtTime(0, ctx.currentTime, fade / 3);
-  setTimeout(() => g.disconnect(), fade * 1000 + 500);
-  segment = null;
-}
-
-// Programa el próximo trozo del estadio: un cántico con la banda, la banda
-// sola, o sólo el murmullo. Después se vuelve a llamar sola.
-function nextSegment() {
-  clearTimeout(chantTimer);
-  if (!stadiumOn || !ctx) return;
-  if (muted || document.hidden) { chantTimer = setTimeout(nextSegment, 2000); return; }
-  const hot = excited > 0;
-  excited = Math.max(0, excited - 1);
-  const beat = 60 / (hot ? 138 : 124 + Math.random() * 8);
-  const g = ctx.createGain();
-  g.gain.value = hot ? 1.4 : 0.9 + Math.random() * 0.3;
-  g.connect(stadiumBus);
-  segment = g;
-  const t0 = ctx.currentTime + 0.15;
-  const r = Math.random();
-  let dur;
-  if (hot || r < 0.6) {
-    const ch = CHANTS[Math.floor(Math.random() * CHANTS.length)];
-    const reps = 2 + Math.floor(Math.random() * 2);
-    const one = lengthOf(ch, beat);
-    for (let k = 0; k < reps; k++) {
-      choir(t0 + k * one, toNotes(ch, beat), { n: hot ? 14 : 10, vol: hot ? 0.04 : 0.028, out: g });
-      if (hot || k > 0 || Math.random() < 0.5) trompeta(t0 + k * one, toNotes(ch, beat), 0.022, g);
-    }
-    dur = reps * one;
-    drums(t0, Math.round(dur / beat), beat, hot ? 1.2 : 1, g);
-  } else if (r < 0.85) {
-    dur = 16 * beat;
-    drums(t0, 16, beat, 0.9, g);
-  } else {
-    dur = 4 + Math.random() * 3;
-  }
-  chantTimer = setTimeout(nextSegment, (dur + 2 + Math.random() * 5) * 1000);
-}
-
-function startChants() {
-  swell(bedLevel(), 0, 1);
-  clearTimeout(chantTimer);
-  chantTimer = setTimeout(nextSegment, 1500);
-}
-
-// Ambiente de estadio durante el partido (cánticos y banda); fuera del partido
-// queda sólo el murmullo suave.
+// Ambiente de estadio: durante el partido el murmullo sube un poco; fuera del
+// partido queda suave. Sin cánticos ni banda (pedido de Tomás).
 export function stadium(on) {
   if (stadiumOn === on) return;
   stadiumOn = on;
-  if (!ctx) return;
-  if (on) startChants();
-  else { clearTimeout(chantTimer); stopSegment(1); excited = 0; swell(bedLevel(), 0, 1); }
+  if (ctx) swell(bedLevel(), 0, 1);
+}
+
+// Una «G» gritada: golpe de aire grave antes de la vocal.
+function plosive(t, vol = 0.25) {
+  const src = ctx.createBufferSource(); src.buffer = noise;
+  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+  src.connect(f).connect(g).connect(stadiumBus);
+  src.start(t, Math.random() * 2, 0.1);
+}
+
+// Miles de voces gritan «¡Gol! ¡Gol! ¡Goooooool!»: dos cortos y uno largo que
+// sube, en tres coros un poco desfasados para que suene a multitud.
+function golShout(t) {
+  const shout = [
+    { m: 62, d: 0.32, v: 'o' }, { m: 60, d: 0.08, v: 'u' }, { m: null, d: 0.12 },
+    { m: 62, d: 0.32, v: 'o' }, { m: 60, d: 0.08, v: 'u' }, { m: null, d: 0.12 },
+    { m: 62, d: 2.8, v: 'o', slide: 3, legato: true }, { m: 64, d: 0.35, v: 'u', slide: -4 },
+  ];
+  for (const [dt, shift, n, vol] of [[0, 0, 20, 0.075], [0.04, -12, 16, 0.06], [0.07, 5, 12, 0.04]]) {
+    choir(t + dt, shout.map((x) => ({ ...x, m: x.m == null ? null : x.m + shift })), { n, vol });
+  }
+  for (const at of [0, 0.52, 1.04]) plosive(t + at);
 }
 
 function applause(at = 0, dur = 3, vol = 0.18) {
@@ -366,16 +255,11 @@ function react(kind) {
   const t = ctx.currentTime + 0.05;
   switch (kind) {
     case 'goal':
-      // ¡GOOOL! Grito, aplausos, y después la hinchada canta a todo pulmón.
-      stopSegment(0.3);
-      swell(0.2, 0, 0.08); swell(bedLevel() * 1.6, 3.5, 1.5); swell(bedLevel(), 9, 2);
-      choir(t, [{ m: 50, d: 0.35, v: 'o' }, { m: 55, d: 2.6, v: 'o', slide: 2, legato: true }, { m: 52, d: 0.6, v: 'a' }], { n: 18, vol: 0.06 });
-      applause(0.3, 4, 0.22);
-      for (let k = 0; k < 6; k++) bombo(t + 0.4 + k * 0.25, 0.5);
-      platillo(t + 0.4, 0.08);
-      excited = 2;
-      clearTimeout(chantTimer);
-      if (stadiumOn) chantTimer = setTimeout(nextSegment, 4200);
+      // ¡GOL! ¡GOL! ¡GOOOOOL!: el estadio entero grita, aplaude y queda eufórico.
+      swell(0.26, 0, 0.06); swell(0.16, 4.5, 1.2); swell(bedLevel() * 1.6, 7, 1.5); swell(bedLevel(), 12, 2);
+      golShout(t);
+      applause(0.2, 5, 0.26);
+      applause(4.6, 4, 0.16);
       break;
     case 'post':
       // «¡Uyyyy!»: sube de golpe y se cae.
@@ -403,7 +287,6 @@ function react(kind) {
       swell(0.11, 0, 0.5); swell(bedLevel(), 4, 1.2);
       break;
     case 'end':
-      stopSegment(0.6);
       applause(0.2, 4, 0.2);
       swell(0.12, 0, 0.2); swell(bedLevel(), 3, 1.5);
       break;
@@ -436,7 +319,20 @@ export function sound(name) {
     case 'lose-duel': tone({ freq: 300, dur: 0.15, vol: 0.07, type: 'triangle' }); tone({ freq: 200, dur: 0.25, vol: 0.07, type: 'triangle', at: 0.13 }); break;
     case 'card': tone({ freq: 660, dur: 0.06, vol: 0.06 }); break;
     case 'tick': tone({ freq: 1000, dur: 0.03, vol: 0.04 }); break;
-    case 'dice': for (let i = 0; i < 6; i++) tone({ freq: 300 + Math.random() * 400, dur: 0.03, vol: 0.05, at: i * 0.1 }); break;
+    // Dado de madera: rebota 3 o 4 veces sobre la mesa, cada vez más rápido y suave.
+    case 'dice': {
+      let at = 0, gap = 0.07 + Math.random() * 0.04, v = 0.6;
+      const pitch = 750 + Math.random() * 450;
+      for (let b = 0, n = 3 + Math.floor(Math.random() * 2); b < n; b++) {
+        burst({ dur: 0.02, freq: 2600 + Math.random() * 600, vol: v * 0.8, type: 'bandpass', q: 2.5, at });
+        tone({ freq: pitch, dur: 0.03, vol: v * 0.12, type: 'triangle', at, slide: -pitch * 0.1 });
+        at += gap; gap *= 0.62; v *= 0.62;
+      }
+      break;
+    }
+    // Dado chocando en la mano mientras se agita.
+    case 'clack': for (let i = 0, n = 1 + Math.floor(Math.random() * 2); i < n; i++) burst({ dur: 0.022, freq: 1400 + Math.random() * 1300, vol: 0.12, type: 'bandpass', q: 4, at: i * 0.02 }); break;
+    case 'throw': burst({ dur: 0.18, freq: 900, vol: 0.12, type: 'bandpass', q: 0.8 }); break;
     // El dado rueda (un golpecito por cara) y cae.
     case 'roll': burst({ dur: 0.03, freq: 2500, vol: 0.18, type: 'bandpass', q: 2 }); tone({ freq: 300 + Math.random() * 400, dur: 0.03, vol: 0.04 }); break;
     case 'land': burst({ dur: 0.09, freq: 600, vol: 0.5 }); tone({ freq: 880, dur: 0.15, vol: 0.06, type: 'triangle' }); break;

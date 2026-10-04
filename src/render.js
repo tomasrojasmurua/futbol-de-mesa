@@ -321,6 +321,8 @@ export class Renderer {
   }
 
   computeTargets() {
+    // Pelota parada (córner o penal): todos quietos en su lugar hasta que se patea.
+    if (this.hold) return;
     const b = this.ball;
     const now = performance.now();
     for (let s = 0; s < 2; s++) {
@@ -690,7 +692,12 @@ export class Renderer {
     }
   }
 
+  // Jugador por número de camiseta: al rematar se intercambian identidades,
+  // así que el índice en el arreglo no siempre coincide con p.i.
+  byNum(side, i) { return this.players[side].find((p) => p.i === i) || this.players[side][i]; }
+
   kickoffNow(side) {
+    this.hold = null;
     for (let s = 0; s < 2; s++) {
       this.placeTeam(s, (p) => {
         const [u, v] = FORMATION[p.i];
@@ -700,7 +707,7 @@ export class Renderer {
       });
     }
     this.focus = [null, null]; this.defStyle = [null, null];
-    this.give(this.players[side][9]);
+    this.give(this.byNum(side, 9));
     [this.ball.x, this.ball.y] = this.W(side, 34, 52.5);
     this.ball.z = 0;
     this.cam.tzoom = 1.2; this.cam.follow = null;
@@ -726,29 +733,35 @@ export class Renderer {
         const [u, v] = FORMATION[p.i];
         return [u, v + 6];
       });
-      this.give(this.players[A][laneSide === 'L' ? 5 : 8]);
+      this.give(this.byNum(A, laneSide === 'L' ? 5 : 8));
       [this.ball.x, this.ball.y] = this.W(A, cu, 104.4);
+      this.ball.z = 0; this.ball.flight = null; this.ball.head = false;
       this.focus = [null, null]; this.defStyle = [null, null];
       this.cam.tzoom = 1.6;
+      this.hold = 'corner';
     });
   }
 
   async setPenalty(A) {
-    const shooter = this.ball.owner && this.ball.owner.side === A ? this.ball.owner : this.players[A][9];
+    const shooter = this.ball.owner && this.ball.owner.side === A && this.ball.owner.i !== 0 ? this.ball.owner : this.byNum(A, 9);
     await this.fade(() => {
+      // Todos fuera del área y de la medialuna (a más de 9,15 m del punto penal).
       let k = 0;
-      this.placeTeam(A, (p) => (p === shooter ? [34, 90.5] : p.i === 0 ? [34, 30] : [10 + ((k++) * 5.2), 83 + (p.i % 2) * 2]));
+      this.placeTeam(A, (p) => (p === shooter ? [34, 90.5] : p.i === 0 ? [34, 30] : [10 + ((k++) * 5.2), 82 + (p.i % 2) * 1.5]));
       let j = 0;
-      this.placeTeam(1 - A, (p) => (p.i === 0 ? [34, 0.6] : [13 + ((j++) * 4.6), 18.5 + (p.i % 2) * 1.5]));
+      this.placeTeam(1 - A, (p) => (p.i === 0 ? [34, 0.6] : [13 + ((j++) * 4.6), 21.5 + (p.i % 2) * 1.5]));
       this.give(shooter);
       [this.ball.x, this.ball.y] = this.W(A, 34, 94);
+      this.ball.z = 0; this.ball.flight = null; this.ball.head = false;
       this.focus = [null, null]; this.defStyle = [null, null];
       this.cam.tzoom = 1.8;
+      this.hold = 'penalty';
     });
   }
 
   async goalKick(D) {
     await this.fade(() => {
+      this.hold = null;
       const k = this.players[D][0];
       [k.x, k.y] = this.W(D, 34, 5.5);
       k.dive = null; k.ov = null; k.z = 0;
@@ -772,6 +785,7 @@ export class Renderer {
   // ---------- guiones ----------
   async play(ev) {
     this.clearOverrides();
+    if (ev.situation !== 'penalty' && ev.situation !== 'corner') this.hold = null;
     const A = ev.poss, D = 1 - A;
     if (ev.situation === 'build') await this.playBuild(ev, A, D);
     else if (ev.situation === 'attack') await this.playAttack(ev, A, D);
@@ -786,7 +800,7 @@ export class Renderer {
   async diceMoment(ev) {
     if (ev.dice == null || ev._diced) return;
     ev._diced = true;
-    await this.ui.dice(ev.dice, ev.diceText, ev.diceFaces);
+    await this.ui.dice(ev.dice, ev.diceText, ev.diceFaces, ev.diceTitle);
   }
 
   async counterRun(ev, newA) {
@@ -808,6 +822,7 @@ export class Renderer {
   // al último tercio (attack) o queda para rematar (shot).
   async cardMove(side, situation) {
     this.clearOverrides();
+    this.hold = null;
     this.possSide = side;
     this.ensureOwner(side);
     const [u] = this.ballUV(side);
@@ -831,11 +846,12 @@ export class Renderer {
       await this.wait(0.4);
       return true;
     }
-    if (o === 'advance' || o === 'longball' || o === 'chance') {
+    if (o === 'advance' || o === 'longball' || o === 'longpass' || o === 'chance') {
       this.give(this.nearest(A, this.ball.x, this.ball.y, true));
-      this.ui.banner(o === 'longball' ? '¡PELOTAZO!' : '¡SIGUE LA JUGADA!', { small: true });
+      this.ui.banner(o === 'longball' ? '¡PELOTAZO!' : o === 'longpass' ? '¡PASE LARGO!' : o === 'chance' ? '¡A REMATAR!' : '¡SIGUE LA JUGADA!', { small: true });
       const lane = LANE_U[ev.att] ?? 34;
       if (o === 'advance') await this.dribble(A, [lane, 73], 0.7);
+      else if (o === 'longpass') await this.pass(A, [clamp(lane + rnd(-4, 4), 8, 60), 76], { dur: 1.2, h: 4.5 });
       else if (o === 'longball') await this.pass(A, [34 + rnd(-6, 6), 84], { dur: 1.1, h: 4 });
       else await this.dribble(A, [clamp(lerp(this.ballUV(A)[0], 34, 0.6), 24, 44), 89], 0.6);
       return true;
@@ -1026,6 +1042,7 @@ export class Renderer {
 
     // La escena del remate: se ve completa y ahí se revela el duelo y se tira el dado.
     await this.shotScene(ev, A, D, shooter, keeper);
+    this.hold = null;
 
     const b = this.ball;
     b.owner = null; b.flight = null; b.head = false;
@@ -1034,12 +1051,16 @@ export class Renderer {
     const gi = goalWorld[1] < 50 ? 0 : 1;
     if (ev.match) {
       if (ev.outcome === 'save_corner') {
-        const [x, y] = this.W(A, tu < 34 ? 27 : tu > 34 ? 41 : 39, 107.6);
-        b.x = x; b.y = y; b.z = 0;
+        // Igual que cualquier atajada: recién el dado dice que se le escapa al córner.
+        this.give(keeper);
         this.ui.banner('¡ATAJADA!', { small: true });
-        await this.wait(0.7);
+        await this.wait(0.6);
         await this.diceMoment(ev);
-        await this.setCorner(A, ev.cornerSide || (tu < 34 ? 'L' : 'R'));
+        const side = ev.cornerSide || (tu < 34 ? 'L' : 'R');
+        this.launch(this.W(A, side === 'L' ? 25 : 43, 107.6), { dur: 0.6, h: 1.6 });
+        this.ui.banner('¡AL CÓRNER!', { small: true });
+        await this.wait(0.8);
+        await this.setCorner(A, side);
         return;
       }
       if (ev.outcome === 'goal') {
@@ -1131,8 +1152,9 @@ export class Renderer {
     const sh = this.lastShooter, kp = this.lastKeeper;
     await this.ui.fadeOut();
     const scene = this.cut.play({
-      // Con la chilena el arquero la ataja primero: el dado dice después que se le escapa.
-      kind: ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.match && ev.outcome === 'goal' ? 'save' : ev.outcome,
+      // Si el arquero adivinó, la escena siempre la muestra en sus manos: el dado
+      // decide después (se le escapa, la saca al córner o sale de contra).
+      kind: ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.match ? 'save' : ev.outcome,
       shooter: sh, keeper: kp,
       kitA: this.kits[A], kitD: this.kits[D], gkColor: this.kits[D].gk,
       crowd: [this.kits[A].shirt, this.kits[D].shirt],
@@ -1155,6 +1177,7 @@ export class Renderer {
   }
 
   async playCorner(ev, A, D) {
+    this.hold = null;
     this.cam.tzoom = 1.6; this.cam.follow = null;
     this.possSide = A;
     const taker = this.ensureOwner(A);
@@ -1609,6 +1632,24 @@ export class Renderer {
     g.fillRect(bx + (f === 0 ? 1 : f === 1 ? 0 : sz - 2), by + (f === 2 ? 0 : 1), 1, 1);
   }
 
+  // Lluvia sobre la transmisión: tono gris azulado y gotas en diagonal.
+  drawRain(c, Wd, Hd, now) {
+    c.fillStyle = 'rgba(35,50,80,0.3)'; c.fillRect(0, 0, Wd, Hd);
+    if (!this.drops || this.drops.w !== Wd) {
+      this.drops = Array.from({ length: Math.round(Wd * Hd / 1600) }, () => ({ x: Math.random(), y: Math.random(), v: 0.8 + Math.random() * 0.6, l: 8 + Math.random() * 10 }));
+      this.drops.w = Wd;
+    }
+    const t = (now || 0) / 1000, u = Math.max(1, Wd / 600);
+    c.strokeStyle = 'rgba(215,228,245,0.7)'; c.lineWidth = Math.max(1.2, u * 1.3);
+    c.beginPath();
+    for (const d of this.drops) {
+      const y = ((d.y + t * d.v * 1.6) % 1) * (Hd + 40) - 20;
+      const x = ((d.x - t * d.v * 0.25) % 1 + 1) % 1 * (Wd + 40) - 20;
+      c.moveTo(x, y); c.lineTo(x - d.l * u * 0.3, y + d.l * u);
+    }
+    c.stroke();
+  }
+
   draw(now) {
     const g = this.wctx;
     if (!this.kits) {
@@ -1675,6 +1716,8 @@ export class Renderer {
       this.vignette = v;
     }
     c.drawImage(this.vignette, 0, 0);
+    if (this.cut) this.cut.rain = !!this.rain;
+    if (this.rain) this.drawRain(c, Wd, Hd, now);
     if (this.ts < 0.8) {
       // tono de repetición en cámara lenta
       c.fillStyle = `rgba(20,30,60,${(0.8 - this.ts) * 0.22})`;

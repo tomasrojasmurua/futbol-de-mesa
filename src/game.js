@@ -192,6 +192,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         if (f === 'foul') { ev.outcome = 'foul'; foul(s, ev, A, D, rng); }
         else if (f === 'counter') { ev.outcome = 'counter'; stealer(); turnover('attack'); }
         else if (f === 'advance') { ev.outcome = 'advance'; s.situation = 'attack'; s.lane = att; }
+        else if (f === 'longpass') { ev.outcome = 'longpass'; s.situation = 'attack'; s.lane = att; }
         else if (f === 'shoot') { ev.outcome = 'longball'; s.situation = 'shot'; s.shotKind = 'remate'; }
         else { ev.outcome = 'steal'; stealer(); turnover(); }
       } else {
@@ -206,7 +207,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         if (f === 'corner') { ev.outcome = 'corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = rng() < 0.5 ? 'L' : 'R'; }
         else if (f === 'foul') { ev.outcome = 'foul'; foul(s, ev, A, D, rng); }
         else if (f === 'counter') { ev.outcome = 'counter'; stealer(); turnover('attack'); }
-        else if (f === 'advance') { ev.outcome = 'chance'; toShot(); }
+        else if (f === 'shoot' || f === 'advance') { ev.outcome = 'chance'; toShot(); }
         else if (f === 'penalty') { ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal'; }
         else { ev.outcome = 'steal'; stealer(); turnover(); }
       } else {
@@ -241,7 +242,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         const f = die('shotBeat');
         if (f === 'goal') goal(kind);
         else if (f === 'corner') {
-          // Arquero inspirado: la saca al córner.
+          // Fortuna de arquero: la saca al córner.
           ev.outcome = 'save_corner'; s.stats.onTarget[A]++; credit(A, ev.shooter, 'ot'); credit(D, 0, 'sv');
           s.situation = 'corner'; s.stats.corners[A]++; s.lane = att === 'R' ? 'R' : att === 'L' ? 'L' : (rng() < 0.5 ? 'L' : 'R');
         } else {
@@ -348,6 +349,7 @@ export function commentary(ev, names) {
       if (ev.outcome === 'advance' && ev.match) return `${D} leyó la jugada, pero no alcanza a cortar. Sigue ${A}.`;
       if (ev.outcome === 'advance') return `${A} sale ${laneTxt[ev.att]} y gana metros.`;
       if (ev.outcome === 'longball') return `¡Pelotazo largo de ${A} y queda para rematar!`;
+      if (ev.outcome === 'longpass') return `${D} la tenía, pero ${A} mete un pase largo al último tercio.`;
       if (ev.outcome === 'foul') return `${D} leyó la jugada, pero cometió falta. Sigue ${A}.`;
       if (ev.outcome === 'counter') return `¡Robo de ${D} y sale el contragolpe!`;
       return `${D} cerró bien ${laneTxt[ev.att]} y recupera la pelota.`;
@@ -387,7 +389,7 @@ export function commentary(ev, names) {
 
 // Caras del dado para esta tirada: cada cara muestra un símbolo de lo que pasa.
 export const DIE_LABELS = {
-  foul: 'Falta', steal: 'Recupera', advance: 'Sigue', counter: 'Contra', corner: 'Córner', shoot: 'Remate',
+  foul: 'Falta', steal: 'Recupera', advance: 'Sigue', longpass: 'Pase largo', counter: 'Contra', corner: 'Córner', shoot: 'Remate',
   penalty: 'Penal', save: 'Atajada', goal: 'Gol', post: 'Palo', wide: 'Afuera',
 };
 
@@ -409,7 +411,8 @@ export function diceFaces(ev) {
 // Lo que pasó con el dado, en palabras. Si la cara la puso una carta, se dice.
 const CARD_REASONS = {
   advance: '¡Una carta: sigue la jugada!',
-  shoot: '¡Una carta: remate directo!',
+  shoot: '¡Una carta: remate al arco!',
+  longpass: '¡Una carta: pase largo!',
   penalty: '¡Una carta: penal!',
   counter: '¡Una carta: contragolpe!',
   foul: 'Con uno menos no llegan: falta',
@@ -423,7 +426,8 @@ export function diceReason(ev) {
   if (ev.die) {
     const f = ev.faces[d - 1];
     if (f !== BASE_DICE[ev.die][d - 1]) {
-      if (ev.die === 'shotBeat' && f === 'corner') return '¡Arquero inspirado: al córner!';
+      if (ev.die === 'shotBeat' && f === 'corner') return '¡Fortuna de arquero: al córner!';
+      if (ev.die === 'shotSave' && f === 'goal') return '¡Arquero nervioso: se le escapa, gol!';
       if (ev.die === 'shotBeat' && f === 'goal') return '¡Una carta: entra igual!';
       if (ev.die === 'shotSave' && f === 'goal') return '¡Se le escapa: gol!';
       return CARD_REASONS[f] || '';

@@ -328,6 +328,18 @@ export class Cutscene {
     const vg = g.createRadialGradient(LW / 2, H * 0.45, H * 0.25, LW / 2, H * 0.45, H * 0.8);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
     g.fillStyle = vg; g.fillRect(0, 0, LW, H);
+    if (this.rain) {
+      // lluvia en pixel art: tono frío y gotas en diagonal
+      g.fillStyle = 'rgba(40,55,80,.22)'; g.fillRect(0, 0, LW, H);
+      const t = performance.now() / 1000;
+      g.fillStyle = 'rgba(200,215,235,.5)';
+      for (let i = 0; i < 70; i++) {
+        const r1 = (i * 0.618) % 1, r2 = (i * 0.377 + 0.13) % 1, v = 0.8 + ((i * 0.29) % 0.6);
+        const y = Math.round(((r2 + t * v * 1.4) % 1) * (H + 12)) - 6;
+        const x = Math.round((((r1 - t * v * 0.2) % 1) + 1) % 1 * (LW + 6));
+        g.fillRect(x, y, 1, 3); g.fillRect(x - 1, y + 3, 1, 2);
+      }
+    }
     if (s > T.kick && s < T.hit + 0.2 && this.speed < 1) {
       g.fillStyle = 'rgba(40,60,120,.12)'; g.fillRect(0, 0, LW, H);
     }

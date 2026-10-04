@@ -10,6 +10,7 @@ import { Renderer } from './render.js';
 import { CARDS, activeEffects } from './situations.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
+import { rollDice } from './dice.js';
 import { playerName } from './squads.js';
 
 const $ = (s) => document.querySelector(s);
@@ -105,7 +106,7 @@ const HELP = `
 <h3>Situaciones de juego</h3>
 <p>Dos mazos de cartas traen lo impredecible de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras del dado, y los dos ven la carta y el dado cambiado.</p>
 <ul>
-<li><b>Mazo de partido</b> (40 cartas, 14 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Lluvia, Arquero inspirado, Decisión polémica o Golazo de chilena. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
+<li><b>Mazo de partido</b> (49 cartas, 17 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Decisión polémica, Remate de primera o Defensa sólida. Casi todas duran una jugada; la Lluvia dura el resto del partido. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
 <li><b>Mazo de disciplina</b>: sale con cada falta. Advertencia del árbitro (sigue el partido), amarilla (la segunda es roja), tiro libre directo o roja (con uno menos, al defender una cara «recupera» pasa a falta o córner). Hay un mazo para cada duración, así que en cualquier partido sale más o menos una roja cada 5 partidos.</li>
 </ul>
 <h3>Duración</h3>
@@ -123,10 +124,14 @@ const HELP = `
 <h3>Salas</h3>
 <p>Crea una sala, comparte el código o el enlace, y tu rival entra desde su celular. Tienes ${TURN_SECONDS} segundos para cada carta: si se acaba el tiempo, se elige sola.</p>`;
 
+// En los remates los lados se nombran siempre desde el pateador: el arquero que
+// se tira a la izquierda tapa el remate a la izquierda.
+const SHOT_SITS = ['shot', 'penalty', 'shootout'];
+
 // Describe una elección desde la pantalla de quien mira (su equipo ataca hacia arriba).
 function describe(sit, role, id, iAttack) {
   const mirror = { L: 'R', C: 'C', R: 'L' };
-  const side = (lane) => ({ L: 'izquierda', C: 'centro', R: 'derecha' })[iAttack ? lane : mirror[lane]];
+  const side = (lane) => ({ L: 'izquierda', C: 'centro', R: 'derecha' })[iAttack || SHOT_SITS.includes(sit) ? lane : mirror[lane]];
   if (sit === 'build') return role === 'att' ? (id === 'C' ? 'Salida por el centro' : `Salida por la ${side(id)}`) : (id === 'C' ? 'Cierra el centro' : `Cierra la ${side(id)}`);
   if (sit === 'shot' || sit === 'penalty' || sit === 'shootout') {
     if (role === 'att') return id === 'C' ? 'Remate al medio' : `Remate a la ${side(id)}`;
@@ -138,9 +143,17 @@ function describe(sit, role, id, iAttack) {
 
 const MIRROR = { L: 'R', C: 'C', R: 'L' };
 
+// De qué es el dado que se tira.
+function diceTitle(ev) {
+  if (ev.situation === 'build') return 'Dado de la salida';
+  if (ev.situation === 'attack') return ev.att === 'dribble' && !ev.match ? 'Dado de la gambeta' : 'Dado del último tercio';
+  if (['shot', 'penalty', 'shootout'].includes(ev.situation)) return ev.match ? 'Dado de la atajada' : 'Dado del remate';
+  return 'El dado decide';
+}
+
 // Datos de una carta vista desde la pantalla de quien mira.
 function cardInfo(sit, role, id, iAttack) {
-  const screen = iAttack ? id : MIRROR[id];
+  const screen = iAttack || SHOT_SITS.includes(sit) ? id : MIRROR[id];
   return { label: describe(sit, role, id, iAttack), img: iconFor(sit, role, id, screen) };
 }
 
@@ -248,6 +261,7 @@ class MatchView {
       this.clearCards(null);
       ev.diceText = diceReason(ev);
       ev.diceFaces = diceFaces(ev);
+      ev.diceTitle = diceTitle(ev);
       this.currentEv = ev;
       this.duelStart(ev);
       await renderer.play(ev);
@@ -333,6 +347,7 @@ class MatchView {
 
   // Efectos que siguen activos (cartas por usar y expulsados), sobre la cancha.
   paintFx(state) {
+    if (renderer) renderer.rain = !!(state.sit && state.sit.rain);
     const el = $('#fxbar');
     if (!el) return;
     const shorts = state.teams.map((id) => teamById(id).short);
@@ -562,7 +577,12 @@ class MatchView {
       const n = state.pens.kicks[state.poss] + 1;
       title = att ? `Penal ${n} de la tanda: ¿a dónde pateas?` : `Penal ${n} del rival: ¿hacia dónde te tiras?`;
     }
-    if (!att && opts[0].lane) {
+    const shotSit = SHOT_SITS.includes(sit);
+    if (!att && opts[0].lane && shotSit) {
+      // Remates: izquierda y derecha del pateador, igual que en la escena del remate.
+      const name = { L: 'izquierda', R: 'derecha' };
+      opts = ['L', 'C', 'R'].map((id) => ({ ...opts.find((x) => x.id === id), label: id === 'C' ? 'Quedarse al medio' : `Volar a la ${name[id]}` }));
+    } else if (!att && opts[0].lane) {
       // El rival viene de frente: su izquierda es tu derecha. Ordenamos por pantalla.
       const screen = { L: 'derecha', C: 'centro', R: 'izquierda' };
       opts = ['R', 'C', 'L'].map((id) => {
@@ -573,7 +593,7 @@ class MatchView {
         return { ...o, label };
       });
     }
-    opts = opts.map((o) => ({ ...o, img: iconFor(sit, role, o.id, att ? o.id : MIRROR[o.id]) }));
+    opts = opts.map((o) => ({ ...o, img: iconFor(sit, role, o.id, att || shotSit ? o.id : MIRROR[o.id]) }));
     const seq = state.seq;
     this.renderCards(title, att ? 'ATACAS' : 'DEFIENDES', role, opts, (choice) => this.send({ t: 'choice', seq, choice }));
   }
@@ -672,37 +692,8 @@ const ui = {
     this._bt = setTimeout(() => el.classList.remove('show'), hold);
     return wait(Math.min(hold, 1300));
   },
-  async dice(value, reason, faces) {
-    const wrap = $('#dice'), die = $('#die'), legend = $('#dice-legend');
-    // Leyenda: qué puede salir y cuántas caras tiene cada cosa.
-    const kinds = [...new Set(faces)];
-    legend.innerHTML = kinds.map((k) => {
-      const n = faces.filter((f) => f === k).length;
-      return `<span class="chip" data-k="${k}"><img src="${icon('face', k)}" alt=""><b>${DIE_LABELS[k]}</b><i>${'●'.repeat(n)}${'○'.repeat(6 - n)}</i></span>`;
-    }).join('');
-    const face = (k) => {
-      die.innerHTML = `<img src="${icon('face', k)}" alt="${DIE_LABELS[k]}">`;
-      legend.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c.dataset.k === k));
-    };
-    $('#dice-text').textContent = 'Tirando el dado…';
-    wrap.classList.add('show');
-    // Un momento para mirar qué puede salir antes de tirar.
-    await wait(600);
-    die.classList.add('rolling');
-    // El dado gira y va frenando de a poco, para que se sienta la tensión.
-    for (let i = 0; i < 14; i++) {
-      face(faces[Math.floor(Math.random() * 6)]);
-      audio.sound('roll');
-      await wait(90 + i * i * 1.5);
-    }
-    await wait(250);
-    const k = faces[value - 1];
-    face(k); die.classList.remove('rolling');
-    audio.sound('land');
-    legend.querySelector(`.chip[data-k="${k}"]`)?.classList.add('hit');
-    $('#dice-text').textContent = reason;
-    await wait(3500);
-    wrap.classList.remove('show');
+  async dice(value, reason, faces, title) {
+    await rollDice($('#dice'), { value, faces, labels: DIE_LABELS, title, reason, sound: (n) => audio.sound(n) });
   },
   async coin(result, text) {
     const wrap = $('#coin'), c = $('#coin-face');
