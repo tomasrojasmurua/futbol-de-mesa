@@ -1,0 +1,125 @@
+// Ligue 1 2025-26
+const st = (name, city, seats, letters, o = {}) => ({ name, city, seats, track: null, roof: null, shape: 'rect', mow: 'stripes', letters, sky: 'night', features: [], ...o });
+
+export default {
+  id: 'fr',
+  name: 'Ligue 1',
+  country: 'Francia',
+  // Todos los equipos de la máxima categoría, en orden alfabético por nombre.
+  teams: ['fr_ang', 'fr_aux', 'fr_bre', 'fr_str', 'fr_hac', 'fr_lens', 'fr_lil', 'fr_lor', 'fr_lyo', 'om', 'fr_met', 'fr_mon', 'fr_nan', 'fr_nic', 'fr_pfc', 'psg', 'fr_ren', 'fr_tou'],
+  // Equipos que no existían en el juego.
+  newTeams: [
+    {
+      id: 'fr_ang', name: 'Angers', short: 'SCO',
+      kit: { shirt: '#1a1a1a', alt2: '#ffffff', pattern: 'stripes', shorts: '#1a1a1a' },
+      away: { shirt: '#ffffff', alt2: '#1a1a1a', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Koffi', 'Raolisoa', 'Hountondji', 'Lefort', 'Arcus', 'Abdelli', 'Belkhdim', 'Capelle', 'Sbai', 'Chérif', 'Diony'],
+      stadium: st('Stade Raymond-Kopa', 'Angers', ['#1a1a1a', '#ffffff'], 'ANGERS SCO'),
+    },
+    {
+      id: 'fr_aux', name: 'Auxerre', short: 'AUX',
+      kit: { shirt: '#ffffff', alt2: '#0b3f8c', pattern: 'plain', shorts: '#0b3f8c' },
+      away: { shirt: '#0b3f8c', alt2: '#ffffff', pattern: 'plain', shorts: '#0b3f8c' },
+      squad: ['Léon', 'Mensah', 'Osho', 'Siwe', 'Senaya', 'Casimir', 'Owusu', 'Loupalo', 'Danois', 'Sinayoko', 'Mara'],
+      stadium: st('Stade de l\'Abbé-Deschamps', 'Auxerre', ['#0b3f8c', '#ffffff'], 'AJ AUXERRE', { sky: 'day' }),
+    },
+    {
+      id: 'fr_bre', name: 'Brest', short: 'BRS',
+      kit: { shirt: '#e2001a', alt2: '#ffffff', pattern: 'plain', shorts: '#e2001a' },
+      away: { shirt: '#ffffff', alt2: '#e2001a', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Coudert', 'Locko', 'Chardonnet', 'Coulibaly', 'Lala', 'Del Castillo', 'Lees-Melou', 'Magnetti', 'Doumbia', 'Ajorque', 'Baldé'],
+      stadium: st('Stade Francis-Le Blé', 'Brest', ['#e2001a', '#ffffff'], 'STADE BRESTOIS', { sky: 'dusk' }),
+    },
+    {
+      id: 'fr_hac', name: 'Le Havre', short: 'HAC',
+      kit: { shirt: '#8fc8ec', alt2: '#13245a', pattern: 'center', shorts: '#13245a' },
+      away: { shirt: '#ffffff', alt2: '#13245a', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Diaw', 'Zouaoui', 'Sanganté', 'Lloris', 'Logbo', 'Kechta', 'Touré', 'Ebonog', 'Soumaré', 'Ngoura', 'Nagera'],
+      stadium: st('Stade Océane', 'Le Havre', ['#8fc8ec', '#13245a'], 'HAC', { roof: '#4a8fc6' }),
+    },
+    {
+      id: 'fr_lens', name: 'Lens', short: 'RCL',
+      kit: { shirt: '#ffd200', alt2: '#d1001f', pattern: 'sleeves', shorts: '#111111' },
+      away: { shirt: '#1a1a1a', alt2: '#ffd200', pattern: 'plain', shorts: '#1a1a1a' },
+      squad: ['Risser', 'Udol', 'Sarr', 'Baidoo', 'Aguilar', 'Saïd', 'Sangaré', 'Thomasson', 'Thauvin', 'Edouard', 'Fofana'],
+      stadium: st('Stade Bollaert-Delelis', 'Lens', ['#ffd200', '#d1001f'], 'SANG ET OR', { roof: '#cfd3d8' }),
+    },
+    {
+      id: 'fr_lil', name: 'Lille', short: 'LOSC',
+      kit: { shirt: '#e01e13', alt2: '#1b2b5a', pattern: 'plain', shorts: '#1b2b5a' },
+      away: { shirt: '#ffffff', alt2: '#e01e13', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Özer', 'Perraud', 'Ngoy', 'Mandi', 'Meunier', 'Haraldsson', 'Bouaddi', 'Mukau', 'Sahraoui', 'Giroud', 'Igamane'],
+      stadium: st('Stade Pierre-Mauroy', 'Villeneuve-d\'Ascq', ['#e01e13', '#1b2b5a'], 'LOSC', { roof: '#cfd3d8', shape: 'round' }),
+    },
+    {
+      id: 'fr_lor', name: 'Lorient', short: 'FCL',
+      kit: { shirt: '#f36c21', alt2: '#111111', pattern: 'plain', shorts: '#111111' },
+      away: { shirt: '#ffffff', alt2: '#f36c21', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Mvogo', 'Yongwa', 'Meité', 'Talbi', 'Kouassi', 'Le Bris', 'Abergel', 'Makengo', 'Ponceau', 'Tosin', 'Pagis'],
+      stadium: st('Stade du Moustoir', 'Lorient', ['#f36c21', '#111111'], 'LES MERLUS', { mow: 'checks' }),
+    },
+    {
+      id: 'fr_lyo', name: 'Lyon', short: 'OL',
+      kit: { shirt: '#ffffff', alt2: '#1a3c8f', pattern: 'band', shorts: '#ffffff' },
+      away: { shirt: '#1a2b55', alt2: '#d71920', pattern: 'plain', shorts: '#1a2b55' },
+      squad: ['Greif', 'Tagliafico', 'Niakhaté', 'Mata', 'Kumbedi', 'Fofana', 'Tolisso', 'Morton', 'Moreira', 'Satriano', 'Šulc'],
+      stadium: st('Groupama Stadium', 'Décines-Charpieu', ['#d71920', '#1a3c8f'], 'OL', { roof: '#d8d8d8', shape: 'round' }),
+    },
+    {
+      id: 'fr_met', name: 'Metz', short: 'FCM',
+      kit: { shirt: '#7a1f3d', alt2: '#ffffff', pattern: 'plain', shorts: '#7a1f3d' },
+      away: { shirt: '#ffffff', alt2: '#7a1f3d', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Fischer', 'Bamba', 'Gbamin', 'Yegbe', 'Colin', 'Mboula', 'Deminguet', 'Stambouli', 'Hein', 'Diallo', 'Tsitaishvili'],
+      stadium: st('Stade Saint-Symphorien', 'Metz', ['#7a1f3d', '#ffffff'], 'FC METZ'),
+    },
+    {
+      id: 'fr_mon', name: 'Mónaco', short: 'ASM',
+      kit: { shirt: '#e2001a', alt2: '#ffffff', pattern: 'sash', shorts: '#ffffff' },
+      away: { shirt: '#1a1a1a', alt2: '#e2001a', pattern: 'plain', shorts: '#1a1a1a' },
+      squad: ['Hradecky', 'Henrique', 'Salisu', 'Kehrer', 'Vanderson', 'Golovin', 'Zakaria', 'Camara', 'Akliouche', 'Biereth', 'Fati'],
+      stadium: st('Stade Louis II', 'Mónaco', ['#e2001a', '#ffffff'], 'MONACO', { track: '#c8552c', features: ['arch'], sky: 'dusk' }),
+    },
+    {
+      id: 'fr_nan', name: 'Nantes', short: 'FCN',
+      kit: { shirt: '#fce300', alt2: '#00764b', pattern: 'plain', shorts: '#00764b' },
+      away: { shirt: '#00764b', alt2: '#fce300', pattern: 'plain', shorts: '#00764b' },
+      squad: ['Lopes', 'Cozza', 'Awaziem', 'Tati', 'Amian', 'Ganago', 'Lepenant', 'Leroux', 'Benhattab', 'Abline', 'Mohamed'],
+      stadium: st('Stade de la Beaujoire', 'Nantes', ['#fce300', '#00764b'], 'FC NANTES', { shape: 'round' }),
+    },
+    {
+      id: 'fr_nic', name: 'Niza', short: 'OGC',
+      kit: { shirt: '#d6001c', alt2: '#111111', pattern: 'stripes', shorts: '#111111' },
+      away: { shirt: '#ffffff', alt2: '#d6001c', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Bulka', 'Bard', 'Dante', 'Bombito', 'Clauss', 'Boga', 'Boudaoui', 'Sanson', 'Diop', 'Moffi', 'Wahi'],
+      stadium: st('Allianz Riviera', 'Niza', ['#d6001c', '#111111'], 'OGC NICE', { roof: '#e6e6e6', sky: 'dusk' }),
+    },
+    {
+      id: 'fr_pfc', name: 'Paris FC', short: 'PFC',
+      kit: { shirt: '#13294b', alt2: '#8fb8e0', pattern: 'plain', shorts: '#13294b' },
+      away: { shirt: '#ffffff', alt2: '#13294b', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Trapp', 'De Smet', 'Otavio', 'Mbow', 'Hamel', 'Simon', 'López', 'Marchetti', 'Kebbal', 'Krasso', 'Geubbels'],
+      stadium: st('Stade Jean-Bouin', 'París', ['#13294b', '#8fb8e0'], 'PARIS FC', { roof: '#d8dce0' }),
+    },
+    {
+      id: 'fr_ren', name: 'Rennes', short: 'SRF',
+      kit: { shirt: '#e2001a', alt2: '#111111', pattern: 'plain', shorts: '#111111' },
+      away: { shirt: '#ffffff', alt2: '#e2001a', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Samba', 'Merlin', 'Jacquet', 'Brassier', 'Seidu', 'Al Tamari', 'Camara', 'Blas', 'Frankowski', 'Embolo', 'Lepaul'],
+      stadium: st('Roazhon Park', 'Rennes', ['#e2001a', '#111111'], 'STADE RENNAIS', { roof: '#cfd3d8' }),
+    },
+    {
+      id: 'fr_str', name: 'Estrasburgo', short: 'RCS',
+      kit: { shirt: '#0063ae', alt2: '#ffffff', pattern: 'plain', shorts: '#ffffff' },
+      away: { shirt: '#ffffff', alt2: '#0063ae', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Penders', 'Barco', 'Omobamidele', 'Doukouré', 'Doué', 'Moreira', 'Diarra', 'El Mourabet', 'Nanasi', 'Emegha', 'Panichelli'],
+      stadium: st('Stade de la Meinau', 'Estrasburgo', ['#0063ae', '#ffffff'], 'RC STRASBOURG', { roof: '#cfd3d8' }),
+    },
+    {
+      id: 'fr_tou', name: 'Toulouse', short: 'TFC',
+      kit: { shirt: '#5b2a86', alt2: '#ffffff', pattern: 'plain', shorts: '#5b2a86' },
+      away: { shirt: '#ffffff', alt2: '#5b2a86', pattern: 'plain', shorts: '#ffffff' },
+      squad: ['Restes', 'Cresswell', 'Nicolaisen', 'McKenzie', 'Sidibé', 'Gboho', 'Sauer', 'Casseres', 'Dønnum', 'Emersonn', 'Magri'],
+      stadium: st('Stadium de Toulouse', 'Toulouse', ['#5b2a86', '#ffffff'], 'TFC', { sky: 'dusk' }),
+    },
+  ],
+};

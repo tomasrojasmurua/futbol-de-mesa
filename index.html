@@ -37,6 +37,7 @@
         <button id="btn-join" class="btn">Unirse</button>
       </div>
       <button id="btn-cpu" class="btn ghost">Jugar contra la IA</button>
+      <button id="btn-career" class="btn ghost">Modo carrera (ligas)</button>
       <button id="btn-cup" class="btn ghost">Torneo contra la IA</button>
       <button id="btn-cup-continue" class="btn ghost" hidden>Continuar torneo</button>
       <button id="btn-help" class="link">¿Cómo se juega?</button>
@@ -104,6 +105,27 @@
       <div id="cup-head"></div>
       <div id="cup-actions" class="tb-actions"></div>
       <div id="cup-rounds" class="cup-rounds"></div>
+    </div>
+  </section>
+
+  <!-- CARRERA -->
+  <section id="screen-career-pick" class="screen">
+    <header class="bar"><button class="back" data-back>◂</button><h2>Modo carrera</h2></header>
+    <div id="career-leagues" class="league-list"></div>
+  </section>
+  <section id="screen-career-teams" class="screen">
+    <header class="bar"><button class="back" id="career-team-back">◂</button><h2 id="career-team-title">Elige tu equipo</h2></header>
+    <div id="career-team-grid" class="team-grid"></div>
+  </section>
+  <section id="screen-career" class="screen">
+    <div class="table-inner">
+      <h2 class="h2" id="career-title">Temporada</h2>
+      <div id="career-head"></div>
+      <div id="career-actions" class="tb-actions"></div>
+      <table id="career-table" class="league-table"></table>
+      <div id="career-last" class="cup-rounds"></div>
+      <div id="career-scorers"></div>
+      <div id="career-history"></div>
     </div>
   </section>
 

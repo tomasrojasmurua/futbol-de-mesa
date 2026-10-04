@@ -1,3 +1,4 @@
+import { LEAGUES } from './leagues/index.js';
 // Planteles: once titular probable de cada equipo (temporada 2025-26).
 // Orden: 0 arquero, 1 lateral izq, 2-3 centrales, 4 lateral der, 5 volante izq, 6-7 centrales, 8 volante der, 9-10 delanteros.
 export const SQUADS = {
@@ -82,5 +83,8 @@ export const SQUADS = {
   den: ['Schmeichel', 'Maehle', 'Andersen', 'Vestergaard', 'Kristensen', 'Damsgaard', 'Hjulmand', 'Højbjerg', 'Isaksen', 'Højlund', 'Eriksen'],
   can: ['Crépeau', 'Davies', 'Bombito', 'Cornelius', 'Johnston', 'Buchanan', 'Eustáquio', 'I. Koné', 'Shaffelburg', 'J. David', 'Larin'],
 };
+
+// Planteles de los equipos que llegaron con las ligas del modo carrera.
+for (const l of LEAGUES) for (const t of l.newTeams) if (!SQUADS[t.id]) SQUADS[t.id] = t.squad;
 
 export function playerName(teamId, i) { const s = SQUADS[teamId]; return s ? s[i] : `#${i + 1}`; }

@@ -3,6 +3,8 @@ import { optionsFor, SHOT_TITLES, TURN_SECONDS, fmtMinute, commentary, diceReaso
 import { Host, Cpu, LEVELS } from './host.js';
 import { createRoom, joinRoom } from './net.js';
 import { LeagueHost } from './league.js';
+import { LEAGUES } from './leagues/index.js';
+import { newCareer, myFixture, playRound, seasonOver, totalRounds, table, topScorers, nextSeason, resultFrom } from './career.js';
 import { newCup, myMatch, teamsLeft, champion, finishRound, resultOf, levelFor, ROUND_NAMES } from './cup.js';
 import { Renderer } from './render.js';
 import * as audio from './audio.js';
@@ -107,6 +109,8 @@ const HELP = `
 <p>Juegas de local en una versión pixelada del estadio de tu equipo. Al final ves los goleadores, la figura del partido y las estadísticas.</p>
 <h3>Torneo</h3>
 <p>Eliminación directa de 8 o 16 equipos contra la IA, entre clubes o entre selecciones según tu equipo. Los empates se definen por penales y la IA se pone más difícil en cada ronda. El torneo queda guardado en tu celular para seguirlo después.</p>
+<h3>Modo carrera</h3>
+<p>Elige una liga real y un equipo, y juega la temporada completa contra la IA: solo ida o ida y vuelta, con tabla, goleadores y temporadas siguientes. Puedes simular tus partidos si quieres avanzar rápido. Cada liga guarda su propia carrera en tu celular.</p>
 <h3>Liga</h3>
 <p>Crea una liga y comparte el código: entran hasta 4 jugadores y se enfrentan todos contra todos (con 2, ida y vuelta). Con 4 los dos partidos de cada fecha se juegan al mismo tiempo; con 3, el que descansa mira el otro partido en vivo. Gana 3 puntos, empata 1 (en la liga no hay penales). Por defecto los partidos son cortos.</p>
 <h3>Salas</h3>
@@ -611,6 +615,7 @@ let session = null; // { cleanup }
 
 function leaveMatch() {
   cupPlaying = false;
+  careerPlaying = false;
   paintCupButton();
   if (view) view.destroy();
   view = null;
@@ -679,6 +684,7 @@ function startHostGame(conn, guestTeam) {
 // Abandonar: contra la IA vuelve al menú; en una sala le avisa al rival.
 function confirmQuit() {
   if (cupPlaying && cup) { confirmQuitCup(); return; }
+  if (careerPlaying && career) { confirmQuitCareer(); return; }
   if (league) {
     if (view && view.spectator) showTable();
     else confirmLeaveLeague();
@@ -1186,6 +1192,173 @@ function confirmQuitCup() {
   ]);
 }
 
+// ---------- modo carrera ----------
+// Una carrera guardada por liga, en el celular.
+let career = null;
+let careerPlaying = false;
+
+function loadCareers() { try { return JSON.parse(localStorage.getItem('fdm-careers')) || {}; } catch { return {}; } }
+function saveCareer() {
+  try {
+    const all = loadCareers();
+    if (career) all[career.league] = career;
+    localStorage.setItem('fdm-careers', JSON.stringify(all));
+  } catch { /* sin storage */ }
+}
+function dropCareer(id) { try { const all = loadCareers(); delete all[id]; localStorage.setItem('fdm-careers', JSON.stringify(all)); } catch { /* sin storage */ } }
+const leagueOf = (c) => LEAGUES.find((l) => l.id === c.league);
+
+function showCareerPick() {
+  const saved = loadCareers();
+  $('#career-leagues').innerHTML = '';
+  for (const l of LEAGUES) {
+    const c = saved[l.id];
+    const b = document.createElement('button');
+    b.className = 'league-btn';
+    const sub = c ? `${teamById(c.me).name} · Temporada ${c.season} · ${seasonOver(c) ? 'terminada' : `fecha ${c.round + 1} de ${totalRounds(c)}`}` : `${l.teams.length} equipos`;
+    b.innerHTML = `<b>${l.name}</b><small>${l.country}</small><em>${sub}</em>`;
+    if (c) b.classList.add('saved');
+    b.onclick = () => {
+      if (!c) { pickCareerTeam(l); return; }
+      modal(`<h2>${l.name}</h2><p>Tienes una carrera con ${teamById(c.me).name}, temporada ${c.season}.</p>`, [
+        ['Continuar', 'primary', () => { career = c; showCareer(); }],
+        ['Empezar de nuevo', '', () => { setTimeout(() => pickCareerTeam(l), 0); }],
+        ['Volver', 'ghost', () => {}],
+      ]);
+    };
+    $('#career-leagues').appendChild(b);
+  }
+  show('screen-career-pick');
+}
+
+function pickCareerTeam(l) {
+  $('#career-team-title').textContent = l.name;
+  const grid = $('#career-team-grid');
+  grid.innerHTML = '';
+  for (const id of l.teams) {
+    const t = teamById(id);
+    const b = document.createElement('button');
+    b.className = 'team-btn' + (Math.max(...t.name.split(' ').map((w) => w.length)) > 10 ? ' long' : '');
+    b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
+    b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
+    b.onclick = () => careerOptions(l, id);
+    grid.appendChild(b);
+  }
+  show('screen-career-teams');
+}
+
+function careerOptions(l, me) {
+  const opt = { double: false, level: 'normal', length: 'short' };
+  const row = (key, label, items) => `<div class="len-row opt-row" data-key="${key}"><small>${label}</small>${items.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join('')}</div>`;
+  const n = l.teams.length - 1;
+  modal(`<h2>${teamById(me).name}</h2>
+    <p>Temporada de ${l.name} contra la IA. En la liga no hay penales: el empate da un punto.</p>
+    ${row('double', 'Ruedas', [['0', `Solo ida (${n})`], ['1', `Ida y vuelta (${n * 2})`]])}
+    ${row('level', 'IA', Object.entries(LEVELS).map(([k, v]) => [k, v.label]))}
+    ${row('length', 'Partidos', Object.entries(LENGTHS).map(([k, v]) => [k, v.label]))}`,
+  [['Empezar temporada', 'primary', () => {
+    career = newCareer({ league: l, me, ...opt });
+    saveCareer();
+    showCareer();
+  }], ['Volver', 'ghost', () => {}]]);
+  const paint = () => document.querySelectorAll('#modal-box .opt-row').forEach((r) => r.querySelectorAll('button').forEach((b) => {
+    const v = r.dataset.key === 'double' ? String(Number(opt.double)) : opt[r.dataset.key];
+    b.classList.toggle('on', b.dataset.v === v);
+  }));
+  document.querySelectorAll('#modal-box .opt-row button').forEach((b) => (b.onclick = () => {
+    const key = b.parentElement.dataset.key;
+    opt[key] = key === 'double' ? b.dataset.v === '1' : b.dataset.v;
+    paint();
+  }));
+  paint();
+}
+
+function showCareer() {
+  const c = career;
+  if (!c) return;
+  const l = leagueOf(c);
+  const me = teamById(c.me);
+  const t = table(c, l.teams);
+  const over = seasonOver(c);
+  const pos = t.findIndex((r) => r.id === c.me) + 1;
+  $('#career-title').textContent = `${l.name} · Temporada ${c.season}`;
+  let head;
+  if (over) {
+    const champ = teamById(t[0].id);
+    const mine = t[0].id === c.me;
+    head = `<div class="champ"><small>CAMPEÓN</small><span class="kit-swatch" style="background:${swatchCss(champ.kit)}"></span><b>${champ.name}</b><em>${mine ? '¡Campeón con tu equipo!' : `${me.short} terminó ${pos}° con ${t[pos - 1].pts} puntos.`}</em></div>`;
+    if (mine && c.cheered !== c.season) { c.cheered = c.season; audio.sound('win'); saveCareer(); }
+  } else {
+    const m = myFixture(c);
+    const home = teamById(m.h), away = teamById(m.a);
+    const sw = (tm) => `<i class="kit-swatch" style="background:${swatchCss(tm.kit)}"></i>`;
+    head = `<div class="next-match"><small>FECHA ${c.round + 1} DE ${totalRounds(c)}</small>
+      <div class="vsrow"><span>${sw(home)}${home.short}</span><b>vs</b><span>${sw(away)}${away.short}</span></div>
+      <em>${m.h === c.me ? `De local ante ${away.name}` : `De visita ante ${home.name}`}${c.round ? ` · vas ${pos}°` : ''}</em></div>`;
+  }
+  $('#career-head').innerHTML = head;
+  const act = $('#career-actions');
+  act.innerHTML = '';
+  const btn = (txt, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = txt; b.onclick = fn; act.appendChild(b); };
+  if (over) btn('Nueva temporada', 'primary', () => { nextSeason(c, l); saveCareer(); showCareer(); });
+  else {
+    btn('Jugar partido', 'primary', () => playCareerMatch());
+    btn('Simular mi partido', '', () => { playRound(c, null); saveCareer(); showCareer(); });
+  }
+  btn('Salir (queda guardado)', 'ghost', () => { career = null; show('screen-menu'); });
+  // Tabla completa.
+  const dg = (r) => (r.gf - r.gc > 0 ? '+' : '') + (r.gf - r.gc);
+  $('#career-table').innerHTML = '<tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr>' + t.map((r, k) => {
+    const tm = teamById(r.id);
+    return `<tr class="${r.id === c.me ? 'me' : ''}"><td>${k + 1}</td><td><span class="kit-swatch" style="background:${swatchCss(tm.kit)}"></span>${tm.short}</td><td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td><td>${dg(r)}</td><td><b>${r.pts}</b></td></tr>`;
+  }).join('');
+  const last = c.round > 0 ? c.rounds[c.round - 1] : null;
+  const line = (m) => `<p class="fx${m.h === c.me || m.a === c.me ? ' mine' : ''}"><span>${teamById(m.h).short}</span><b>${m.res ? `${m.res.hs} - ${m.res.as}` : 'vs'}</b><span>${teamById(m.a).short}</span></p>`;
+  $('#career-last').innerHTML = last ? `<h3>Fecha ${c.round}</h3>${last.map(line).join('')}` : '';
+  const sc = topScorers(c);
+  $('#career-scorers').innerHTML = sc.length ? `<h3>Goleadores</h3><ul class="leaders">${sc.map((s) => `<li><span>${teamById(s.team).short}</span><b>${playerName(s.team, s.i)}</b><i>${s.g}</i></li>`).join('')}</ul>` : '';
+  const hist = c.history.length ? `<h3>Temporadas anteriores${c.titles ? ` · ${c.titles} ${c.titles === 1 ? 'título' : 'títulos'}` : ''}</h3>${c.history.map((h) => `<p class="fx rest">Temporada ${h.season}: ${h.pos}° con ${h.pts} pts${h.pos === 1 ? ' · campeón' : ` · campeón ${teamById(h.champion).short}`}</p>`).join('')}` : '';
+  $('#career-history').innerHTML = hist;
+  show('screen-career');
+}
+
+function playCareerMatch() {
+  const c = career;
+  const m = myFixture(c);
+  const mySide = m.h === c.me ? 0 : 1;
+  audio.unlock();
+  let host, cpu;
+  const deliver = (x) => setTimeout(() => { view && view.onMessage(x); cpu.onMessage(x); }, 0);
+  host = new Host({ home: m.h, away: m.a, callerSide: mySide, broadcast: deliver, length: c.length, shootout: false });
+  cpu = new Cpu(1 - mySide, (x) => host.receive(1 - mySide, x), c.level);
+  lastHost = host;
+  careerPlaying = true;
+  view = new MatchView({ mySide, isHost: true, send: (x) => host.receive(mySide, x), endButtons: (state) => [['Continuar', 'primary', () => careerAfterMatch(resultFrom(state))]] });
+  session = { cleanup: () => { host.broadcast = () => {}; } };
+  $('#feed').textContent = `${leagueOf(c).name}, fecha ${c.round + 1}.`;
+  host.start();
+}
+
+function careerAfterMatch(res) {
+  careerPlaying = false;
+  clearPitch();
+  if (session) { try { session.cleanup(); } catch { /* ya cerrada */ } }
+  session = null;
+  playRound(career, res);
+  saveCareer();
+  showCareer();
+}
+
+function confirmQuitCareer() {
+  modal('<h2>¿Abandonar el partido?</h2><p>Si abandonas, pierdes 3 a 0.</p>', [
+    ['Abandonar', 'primary', () => {
+      const m = myFixture(career);
+      careerAfterMatch(m.h === career.me ? { hs: 0, as: 3, goals: [] } : { hs: 3, as: 0, goals: [] });
+    }],
+    ['Seguir jugando', 'ghost', () => {}],
+  ]);
+}
+
 // ---------- arranque ----------
 paintMyTeam();
 buildTeamGrid();
@@ -1207,6 +1380,8 @@ $('#btn-quit').onclick = () => confirmQuit();
 $('#btn-create').onclick = () => createOnline();
 $('#btn-league').onclick = () => createLeague();
 $('#btn-cup').onclick = () => cupMenu();
+$('#btn-career').onclick = () => showCareerPick();
+$('#career-team-back').onclick = () => showCareerPick();
 $('#btn-cup-continue').onclick = () => { cup = loadCup(); if (cup) showCup(); };
 paintCupButton();
 $('#lg-start').onclick = () => startLeague();
@@ -1233,4 +1408,4 @@ if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 
 // Para pruebas automáticas.
-window.__fdm = { get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };
+window.__fdm = { get career() { return career; }, get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };

@@ -29,11 +29,15 @@ Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una
 
 Cada carta tiene 12 segundos; si se acaba el tiempo, se elige sola. La duración se elige en el menú: corto (unas 21 decisiones, 3 a 5 minutos), normal (unas 34, 5 a 8 minutos) o largo (unas 53, 10 a 14 minutos). En una sala manda la de quien la crea.
 
+## Modo carrera
+
+«Modo carrera (ligas)» tiene 10 ligas reales completas (Chile, Argentina, Brasil, México, España, Inglaterra, Italia, Alemania, Francia y Portugal). Eliges liga y equipo, solo ida o ida y vuelta, nivel de la IA y duración de los partidos; juegas o simulas cada fecha, con tabla, goleadores y temporadas siguientes. Cada liga guarda su propia carrera en el celular. Los datos de cada liga están en `src/leagues/`.
+
 ## Torneo
 
 «Torneo contra la IA» arma una eliminación directa de 8 o 16 equipos (clubes o selecciones, según tu equipo). Tus partidos se juegan contra la IA, que sube de fácil a difícil ronda a ronda; el resto se simula con el mismo motor. Los empates van a penales y el torneo queda guardado en el celular para seguirlo después.
 
-Hay 77 equipos: clubes de América, clubes de Europa y selecciones.
+Hay 235 equipos: los clubes de las 10 ligas, otros clubes y selecciones.
 
 ## Liga
 

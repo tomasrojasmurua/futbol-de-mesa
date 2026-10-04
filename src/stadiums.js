@@ -1,3 +1,4 @@
+import { LEAGUES } from './leagues/index.js';
 // Estadios: cada equipo juega de local en una versión pixelada inspirada en su
 // cancha real. Los rasgos son aproximaciones para reconocerla de un vistazo.
 //
@@ -101,6 +102,15 @@ export const STADIUMS = {
   den: S('Parken', 'Copenhague', { seats: ['#c8102e', '#f2f2f2'], roof: '#9aa1aa', letters: 'DANMARK' }),
   can: S('BMO Field', 'Toronto', { seats: ['#d80621', '#f2f2f2'], roof: '#c9ced6', sky: 'day', letters: 'CANADA' }),
 };
+
+// Estadios de los equipos que llegaron con las ligas del modo carrera.
+for (const l of LEAGUES) {
+  for (const t of l.newTeams) {
+    if (STADIUMS[t.id] || !t.stadium) continue;
+    const { name, city, ...rest } = t.stadium;
+    STADIUMS[t.id] = S(name, city, Object.fromEntries(Object.entries(rest).filter(([, v]) => v !== undefined)));
+  }
+}
 
 export function stadiumFor(teamId) {
   return STADIUMS[teamId] || S('Estadio', '', {});

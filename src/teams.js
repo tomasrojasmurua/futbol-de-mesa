@@ -1,3 +1,5 @@
+import { LEAGUES } from './leagues/index.js';
+
 // Equipos disponibles. Los colores son aproximaciones de las camisetas clásicas.
 // pattern: plain | stripes | hoops | band | sash | sleeves | center | checks
 export const TEAMS = [
@@ -83,7 +85,21 @@ export const TEAMS = [
   { id: 'can', name: 'Canadá', short: 'CAN', group: 'Selecciones', kit: { shirt: '#d80621', alt2: '#ffffff', pattern: 'plain', shorts: '#d80621' }, away: { shirt: '#ffffff', alt2: '#d80621', pattern: 'plain', shorts: '#ffffff' } },
 ];
 
-export const teamById = (id) => TEAMS.find((t) => t.id === id) || TEAMS[0];
+// Equipos de las ligas del modo carrera: se suman los nuevos y cada club queda
+// agrupado bajo su liga en la lista (los que no están en ninguna, en "Otros clubes").
+for (const l of LEAGUES) {
+  for (const t of l.newTeams) {
+    if (!TEAMS.some((x) => x.id === t.id)) TEAMS.push({ id: t.id, name: t.name, short: t.short, group: l.name, kit: t.kit, away: t.away });
+  }
+}
+const leagueOfTeam = new Map(LEAGUES.flatMap((l) => l.teams.map((id) => [id, l.name])));
+for (const t of TEAMS) if (t.group !== 'Selecciones') t.group = leagueOfTeam.get(t.id) || 'Otros clubes';
+const GROUP_ORDER = [...LEAGUES.map((l) => l.name), 'Otros clubes', 'Selecciones'];
+const nameKey = (t) => t.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+TEAMS.sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) || (a.group === 'Selecciones' ? 0 : nameKey(a).localeCompare(nameKey(b))));
+
+const BY_ID = new Map(TEAMS.map((t) => [t.id, t]));
+export const teamById = (id) => BY_ID.get(id) || TEAMS[0];
 
 function hexRgb(h) {
   const n = h.replace('#', '');
