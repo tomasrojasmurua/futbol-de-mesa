@@ -26,8 +26,8 @@ const ATT_DEF = ['buildDef', 'attackDef'];
 const e = (role, dice, from, to, n, uses, half) => ({ role, dice, from, to, n, uses, half });
 const CARDS = {
   // Comunes
-  hinchada: { copies: 4, who: 'losing', tie: 'poss', fx: [e('att', ['shotBeat'], 'wide', 'goal', 1, 1)] },
-  suplentes: { copies: 4, who: 'def', fx: [e('def', ATT_DEF, 'steal', 'counter', 1, 2)] },
+  hinchada: { copies: 3, who: 'losing', tie: 'poss', fx: [e('att', ['shotBeat'], 'wide', 'goal', 1, 1)] },
+  suplentes: { copies: 3, who: 'def', fx: [e('def', ATT_DEF, 'steal', 'counter', 1, 2)] },
   lesion: { copies: 4, who: 'def', fx: [e('def', ATT_DEF, 'steal', 'advance', 1, 3)] },
   pelotazo: { copies: 4, who: 'poss', fx: [e('att', ['buildDef'], 'steal', 'shot', 1, 1)] },
   tactico: { copies: 4, who: 'losing', tie: 'def', fx: [e('att', ATT_DEF, 'steal', 'advance', 1, 3), e('def', ATT_DEF, 'steal', 'advance', 1, 1)] },
@@ -41,8 +41,8 @@ const CARDS = {
   errordt: { copies: 2, who: 'winning', tie: 'poss', fx: [e('def', ATT_DEF, 'steal', 'advance', 1, 2)] },
   iluminacion: { copies: 2, who: 'poss', fx: [e('att', ['shotBeat'], 'post', 'goal', 1, 1)] },
   // Muy raras
-  chilena: { copies: 1, who: 'poss', fx: [e('att', ['shotSave'], 'save', 'goal', 1, 1)] },
-  error: { copies: 1, who: 'poss', fx: [e('att', ATT_DEF, 'steal', 'advance', 3, 1)] },
+  chilena: { copies: 2, who: 'poss', fx: [e('att', ['shotSave'], 'save', 'goal', 1, 1)] },
+  error: { copies: 2, who: 'poss', fx: [e('att', ATT_DEF, 'steal', 'advance', 3, 1)] },
 };
 const DISC = { amarilla: 15, libre: 4, roja: 1 };
 
