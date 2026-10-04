@@ -204,6 +204,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       if (ev.match) {
         const f = die('attackDef');
         if (f === 'corner') { ev.outcome = 'corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = rng() < 0.5 ? 'L' : 'R'; }
+        else if (f === 'foul') { ev.outcome = 'foul'; foul(s, ev, A, D, rng); }
         else if (f === 'counter') { ev.outcome = 'counter'; stealer(); turnover('attack'); }
         else if (f === 'advance') { ev.outcome = 'chance'; toShot(); }
         else if (f === 'penalty') { ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal'; }
@@ -360,6 +361,7 @@ export function commentary(ev, names) {
             : `¡Qué gambeta! ${A} se perfila para rematar.`;
       }
       if (ev.outcome === 'corner') return `${D} despeja como puede: tiro de esquina.`;
+      if (ev.outcome === 'foul') return `${D} lo para con falta. Sigue atacando ${A}.`;
       if (ev.outcome === 'counter') return `¡${D} corta y sale rápido de contra!`;
       return `${D} defiende bien y se queda con la pelota.`;
     case 'shot':
@@ -432,7 +434,7 @@ export function diceReason(ev) {
       return d === 1 ? 'Falta: sigue el ataque' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
     case 'attack':
       if (ev.att === 'dribble' && !ev.match) return d === 6 ? '¡Penal!' : 'Queda para rematar';
-      return d === 1 ? 'Despeje al córner' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
+      return d === 1 ? 'Despeje al córner' : d === 2 ? 'Falta: sigue el ataque' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
     case 'shootout':
     case 'shot':
     case 'penalty':

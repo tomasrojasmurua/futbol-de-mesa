@@ -97,7 +97,7 @@ const HELP = `
 <h3>El dado</h3>
 <p>En los momentos clave se tira un dado especial: cada cara trae un símbolo de lo que pasa y debajo ves cuántas caras tiene cada resultado. Las reglas son las mismas para los dos equipos.</p>
 <ul>
-<li>Cuando la defensa adivina, recupera la pelota, salvo una cara para cada lado: una falta o un córner a favor del que ataca, o un <b>contragolpe</b> para el que defiende.</li>
+<li>Cuando la defensa adivina en la salida, recupera la pelota salvo dos caras: una <b>falta</b> (sigue el que ataca) y un <b>contragolpe</b> para el que defiende. En el último tercio hay además un <b>córner</b>: falta, córner, tres de recupera y contragolpe.</li>
 <li>Si el arquero adivina, ataja; una cara da rebote al córner y otra un saque rápido de contra.</li>
 <li>Si le ganas al arquero, la imagen se congela con la pelota en el aire y el dado decide: 4 caras de gol, 1 de palo y 1 afuera. Igual para cualquier remate.</li>
 <li>Una gambeta exitosa puede terminar en <b>penal</b>.</li>

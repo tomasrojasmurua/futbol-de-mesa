@@ -15,7 +15,7 @@
 //  shotSave: el arquero adivinó el remate. shotBeat: el arquero no adivinó.
 export const BASE_DICE = {
   buildDef: ['foul', 'steal', 'steal', 'steal', 'steal', 'counter'],
-  attackDef: ['corner', 'steal', 'steal', 'steal', 'steal', 'counter'],
+  attackDef: ['corner', 'foul', 'steal', 'steal', 'steal', 'counter'],
   shotSave: ['corner', 'save', 'save', 'save', 'save', 'counter'],
   shotBeat: ['post', 'wide', 'goal', 'goal', 'goal', 'goal'],
 };
@@ -87,9 +87,9 @@ for (const [id, c] of Object.entries(CARDS)) if (c.copies) (DECKS[c.deck] ||= []
 // haya más o menos una roja cada 5 partidos (en los cortos hay menos faltas, así
 // que el mazo trae más rojas). Contando las de doble amarilla.
 export const DISCIPLINE = {
-  short: { warning: 3, yellow: 6, freekick: 3, red: 8 }, // ~0,5 faltas por partido
-  normal: { warning: 4, yellow: 8, freekick: 3, red: 5 }, // ~0,8
-  long: { warning: 3, yellow: 10, freekick: 3, red: 3 }, // ~1,2
+  short: { warning: 4, yellow: 10, freekick: 3, red: 5 }, // ~0,9 faltas por partido
+  normal: { warning: 4, yellow: 13, freekick: 3, red: 3 }, // ~1,4
+  long: { warning: 7, yellow: 17, freekick: 3, red: 2 }, // ~2,2
 };
 const deckList = (s, deck) => (deck === 'disciplina'
   ? Object.entries(DISCIPLINE[s.length] || DISCIPLINE.normal).flatMap(([id, n]) => Array(n).fill(id))

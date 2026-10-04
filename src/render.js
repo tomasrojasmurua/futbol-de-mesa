@@ -820,6 +820,17 @@ export class Renderer {
   // que ataca: la jugada sigue (o hay remate directo, o penal).
   async cardPlay(ev, A) {
     const o = ev.outcome;
+    if (o === 'foul' && ev.situation === 'attack') {
+      // Falta en el último tercio: lo bajan y sigue el ataque desde ahí.
+      const victim = this.nearest(A, this.ball.x, this.ball.y, true);
+      victim.fallen = 1.2;
+      this.ui.sound('whistle');
+      this.ui.banner('FALTA', { small: true });
+      await this.wait(1.1);
+      this.give(victim);
+      await this.wait(0.4);
+      return true;
+    }
     if (o === 'advance' || o === 'longball' || o === 'chance') {
       this.give(this.nearest(A, this.ball.x, this.ball.y, true));
       this.ui.banner(o === 'longball' ? '¡PELOTAZO!' : '¡SIGUE LA JUGADA!', { small: true });

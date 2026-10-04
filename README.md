@@ -20,7 +20,7 @@ El dado aparece en momentos clave. Cada cara muestra un símbolo de lo que pasa,
 | Situación | Dado |
 |---|---|
 | La defensa adivina en la salida | 1: falta y sigue el ataque · 2-5: recupera · 6: contragolpe |
-| La defensa adivina en el área | 1: córner · 2-5: recupera · 6: contragolpe |
+| La defensa adivina en el área | 1: córner · 2: falta y sigue el ataque · 3-5: recupera · 6: contragolpe |
 | El arquero adivina | 1: rebote al córner · 2-5: ataja · 6: saque rápido de contra |
 | El remate supera al arquero | 1: palo · 2: afuera · 3-6: gol (igual para remate, cabezazo, mano a mano y penal) |
 | Gambeta exitosa | 6: penal |
@@ -54,9 +54,9 @@ Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nun
 
 | Duración | Faltas por partido | Advertencia | Amarilla | Tiro libre | Roja | Rojas por partido |
 |---|---|---|---|---|---|---|
-| Corto | 0,5 | 3 | 6 | 3 | 8 | 0,20 |
-| Normal | 0,8 | 4 | 8 | 3 | 5 | 0,20 |
-| Largo | 1,2 | 3 | 10 | 3 | 3 | 0,20 |
+| Corto | 0,9 | 4 | 10 | 3 | 5 | 0,20 |
+| Normal | 1,4 | 4 | 13 | 3 | 3 | 0,20 |
+| Largo | 2,2 | 7 | 17 | 3 | 2 | 0,20 |
 
 Con cartas un partido corto tiene unos 0,2 goles más, el que saca primero sigue ganando la mitad y leer al rival pesa lo mismo (`node scripts/fair-sim.js 20000 sin-cartas` para comparar).
 
