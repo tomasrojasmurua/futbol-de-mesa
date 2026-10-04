@@ -103,10 +103,10 @@ const HELP = `
 <li>Una gambeta exitosa puede terminar en <b>penal</b>.</li>
 </ul>
 <h3>Situaciones de juego</h3>
-<p>Dos mazos de cartas le ponen sorpresas al partido. Las cartas no hacen goles solas: cambian el próximo duelo o el próximo dado, y los dos ven la carta antes de elegir.</p>
+<p>Dos mazos de cartas traen lo impredecible de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras del dado, y los dos ven la carta y el dado cambiado.</p>
 <ul>
-<li><b>Mazo de partido</b>: sale cuatro veces por partido (dos por tiempo). Genialidad del crack, Error en la defensa, Cambio táctico (para el que va perdiendo), Ánimo de la hinchada y Golpe de iluminación. A quién le toca depende de quién tiene la pelota en ese momento.</li>
-<li><b>Mazo de disciplina</b>: sale con cada falta. Amarilla (la segunda es roja), roja (con uno menos el rival tiene más caras a favor en el dado) o tiro libre directo.</li>
+<li><b>Mazo de partido</b> (40 cartas, 14 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Lluvia, Arquero inspirado, Decisión polémica o Golazo de chilena. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
+<li><b>Mazo de disciplina</b> (20 cartas): sale con cada falta. Amarilla (la segunda es roja), tiro libre directo o roja (con uno menos, al defender una cara «recupera» pasa a falta o córner).</li>
 </ul>
 <h3>Duración</h3>
 <p>En el menú eliges partido <b>corto</b> (unos 3 a 5 minutos), <b>normal</b> (5 a 8) o <b>largo</b> (10 a 14). En una sala manda la duración de quien la crea.</p>
@@ -251,7 +251,7 @@ class MatchView {
       this.duelStart(ev);
       await renderer.play(ev);
       if (this.dead) return;
-      this.feed(this.usedText(ev) || this.shotText(ev) || commentary(ev, this.names()));
+      this.feed(this.shotText(ev) || commentary(ev, this.names()));
       this.paintHud(state);
       this.paintFx(state);
       this.paintPens(state);
@@ -279,10 +279,7 @@ class MatchView {
       }
       if (ev.card) await this.situationCard(ev.card, state);
       if (this.dead) return;
-      if (ev.sparkJump != null || (ev.card && (ev.card.id === 'error' || ev.card.id === 'freekick'))) {
-        if (ev.sparkJump != null && !ev.card) this.feed(`¡Golpe de iluminación! ${this.names()[ev.sparkJump]} se salta el medio campo.`);
-        await renderer.cardMove(state.poss, state.situation);
-      }
+      if (ev.card && ev.card.id === 'freekick') await renderer.cardMove(state.poss, state.situation);
       this.paintFx(state);
       return this.prompt(state);
     }
@@ -292,19 +289,23 @@ class MatchView {
   async situationCard(card, state) {
     const info = CARDS[card.id];
     const teams = state.teams.map(teamById);
-    const t = teams[card.side];
+    const both = card.side < 0;
+    const t = teams[both ? 0 : card.side];
     let who;
-    if (card.deck === 'disciplina' && card.id !== 'freekick') who = `${playerName(t.id, card.player)} (${t.short})`;
+    if (both) who = 'Para los dos equipos';
+    else if (card.deck === 'disciplina' && card.id !== 'freekick') who = `${playerName(t.id, card.player)} (${t.short})`;
     else who = this.spectator ? t.name : card.side === this.mySide ? `${t.name} (tú)` : `${t.name} (rival)`;
-    const good = card.deck === 'disciplina' && card.id !== 'freekick' ? card.side !== this.mySide : card.side === this.mySide;
+    // Para quién es buena noticia: las tarjetas son malas para quien las recibe,
+    // y lluvia, lesión y error del DT son malas para el equipo al que le tocan.
+    const bad = card.deck === 'disciplina' ? card.id !== 'freekick' : ['lesion', 'errordt'].includes(card.id);
+    const good = bad ? card.side !== this.mySide : card.side === this.mySide;
     const title = card.second ? 'Segunda amarilla: ¡roja!' : info.title;
     const el = $('#sitcard');
-    el.className = `sitcard ${card.deck} k-${card.id}${this.spectator ? '' : good ? ' good' : ' bad'}`;
+    el.className = `sitcard ${card.deck} k-${card.id}${this.spectator || both ? '' : good ? ' good' : ' bad'}`;
     el.innerHTML = `<div class="sc-box"><small>${card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA'}</small><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em><p>${info.text}</p></div>`;
     audio.sound(card.id === 'red' || card.id === 'yellow' ? 'whistle' : 'card');
     requestAnimationFrame(() => el.classList.add('show'));
-    const verb = card.deck === 'disciplina' && card.id !== 'freekick' ? 'para' : 'a favor de';
-    this.feed(`${title} ${verb} ${card.deck === 'disciplina' && card.id !== 'freekick' ? who : t.name}.`);
+    this.feed(both ? `${title}: afecta a los dos equipos.` : `${title}: ${bad ? 'en contra de' : 'a favor de'} ${card.deck === 'disciplina' && card.id !== 'freekick' ? who : t.name}.`);
     await wait(2900);
     el.classList.remove('show');
     await wait(250);
@@ -319,16 +320,6 @@ class MatchView {
     const reds = state.sit ? state.sit.reds : [0, 0];
     [0, 1].forEach((side) => { for (let k = 0; k < reds[side]; k++) chips.push(`<span class="fx-chip k-red"><i></i><b>${shorts[side]}</b>con uno menos</span>`); });
     el.innerHTML = chips.join('');
-  }
-
-  // Relato cuando una carta activa cambió la jugada.
-  usedText(ev) {
-    const n = this.names();
-    if (ev.used === 'crack') return `¡Genialidad del crack! ${n[ev.poss]} estaba marcado y se la inventa igual.`;
-    if (ev.used === 'crowd') return `¡La hinchada de ${n[1 - ev.poss]} empuja y sale de contragolpe!`;
-    if (ev.used === 'red') return `${n[1 - ev.poss]}, con uno menos, no llega a cerrar.`;
-    if (ev.used === 'tactic' && ev.outcome === 'goal') return `¡Todo al ataque! ${n[ev.poss]} la mete igual.`;
-    return '';
   }
 
   // Al empezar la jugada: tu carta boca arriba, la del rival boca abajo.
@@ -377,13 +368,11 @@ class MatchView {
       const r = $('#panel-role'); r.textContent = 'EN VIVO'; r.className = 'role live';
       return;
     }
-    if (ev.used === 'crack') $('#panel-title').textContent = '¡Genialidad del crack!';
     const goal = ev.outcome === 'goal';
     const text = goal ? (iAttack ? '¡GOOOL!' : 'GOL EN CONTRA') : won ? '¡GANASTE EL DUELO!' : 'PERDISTE EL DUELO';
     const stamp = $('#stamp');
     if (stamp) { stamp.textContent = text; stamp.className = 'stamp show ' + (won ? 'good' : 'bad'); }
-    $('#panel-title').textContent = ev.used === 'crack' ? (iAttack ? 'Te leyeron, pero tu crack se la inventó.' : 'La leíste, pero su crack se la inventó.')
-      : won ? (iAttack ? 'El rival no lo vio venir.' : '¡Le leíste la jugada!') : (iAttack ? 'El rival te leyó la jugada.' : 'No adivinaste.');
+    $('#panel-title').textContent = won ? (iAttack ? 'El rival no lo vio venir.' : '¡Le leíste la jugada!') : (iAttack ? 'El rival te leyó la jugada.' : 'No adivinaste.');
     const r = $('#panel-role'); r.textContent = won ? 'GANASTE' : 'PERDISTE'; r.className = 'role ' + (won ? 'good' : 'bad');
     audio.sound(won ? 'win-duel' : 'lose-duel');
   }

@@ -816,6 +816,28 @@ export class Renderer {
     this.release();
   }
 
+  // El defensor adivinó, pero una carta cambió la cara del dado a favor del
+  // que ataca: la jugada sigue (o hay remate directo, o penal).
+  async cardPlay(ev, A) {
+    const o = ev.outcome;
+    if (o === 'advance' || o === 'longball' || o === 'chance') {
+      this.give(this.nearest(A, this.ball.x, this.ball.y, true));
+      this.ui.banner(o === 'longball' ? '¡PELOTAZO!' : '¡SIGUE LA JUGADA!', { small: true });
+      const lane = LANE_U[ev.att] ?? 34;
+      if (o === 'advance') await this.dribble(A, [lane, 73], 0.7);
+      else if (o === 'longball') await this.pass(A, [34 + rnd(-6, 6), 84], { dur: 1.1, h: 4 });
+      else await this.dribble(A, [clamp(lerp(this.ballUV(A)[0], 34, 0.6), 24, 44), 89], 0.6);
+      return true;
+    }
+    if (o === 'penalty') {
+      this.ui.sound('whistle');
+      await this.ui.banner('¡PENAL!', {});
+      await this.setPenalty(A);
+      return true;
+    }
+    return false;
+  }
+
   async playBuild(ev, A, D) {
     this.cam.tzoom = 1.3; this.cam.follow = null;
     this.possSide = A;
@@ -835,6 +857,7 @@ export class Renderer {
     });
     if (!ev.match) { await this.dribble(A, [lane, 73], 0.7); return; }
     await this.diceMoment(ev);
+    if (await this.cardPlay(ev, A)) return;
     if (ev.outcome === 'foul') {
       const victim = this.nearest(A, winner.x, winner.y, true);
       victim.fallen = 1.2;
@@ -867,6 +890,7 @@ export class Renderer {
       await this.duelPass(ev, A, target, { h: 6, dur: 1.3, defWins: ev.match, style: 'header', recv: runner, def: marker });
       if (!ev.match) return;
       await this.diceMoment(ev);
+      if (await this.cardPlay(ev, A)) return;
       if (ev.outcome === 'corner') {
         this.launch(this.W(A, target[0] < 34 ? 24 : 44, 107), { dur: 0.8, h: 2.5, z1: 0 });
         await this.wait(0.8);
@@ -891,6 +915,7 @@ export class Renderer {
         return;
       }
       await this.diceMoment(ev);
+      if (await this.cardPlay(ev, A)) return;
       if (ev.outcome === 'corner') {
         this.launch(this.W(A, runU < 34 ? 20 : 48, 106.5), { dur: 0.7, h: 1.2 });
         await this.wait(0.7);
@@ -924,6 +949,7 @@ export class Renderer {
       return;
     }
     await this.diceMoment(ev);
+    if (await this.cardPlay(ev, A)) return;
     if (ev.outcome === 'corner') {
       this.launch(this.W(A, endU < 34 ? 22 : 46, 106.5), { dur: 0.6, h: 1 });
       await this.wait(0.6);
@@ -1005,6 +1031,19 @@ export class Renderer {
         await this.setCorner(A, ev.cornerSide || (tu < 34 ? 'L' : 'R'));
         return;
       }
+      if (ev.outcome === 'goal') {
+        // La tenía... y se le escapa (carta «Golazo de chilena»).
+        this.give(keeper);
+        this.ui.banner('¡ATAJADA!', { small: true });
+        await this.wait(0.6);
+        await this.diceMoment(ev);
+        b.owner = null;
+        [b.x, b.y] = this.W(A, tu, 106.6); b.z = 0.4;
+        this.netShake[gi] = 1.0;
+        this.reveal(ev);
+        await this.celebrate(ev, A, shooter);
+        return;
+      }
       this.give(keeper);
       this.ui.banner('¡ATAJADA!', { small: true });
       await this.wait(0.6);
@@ -1022,6 +1061,13 @@ export class Renderer {
       return;
     }
     this.reveal(ev);
+    if (ev.outcome === 'save_corner') {
+      // Arquero inspirado: la alcanza a sacar al córner.
+      this.ui.banner('¡ATAJADÓN!', { small: true });
+      await this.wait(0.7);
+      await this.setCorner(A, ev.cornerSide || (tu < 34 ? 'L' : 'R'));
+      return;
+    }
     this.ui.banner(ev.outcome === 'post' ? '¡AL PALO!' : '¡AFUERA!', { small: true });
     await this.wait(0.7);
     await this.diceMoment(ev);
@@ -1074,7 +1120,8 @@ export class Renderer {
     const sh = this.lastShooter, kp = this.lastKeeper;
     await this.ui.fadeOut();
     const scene = this.cut.play({
-      kind: ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.outcome,
+      // Con la chilena el arquero la ataja primero: el dado dice después que se le escapa.
+      kind: ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.match && ev.outcome === 'goal' ? 'save' : ev.outcome,
       shooter: sh, keeper: kp,
       kitA: this.kits[A], kitD: this.kits[D], gkColor: this.kits[D].gk,
       crowd: [this.kits[A].shirt, this.kits[D].shirt],

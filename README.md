@@ -29,14 +29,30 @@ Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una
 
 ### Situaciones de juego
 
-Dos mazos (`src/situations.js`) le ponen sorpresas al partido sin decidirlo: cambian el próximo duelo o el próximo dado, y los dos jugadores ven la carta antes de elegir.
+Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los cuatro dados (salida defendida, ataque defendido, atajada y remate). Caras nuevas que pueden aparecer: «sigue la jugada», «remate directo» y «penal».
 
-| Mazo | Cuándo sale | Cartas |
-|---|---|---|
-| Partido | al 40% y al 80% de cada tiempo | Genialidad del crack (su próximo duelo perdido atacando no cuenta), Error en la defensa (remate inmediato), Cambio táctico (al que va perdiendo: su próximo remate que supera al arquero es gol), Ánimo de la hinchada (al que defiende: su próxima recuperación es contragolpe), Golpe de iluminación (salta directo al último tercio) |
-| Disciplina | con cada falta | Amarilla ×6 (la segunda al mismo jugador es roja), Roja ×1 (el que queda con uno menos pierde una cara del dado cuando adivina defendiendo, dos con dos rojas), Tiro libre directo ×3 |
+**Mazo de partido** (40 cartas): se roba en una salida al 40% y al 80% de cada tiempo.
 
-Las cartas de partido se reparten según quién tiene la pelota, así que le tocan igual a los dos equipos; con cartas un partido corto tiene unos 0,7 goles más y leer al rival pesa lo mismo (`node scripts/fair-sim.js 20000 sin-cartas` para comparar).
+| Carta | Copias | A quién | Qué cambia | Dura |
+|---|---|---|---|---|
+| Ánimo de la hinchada | 3 | va perdiendo (empate: tiene la pelota) | remate: «afuera» pasa a gol | 1 remate |
+| Entran suplentes | 3 | no tiene la pelota | al defender: 1 «recupera» pasa a contra | 2 tiradas |
+| Lesión | 4 | no tiene la pelota | al defender: 1 «recupera» pasa a «sigue la jugada» del rival | 3 tiradas |
+| Habilitación larga | 4 | tiene la pelota | salida defendida: 1 «recupera» pasa a «remate directo» | 1 tirada |
+| Cambio táctico | 4 | va perdiendo (empate: no tiene la pelota) | al atacar: 1 «recupera» pasa a «sigue»; al defender, lo mismo para el rival | 3 atacando, 1 defendiendo |
+| Arquero inspirado | 3 | no tiene la pelota | remate rival: 1 gol pasa a «atajada al córner» | 1 remate |
+| Capitán inspirado | 3 | tiene la pelota | al atacar: 1 «recupera» pasa a «sigue la jugada» | 3 tiradas |
+| Genialidad del crack | 3 | tiene la pelota | al atacar: 2 «recupera» pasan a «sigue la jugada» | 1 tirada |
+| Decisión polémica | 3 | tiene la pelota | ataque defendido: 1 «recupera» pasa a penal | 1 tirada |
+| Lluvia | 2 | los dos | remate: 1 gol pasa a «afuera» | hasta el entretiempo |
+| Error del DT | 2 | va ganando (empate: tiene la pelota) | al defender: 1 «recupera» pasa a «sigue la jugada» del rival | 2 tiradas |
+| Golpe de iluminación | 2 | tiene la pelota | remate: «palo» pasa a gol | 1 remate |
+| Golazo de chilena | 2 | tiene la pelota | atajada: 1 «atajada» pasa a gol | 1 remate |
+| Error en la defensa | 2 | tiene la pelota | al atacar: 3 «recupera» pasan a «sigue la jugada» | 1 tirada |
+
+**Mazo de disciplina** (20 cartas, con cada falta): amarilla ×15 (la segunda al mismo jugador es roja), tiro libre directo ×4, roja ×1 (resto del partido: al defender, 1 «recupera» pasa a falta en la salida o córner en el último tercio).
+
+Con cartas un partido corto tiene unos 0,2 goles más, el que saca primero sigue ganando la mitad y leer al rival pesa lo mismo (`node scripts/fair-sim.js 20000 sin-cartas` para comparar).
 
 Cada carta tiene 12 segundos; si se acaba el tiempo, se elige sola. La duración se elige en el menú: corto (unas 21 decisiones, 3 a 5 minutos), normal (unas 34, 5 a 8 minutos) o largo (unas 53, 10 a 14 minutos). En una sala manda la de quien la crea.
 

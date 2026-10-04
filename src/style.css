@@ -349,11 +349,21 @@ body.watching .cards .duel-card { pointer-events: none; }
 .sc-art i { font-style: normal; font-size: 34px; line-height: 1; color: #fff; text-shadow: 3px 3px 0 #000; }
 .sitcard.partido { --sc: #2f8f4e; }
 .sitcard.disciplina { --sc: #3b4556; }
+/* Ilustración de cada carta: un símbolo grande. */
+.sitcard.k-hinchada .sc-art i::before { content: '♫'; }
+.sitcard.k-suplentes .sc-art i::before { content: '⇆'; }
+.sitcard.k-lesion .sc-art i::before { content: '✚'; color: #ff6b6b; }
+.sitcard.k-habilitacion .sc-art i::before { content: '➶'; }
+.sitcard.k-tactico .sc-art i::before { content: '⇅'; }
+.sitcard.k-arquero .sc-art i::before { content: '✋'; }
+.sitcard.k-capitan .sc-art i::before { content: 'C'; font-family: var(--px); font-size: 28px; }
 .sitcard.k-crack .sc-art i::before { content: '★'; color: #ffd23f; }
-.sitcard.k-error .sc-art i::before { content: '✗'; }
-.sitcard.k-tactic .sc-art i::before { content: '⇅'; }
-.sitcard.k-crowd .sc-art i::before { content: '♫'; }
-.sitcard.k-spark .sc-art i::before { content: '✦'; color: #fff6a8; }
+.sitcard.k-polemica .sc-art i::before { content: '?'; font-family: var(--px); font-size: 28px; }
+.sitcard.k-lluvia .sc-art i::before { content: '☂'; color: #9fd3ff; }
+.sitcard.k-errordt .sc-art i::before { content: '✗'; }
+.sitcard.k-iluminacion .sc-art i::before { content: '✦'; color: #fff6a8; }
+.sitcard.k-chilena .sc-art i::before { content: '⤴'; }
+.sitcard.k-error .sc-art i::before { content: '!'; font-family: var(--px); font-size: 28px; color: #ffd23f; }
 .sitcard.k-freekick .sc-art i::before { content: '◎'; }
 .sitcard.k-yellow .sc-art i, .sitcard.k-red .sc-art i { width: 30px; height: 42px; background: #ffd400; box-shadow: 0 0 0 3px #000, 4px 4px 0 3px rgba(0,0,0,.4); transform: rotate(8deg); }
 .sitcard.k-red .sc-art i { background: #e3262b; }

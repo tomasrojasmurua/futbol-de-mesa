@@ -177,6 +177,10 @@ const FACE = {
     px(g, 13, 7, C.ink, 3, 4); px(g, 14, 8, '#fff', 2, 2);
     px(g, 11, 5, '#f2b705', 1, 1); px(g, 15, 5, '#f2b705', 1, 1); px(g, 11, 12, '#f2b705', 1, 1); px(g, 15, 12, '#f2b705', 1, 1);
   },
+  advance(g) { // flecha: sigue la jugada
+    px(g, 2, 6, C.ink, 7, 4); px(g, 8, 2, C.ink, 2, 12); px(g, 10, 3, C.ink, 2, 10); px(g, 12, 5, C.ink, 2, 6); px(g, 14, 7, C.ink, 1, 2);
+    px(g, 3, 7, C.att, 6, 2); px(g, 9, 4, C.att, 1, 8); px(g, 10, 5, C.att, 2, 6); px(g, 12, 6, C.att, 1, 4); px(g, 13, 7, C.att, 1, 2);
+  },
   wide(g) { // pelota que se va por arriba
     frame(g);
     px(g, 11, 0, C.ink, 4, 4); px(g, 12, 1, '#fff', 2, 2);

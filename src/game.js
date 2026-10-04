@@ -1,7 +1,7 @@
 // Lógica pura del partido. El anfitrión (host) es la autoridad: resuelve cada
 // jugada con las dos elecciones y una tirada de dado, y envía el evento a ambos.
 
-import { newSituations, shieldAttack, defenseRoll, shotRoll, foul, afterPlay } from './situations.js';
+import { newSituations, rollFaces, foul, afterPlay, halfTime, BASE_DICE } from './situations.js';
 
 export const HALF_MINUTES = 45;
 export const TURN_SECONDS = 12;
@@ -164,16 +164,35 @@ export function resolvePlay(state, att, def, rng = Math.random) {
   };
 
   if (s.situation === 'shootout') return kickShootout(s, ev, rng);
-  shieldAttack(s, ev, A);
+  // Tira uno de los cuatro dados (con las cartas activas) y devuelve la cara.
+  const die = (name) => { ev.die = name; ev.faces = rollFaces(s, name, A, D); return ev.faces[roll() - 1]; };
+  const goal = (kind) => {
+    ev.outcome = 'goal';
+    s.stats.onTarget[A]++;
+    s.score[A]++;
+    credit(A, ev.shooter, 'ot');
+    credit(A, ev.shooter, 'g');
+    // Asistencia: casi siempre hay un pase previo (no en los penales).
+    if (kind !== 'penal' && rng() < 0.75) {
+      ev.assist = pick([5, 6, 7, 8, 9, 10, 1, 4].filter((i) => i !== ev.shooter));
+      credit(A, ev.assist, 'a');
+    }
+    if (s.goals) s.goals.push({ side: A, i: ev.shooter, assist: ev.assist ?? null, minute: s.minute, half: s.half, kind });
+    s.poss = D; s.situation = 'build'; s.lane = 'C';
+    ev.kickoffAfter = D;
+  };
+  const toShot = () => { s.situation = 'shot'; s.shotKind = att === 'cross' ? 'cabezazo' : att === 'through' ? 'mano' : 'remate'; };
 
   switch (s.situation) {
     case 'build': {
       s.stats.builds[A]++;
       s.clock += 3 + Math.floor(rng() * 3);
       if (ev.match) {
-        const r = defenseRoll(s, ev, D, roll());
-        if (r === 1) { ev.outcome = 'foul'; if (ev.used !== 'red') foul(s, ev, A, D, rng); }
-        else if (r === 6) { ev.outcome = 'counter'; stealer(); turnover('attack'); }
+        const f = die('buildDef');
+        if (f === 'foul') { ev.outcome = 'foul'; foul(s, ev, A, D, rng); }
+        else if (f === 'counter') { ev.outcome = 'counter'; stealer(); turnover('attack'); }
+        else if (f === 'advance') { ev.outcome = 'advance'; s.situation = 'attack'; s.lane = att; }
+        else if (f === 'shoot') { ev.outcome = 'longball'; s.situation = 'shot'; s.shotKind = 'remate'; }
         else { ev.outcome = 'steal'; stealer(); turnover(); }
       } else {
         ev.outcome = 'advance'; s.situation = 'attack'; s.lane = att;
@@ -183,13 +202,14 @@ export function resolvePlay(state, att, def, rng = Math.random) {
     case 'attack': {
       s.clock += 3;
       if (ev.match) {
-        const r = defenseRoll(s, ev, D, roll());
-        if (r === 1) { ev.outcome = 'corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = rng() < 0.5 ? 'L' : 'R'; }
-        else if (r === 6) { ev.outcome = 'counter'; stealer(); turnover('attack'); }
+        const f = die('attackDef');
+        if (f === 'corner') { ev.outcome = 'corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = rng() < 0.5 ? 'L' : 'R'; }
+        else if (f === 'counter') { ev.outcome = 'counter'; stealer(); turnover('attack'); }
+        else if (f === 'advance') { ev.outcome = 'chance'; toShot(); }
+        else if (f === 'penalty') { ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal'; }
         else { ev.outcome = 'steal'; stealer(); turnover(); }
       } else {
-        s.situation = 'shot';
-        s.shotKind = att === 'cross' ? 'cabezazo' : att === 'through' ? 'mano' : 'remate';
+        toShot();
         ev.outcome = 'chance';
         if (att === 'dribble') {
           const r = roll();
@@ -208,32 +228,24 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       ev.shooter = kind === 'penal' ? 9 : SHOOTERS[Math.floor(rng() * SHOOTERS.length)];
       credit(A, ev.shooter, 'sh');
       if (ev.match) {
+        const f = die('shotSave');
+        if (f === 'goal') { goal(kind); break; }
         s.stats.onTarget[A]++;
         credit(A, ev.shooter, 'ot');
         credit(D, 0, 'sv');
-        const r = roll();
-        if (r === 1) { ev.outcome = 'save_corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = att === 'R' ? 'R' : att === 'L' ? 'L' : (rng() < 0.5 ? 'L' : 'R'); }
-        else if (r === 6) { ev.outcome = 'save_counter'; turnover('attack'); s.stats.steals[D]--; }
+        if (f === 'corner') { ev.outcome = 'save_corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = att === 'R' ? 'R' : att === 'L' ? 'L' : (rng() < 0.5 ? 'L' : 'R'); }
+        else if (f === 'counter') { ev.outcome = 'save_counter'; turnover('attack'); s.stats.steals[D]--; }
         else { ev.outcome = 'save'; turnover(); s.stats.steals[D]--; }
       } else {
-        const r = shotRoll(s, ev, A, roll());
-        if (r <= MISS_ON) {
-          ev.outcome = r === 1 ? 'post' : 'wide';
-          turnover(); s.stats.steals[D]--;
+        const f = die('shotBeat');
+        if (f === 'goal') goal(kind);
+        else if (f === 'corner') {
+          // Arquero inspirado: la saca al córner.
+          ev.outcome = 'save_corner'; s.stats.onTarget[A]++; credit(A, ev.shooter, 'ot'); credit(D, 0, 'sv');
+          s.situation = 'corner'; s.stats.corners[A]++; s.lane = att === 'R' ? 'R' : att === 'L' ? 'L' : (rng() < 0.5 ? 'L' : 'R');
         } else {
-          ev.outcome = 'goal';
-          s.stats.onTarget[A]++;
-          s.score[A]++;
-          credit(A, ev.shooter, 'ot');
-          credit(A, ev.shooter, 'g');
-          // Asistencia: casi siempre hay un pase previo (no en los penales).
-          if (kind !== 'penal' && rng() < 0.75) {
-            ev.assist = pick([5, 6, 7, 8, 9, 10, 1, 4].filter((i) => i !== ev.shooter));
-            credit(A, ev.assist, 'a');
-          }
-          if (s.goals) s.goals.push({ side: A, i: ev.shooter, assist: ev.assist ?? null, minute: s.minute, half: s.half, kind });
-          s.poss = D; s.situation = 'build'; s.lane = 'C';
-          ev.kickoffAfter = D;
+          ev.outcome = f;
+          turnover(); s.stats.steals[D]--;
         }
       }
       break;
@@ -260,6 +272,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
   if (s.clock >= halfLen * s.half && s.situation === 'build') {
     if (s.half === 1) {
       ev.halfEnd = 1;
+      halfTime(s);
       s.half = 2; s.minute = HALF_MINUTES; s.clock = halfLen; s.poss = 1 - s.kickoff; s.situation = 'build'; s.lane = 'C';
       ev.kickoffAfter = s.poss;
     } else {
@@ -331,12 +344,16 @@ export function commentary(ev, names) {
   const laneTxt = { L: 'por la izquierda', C: 'por el centro', R: 'por la derecha' };
   switch (ev.situation) {
     case 'build':
+      if (ev.outcome === 'advance' && ev.match) return `${D} leyó la jugada, pero no alcanza a cortar. Sigue ${A}.`;
       if (ev.outcome === 'advance') return `${A} sale ${laneTxt[ev.att]} y gana metros.`;
+      if (ev.outcome === 'longball') return `¡Pelotazo largo de ${A} y queda para rematar!`;
       if (ev.outcome === 'foul') return `${D} leyó la jugada, pero cometió falta. Sigue ${A}.`;
       if (ev.outcome === 'counter') return `¡Robo de ${D} y sale el contragolpe!`;
       return `${D} cerró bien ${laneTxt[ev.att]} y recupera la pelota.`;
     case 'attack':
+      if (ev.outcome === 'penalty' && ev.match) return `¡Cobran penal en una jugada dudosa! Protesta ${D}.`;
       if (ev.outcome === 'penalty') return `¡Gambeta en el área y lo derriban! ¡Penal para ${A}!`;
+      if (ev.outcome === 'chance' && ev.match) return `${D} la tenía, pero ${A} se la gana igual y queda para rematar.`;
       if (ev.outcome === 'chance') {
         return ev.att === 'cross' ? `Centro de ${A}... ¡y hay cabezazo!`
           : ev.att === 'through' ? `¡Pase filtrado! ${A} queda mano a mano.`
@@ -347,6 +364,7 @@ export function commentary(ev, names) {
       return `${D} defiende bien y se queda con la pelota.`;
     case 'shot':
     case 'penalty':
+      if (ev.outcome === 'goal' && ev.match) return `¡El arquero de ${D} la tenía y se le escapa! ¡Gol de ${A}!`;
       if (ev.outcome === 'goal') return `¡GOOOL de ${A}!`;
       if (ev.outcome === 'post') return `¡Al palo! Se salva ${D}.`;
       if (ev.outcome === 'wide') return `¡Uff! Se fue apenas afuera.`;
@@ -367,47 +385,58 @@ export function commentary(ev, names) {
 
 // Caras del dado para esta tirada: cada cara muestra un símbolo de lo que pasa.
 export const DIE_LABELS = {
-  foul: 'Falta', steal: 'Recupera', counter: 'Contra', corner: 'Córner', shoot: 'Remate',
+  foul: 'Falta', steal: 'Recupera', advance: 'Sigue', counter: 'Contra', corner: 'Córner', shoot: 'Remate',
   penalty: 'Penal', save: 'Atajada', goal: 'Gol', post: 'Palo', wide: 'Afuera',
 };
 
 export function diceFaces(ev) {
+  if (ev.faces) return ev.faces;
   switch (ev.situation) {
-    case 'build':
-    case 'attack': {
-      if (ev.situation === 'attack' && ev.att === 'dribble' && !ev.match) return ['shoot', 'shoot', 'shoot', 'shoot', 'shoot', 'penalty'];
-      // Con cartas: la roja convierte caras 2 (y 3) en falta/córner; la hinchada, la recuperación en contra.
-      const first = ev.situation === 'build' ? 'foul' : 'corner';
-      return [1, 2, 3, 4, 5, 6].map((n) => (n === 1 || n <= 1 + (ev.redFaces || 0) ? first : n === 6 || ev.crowd ? 'counter' : 'steal'));
-    }
+    case 'attack':
+      if (ev.att === 'dribble' && !ev.match) return ['shoot', 'shoot', 'shoot', 'shoot', 'shoot', 'penalty'];
+      return BASE_DICE.attackDef;
+    case 'build': return BASE_DICE.buildDef;
     case 'shootout':
     case 'shot':
-    case 'penalty': {
-      if (ev.match) return ['corner', 'save', 'save', 'save', 'save', 'counter'];
-      return [1, 2, 3, 4, 5, 6].map((n) => (ev.tactic ? 'goal' : n === 1 ? 'post' : n <= MISS_ON ? 'wide' : 'goal'));
-    }
+    case 'penalty':
+      return ev.match ? BASE_DICE.shotSave : BASE_DICE.shotBeat;
   }
   return ['steal', 'steal', 'steal', 'steal', 'steal', 'steal'];
 }
 
+// Lo que pasó con el dado, en palabras. Si la cara la puso una carta, se dice.
+const CARD_REASONS = {
+  advance: '¡Una carta: sigue la jugada!',
+  shoot: '¡Una carta: remate directo!',
+  penalty: '¡Una carta: penal!',
+  counter: '¡Una carta: contragolpe!',
+  foul: 'Con uno menos no llegan: falta',
+  corner: '¡Una carta: córner!',
+  goal: '¡Una carta: es gol!',
+  wide: 'La cancha pesada: se va afuera',
+};
 export function diceReason(ev) {
   if (ev.dice == null) return '';
   const d = ev.dice;
+  if (ev.die) {
+    const f = ev.faces[d - 1];
+    if (f !== BASE_DICE[ev.die][d - 1]) {
+      if (ev.die === 'shotBeat' && f === 'corner') return '¡Arquero inspirado: al córner!';
+      if (ev.die === 'shotBeat' && f === 'goal') return '¡Una carta: entra igual!';
+      if (ev.die === 'shotSave' && f === 'goal') return '¡Se le escapa: gol!';
+      return CARD_REASONS[f] || '';
+    }
+  }
   switch (ev.situation) {
     case 'build':
-      if (ev.used === 'red') return 'Con uno menos no llegan: falta';
-      if (ev.used === 'crowd') return '¡La hinchada empuja al contragolpe!';
       return d === 1 ? 'Falta: sigue el ataque' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
     case 'attack':
-      if (ev.used === 'red') return 'Con uno menos no llegan: córner';
-      if (ev.used === 'crowd') return '¡La hinchada empuja al contragolpe!';
       if (ev.att === 'dribble' && !ev.match) return d === 6 ? '¡Penal!' : 'Queda para rematar';
       return d === 1 ? 'Despeje al córner' : d === 6 ? '¡Contragolpe!' : 'Pelota recuperada';
     case 'shootout':
     case 'shot':
     case 'penalty':
       if (ev.match) return d === 1 ? 'Da rebote: córner' : d === 6 ? 'Saque rápido: ¡contragolpe!' : 'La contiene';
-      if (ev.used === 'tactic') return '¡Todo al ataque y entra!';
       return ev.outcome === 'goal' ? '¡Adentro!' : ev.outcome === 'post' ? '¡Al palo!' : 'Se va afuera';
   }
   return '';
