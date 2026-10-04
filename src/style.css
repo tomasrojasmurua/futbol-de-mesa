@@ -67,13 +67,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- partido ---------- */
 #screen-game { background: #1d212b; }
-.hud { position: relative; display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 8px; padding: 8px 10px 14px; background: linear-gradient(#171b24, #0c0f14); border-bottom: 3px solid #000; }
+.hud { position: relative; display: grid; grid-template-columns: auto 1fr auto 1fr auto; align-items: center; gap: 8px; padding: 8px 10px 14px; background: linear-gradient(#171b24, #0c0f14); border-bottom: 3px solid #000; }
 .hud .side { display: flex; align-items: center; gap: 8px; font-family: var(--px); font-size: 12px; min-width: 0; text-shadow: 2px 2px 0 #000; }
 .hud .side.away { justify-content: flex-end; }
 .hud .score { font-family: var(--px); font-size: 20px; display: flex; align-items: baseline; gap: 6px; background: linear-gradient(#262c3a, #000); padding: 7px 12px 6px; position: relative; box-shadow: 0 0 0 2px #000, inset 0 2px 0 #3a4256; }
 .hud .score i { font-style: normal; color: var(--mute); font-size: 14px; }
 .hud .score small { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); font-size: 9px; background: var(--gold); color: #000; padding: 3px 6px; white-space: nowrap; box-shadow: 0 0 0 2px #000; }
 .hud .kit-swatch { width: 18px; height: 22px; box-shadow: 0 0 0 2px #000, inset -3px -3px 0 rgba(0,0,0,.25); }
+.quit { background: none; border: 0; font-size: 18px; padding: 0 4px; color: var(--mute); }
 .mute { background: none; border: 0; font-size: 22px; padding: 0 4px; color: var(--ink); }
 .mute.off { opacity: .35; text-decoration: line-through; }
 

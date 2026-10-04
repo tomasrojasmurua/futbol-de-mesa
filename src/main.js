@@ -189,7 +189,7 @@ class MatchView {
       this.lastSeq = -1;
       const st = renderer.stadium;
       const len = state.length && state.length !== 'normal' ? ` Partido ${LENGTHS[state.length].label.toLowerCase()}.` : '';
-      this.feed(`¡Bienvenidos al ${st.name}${st.city ? `, ${st.city}` : ''}!${len}`);
+      this.feed(`¡Bienvenidos! Se juega en ${st.name}${st.city ? `, ${st.city}` : ''}.${len}`);
       return this.promptToss(state);
     }
     if (ev.type === 'toss') {
@@ -209,6 +209,7 @@ class MatchView {
       this.currentEv = ev;
       this.duelStart(ev);
       await renderer.play(ev);
+      if (this.dead) return;
       this.feed(this.shotText(ev) || commentary(ev, this.names()));
       this.paintHud(state);
       this.paintPens(state);
@@ -407,7 +408,7 @@ class MatchView {
   }
 
   prompt(state) {
-    if (state.phase !== 'play') return;
+    if (this.dead || state.phase !== 'play') return;
     const att = state.poss === this.mySide;
     const role = att ? 'att' : 'def';
     const sit = state.situation;
@@ -437,6 +438,7 @@ class MatchView {
   }
 
   showEnd(state) {
+    if (this.dead) return;
     this.stopTimer();
     this.clearCards('Partido terminado');
     const teams = state.teams.map(teamById);
@@ -495,7 +497,7 @@ class MatchView {
     modal(html, btns);
   }
 
-  destroy() { this.stopTimer(); this.queue = []; }
+  destroy() { this.dead = true; this.stopTimer(); this.queue = []; }
 }
 
 // ---------- capa de UI para el motor ----------
@@ -562,6 +564,12 @@ let session = null; // { cleanup }
 function leaveMatch() {
   if (view) view.destroy();
   view = null;
+  // Limpia lo que haya quedado a medio mostrar (escena, dado, carteles).
+  if (renderer && renderer.cut) renderer.cut.hide();
+  ['#dice', '#coin'].forEach((q) => $(q).classList.remove('show'));
+  $('#fade').classList.remove('on');
+  $('#pens').classList.remove('on');
+  document.querySelector('.pitch-wrap').classList.remove('cinema');
   if (session) { try { session.cleanup(); } catch { /* ya cerrada */ } }
   session = null;
   closeModal();
@@ -609,12 +617,36 @@ function startHostGame(conn, guestTeam) {
   const makeView = () => new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: rematch });
   view = makeView();
   conn.on('message', (m) => {
+    if (m.t === 'quit') { onRivalQuit(); return; }
     if (m.t === 'choice' || m.t === 'call') host.receive(1, m);
     // El rival volvió de una desconexión corta: le reenviamos el último estado.
     if (m.t === 'sync' && lastMsg && lastMsg.n > (m.n || 0)) conn.send(lastMsg);
     if (m.t === 'reconnected' && lastMsg) conn.send(lastMsg);
   });
   begin();
+}
+
+// Abandonar: contra la IA vuelve al menú; en una sala le avisa al rival.
+function confirmQuit() {
+  if (!session && !view) { show('screen-menu'); return; }
+  modal('<h2>¿Abandonar el partido?</h2><p>Si abandonas, el partido se da por perdido.</p>', [
+    ['Abandonar', 'primary', () => quitMatch()],
+    ['Seguir jugando', 'ghost', () => {}],
+  ]);
+}
+
+function quitMatch() {
+  if (session && session.send) { try { session.send({ t: 'quit' }); } catch { /* sin conexión */ } }
+  // Un momento para que el aviso salga antes de cerrar la conexión.
+  setTimeout(leaveMatch, session && session.send ? 300 : 0);
+}
+
+function onRivalQuit() {
+  if (!view) return;
+  view.destroy();
+  view = null;
+  audio.sound('win');
+  modal('<h2>Tu rival abandonó</h2><p>¡Ganas por abandono!</p>', [['Volver al menú', 'primary', () => leaveMatch()]]);
 }
 
 function onDisconnect() {
@@ -648,7 +680,7 @@ function createOnline() {
     },
     onError: (e) => { $('#lobby-msg').textContent = errorText(e); },
   });
-  session = { cleanup: () => { if (conn) conn.close(); room.destroy(); } };
+  session = { cleanup: () => { if (conn) conn.close(); room.destroy(); }, send: (m) => conn && conn.send(m) };
   $('#btn-cancel').onclick = () => leaveMatch();
 }
 
@@ -680,6 +712,7 @@ function joinOnline(code) {
       $('#btn-join').disabled = false;
       c.on('close', onDisconnect);
       c.on('message', (m) => {
+        if (m.t === 'quit') { onRivalQuit(); return; }
         if (m.t === 'reconnected') { c.send({ t: 'sync', n: lastN }); return; }
         if (m.t !== 'state') return;
         if (m.n && m.n <= lastN) return; // repetido
@@ -698,7 +731,7 @@ function joinOnline(code) {
       j.destroy();
     },
   });
-  session = { cleanup: () => { if (conn) conn.close(); j.destroy(); } };
+  session = { cleanup: () => { if (conn) conn.close(); j.destroy(); }, send: (m) => conn && conn.send(m) };
 }
 
 // ---------- arranque ----------
@@ -718,6 +751,7 @@ document.querySelectorAll('#len-row [data-len]').forEach((b) => (b.onclick = () 
   paintLength();
 }));
 paintLength();
+$('#btn-quit').onclick = () => confirmQuit();
 $('#btn-create').onclick = () => createOnline();
 $('#btn-join').onclick = () => joinOnline($('#join-code').value);
 $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
