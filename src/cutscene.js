@@ -232,6 +232,11 @@ export class Cutscene {
         const out = end[0] < 90 ? -1 : 1;
         return [end[0] + out * 34 * a, end[1] + 60 * a * a - Math.sin(a * Math.PI) * 14, lerp(1.4, 2.6, a), false];
       }
+      case 'clear': {
+        // Un defensor la saca en la línea: rebota hacia la cancha.
+        const out = end[0] < 90 ? 1 : -1;
+        return [end[0] + out * 26 * a, end[1] + 70 * a - Math.sin(a * Math.PI) * 26, lerp(1.6, 3.2, a), false];
+      }
       case 'wide': {
         return [end[0] + (end[0] - 90) * 0.35 * a, end[1] - 22 * a, lerp(1.4, 0.8, a), true];
       }
@@ -251,7 +256,7 @@ export class Cutscene {
     const o = this.o;
     const aim = this.target(o.att);
     if (o.match) return aim;
-    if (o.outcome === 'goal') return [aim[0] + (o.att === 'L' ? -4 : o.att === 'R' ? 4 : 0), aim[1] - 2];
+    if (o.outcome === 'goal' || o.outcome === 'clear') return [aim[0] + (o.att === 'L' ? -4 : o.att === 'R' ? 4 : 0), aim[1] - 2];
     if (o.outcome === 'post') return o.att === 'C' ? [96, this.gTop] : [o.att === 'L' ? this.gL + 1 : this.gR - 1, this.gTop + 14];
     // afuera
     if (o.att === 'C') return [100, this.gTop - 12];

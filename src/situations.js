@@ -84,6 +84,18 @@ export const CARDS = {
   defensa: { deck: 'partido', copies: 2, who: 'def', title: 'Defensa sólida',
     text: 'Si adivina el próximo ataque rival en el último tercio, el dado queda: córner, 3 recupera y 2 contra.',
     fx: [fx('def', U, F('corner steal:3 counter:2'))] },
+  barrida: { deck: 'partido', copies: 3, who: 'def', title: 'Barrida quirúrgica',
+    text: 'Si adivina el próximo ataque rival en el último tercio, la quita limpia: 4 recupera y 2 contra, sin falta ni córner.',
+    fx: [fx('def', U, F('steal:4 counter:2'))] },
+  despeje: { deck: 'partido', copies: 3, who: 'def', title: 'Despeje en la línea',
+    text: 'En el próximo remate rival que supere al arquero, una cara de gol pasa a «despeje»: un defensor la saca en la línea.',
+    fx: [fx('def', 'shotBeat', F('post wide goal:3 clear'))] },
+  presion: { deck: 'partido', copies: 3, who: 'def', title: 'Presión alta',
+    text: 'Si adivina la próxima salida rival, lo apura sin falta: 4 recupera y 2 contra.',
+    fx: [fx('def', S, F('steal:4 counter:2'))] },
+  achique: { deck: 'partido', copies: 2, who: 'def', title: 'Achique del arquero',
+    text: 'Si su arquero adivina el próximo remate rival, sale rápido: 4 atajada y 2 contra, sin córner.',
+    fx: [fx('def', 'shotSave', F('save:4 counter:2'))] },
   // Disciplina
   warning: { deck: 'disciplina', title: 'Advertencia del árbitro', text: 'El árbitro lo llama y le advierte. El partido sigue su curso.' },
   yellow: { deck: 'disciplina', title: 'Tarjeta amarilla', text: 'Amonestado. Con la segunda, se va expulsado.' },
@@ -127,8 +139,14 @@ function draw(s, deck, rng) {
   return sit.decks[deck].pop();
 }
 
+// Bitácora de las situaciones del partido (para la crónica del final). El minuto
+// se completa en game.js cuando termina la jugada.
+function logCard(s, card) {
+  (s.sit.log ||= []).push({ id: card.id, side: card.side, player: card.player ?? null, minute: null, half: s.half });
+}
+
 export function newSituations() {
-  return { decks: {}, drawn: 0, fx: [], yellows: [[], []], reds: [0, 0] };
+  return { decks: {}, drawn: 0, fx: [], yellows: [[], []], reds: [0, 0], log: [] };
 }
 
 // Caras del dado para esta tirada, con las cartas activas aplicadas. A es el que
@@ -189,6 +207,7 @@ export function foul(s, ev, A, D, rng) {
   if (card.id === 'yellow') s.stats.yellows[D]++;
   if (card.id === 'red') { s.stats.reds[D]++; if (card.second) s.stats.yellows[D]++; }
   ev.card = card;
+  logCard(s, card);
 }
 
 // Entretiempo: se seca la cancha (se van los efectos «hasta el entretiempo»).
@@ -228,6 +247,7 @@ export function afterPlay(s, ev, halfLen, rng) {
     for (const e of c.fx) sit.fx.push({ ...e, uses: e.uses === Infinity ? null : e.uses, side, card: id });
   }
   ev.card = { deck: 'partido', id, side: sides.length > 1 ? -1 : sides[0] };
+  logCard(s, ev.card);
 }
 
 // Cartas activas para mostrar en pantalla (una por carta y equipo; la roja aparte).

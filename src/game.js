@@ -271,6 +271,9 @@ export function resolvePlay(state, att, def, rng = Math.random) {
   // Fin de tiempo: sólo cuando la pelota vuelve a una salida (no se corta un ataque).
   s.minute = Math.round((s.clock * HALF_MINUTES) / halfLen);
   if (ev.outcome === 'goal' && s.goals && s.goals.length) s.goals[s.goals.length - 1].minute = Math.max(s.minute, s.half === 2 ? HALF_MINUTES + 1 : 1);
+  if (ev.card && s.sit && s.sit.log) {
+    for (const l of s.sit.log) if (l.minute == null) l.minute = Math.max(s.minute, s.half === 2 ? HALF_MINUTES + 1 : 1);
+  }
   if (s.clock >= halfLen * s.half && s.situation === 'build') {
     if (s.half === 1) {
       ev.halfEnd = 1;
@@ -372,6 +375,7 @@ export function commentary(ev, names) {
       if (ev.outcome === 'goal') return `¡GOOOL de ${A}!`;
       if (ev.outcome === 'post') return `¡Al palo! Se salva ${D}.`;
       if (ev.outcome === 'wide') return `¡Uff! Se fue apenas afuera.`;
+      if (ev.outcome === 'clear') return `¡Iba adentro y un defensor de ${D} la saca en la línea!`;
       if (ev.outcome === 'save_corner') return `¡Atajadón del arquero de ${D}! Al córner.`;
       if (ev.outcome === 'save_counter') return `¡El arquero de ${D} ataja y sale rápido de contra!`;
       return `El arquero de ${D} adivinó y se queda con la pelota.`;
@@ -390,7 +394,7 @@ export function commentary(ev, names) {
 // Caras del dado para esta tirada: cada cara muestra un símbolo de lo que pasa.
 export const DIE_LABELS = {
   foul: 'Falta', steal: 'Recupera', advance: 'Sigue', longpass: 'Pase largo', counter: 'Contra', corner: 'Córner', shoot: 'Remate',
-  penalty: 'Penal', save: 'Atajada', goal: 'Gol', post: 'Palo', wide: 'Afuera',
+  penalty: 'Penal', save: 'Atajada', goal: 'Gol', post: 'Palo', wide: 'Afuera', clear: 'Despeje',
 };
 
 export function diceFaces(ev) {
@@ -419,6 +423,7 @@ const CARD_REASONS = {
   corner: '¡Una carta: córner!',
   goal: '¡Una carta: es gol!',
   wide: 'La cancha pesada: se va afuera',
+  clear: '¡Despeje en la línea!',
 };
 export function diceReason(ev) {
   if (ev.dice == null) return '';
@@ -428,6 +433,7 @@ export function diceReason(ev) {
     if (f !== BASE_DICE[ev.die][d - 1]) {
       if (ev.die === 'shotBeat' && f === 'corner') return '¡Fortuna de arquero: al córner!';
       if (ev.die === 'shotSave' && f === 'goal') return '¡Arquero nervioso: se le escapa, gol!';
+      if (ev.die === 'shotSave' && f === 'counter') return '¡Achique del arquero: sale de contra!';
       if (ev.die === 'shotBeat' && f === 'goal') return '¡Una carta: entra igual!';
       if (ev.die === 'shotSave' && f === 'goal') return '¡Se le escapa: gol!';
       return CARD_REASONS[f] || '';

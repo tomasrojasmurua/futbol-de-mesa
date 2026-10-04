@@ -1038,6 +1038,7 @@ export class Renderer {
     if (ev.match) to = [tu, 104.5];
     else if (ev.outcome === 'goal') to = [tu + (ev.att === 'L' ? -0.6 : ev.att === 'R' ? 0.6 : 0), 106.6];
     else if (ev.outcome === 'post') to = [ev.att === 'R' ? 41 : 27, 101];
+    else if (ev.outcome === 'clear') to = [tu + (tu < 34 ? 6 : -6), 96];
     else to = [tu < 34 ? 28.6 : tu > 34 ? 39.4 : 34, 109.5];
 
     // La escena del remate: se ve completa y ahí se revela el duelo y se tira el dado.
@@ -1100,7 +1101,7 @@ export class Renderer {
       await this.setCorner(A, ev.cornerSide || (tu < 34 ? 'L' : 'R'));
       return;
     }
-    this.ui.banner(ev.outcome === 'post' ? '¡AL PALO!' : '¡AFUERA!', { small: true });
+    this.ui.banner(ev.outcome === 'post' ? '¡AL PALO!' : ev.outcome === 'clear' ? '¡DESPEJE EN LA LÍNEA!' : '¡AFUERA!', { small: true });
     await this.wait(0.7);
     await this.diceMoment(ev);
     await this.goalKick(D);

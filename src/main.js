@@ -72,8 +72,9 @@ function buildTeamGrid() {
 }
 
 // ---------- modal ----------
-function modal(html, buttons = []) {
+function modal(html, buttons = [], cls = '') {
   const box = $('#modal-box');
+  box.className = 'modal-box' + (cls ? ' ' + cls : '');
   box.innerHTML = html + '<div class="btns"></div>';
   const wrap = box.querySelector('.btns');
   for (const [label, cls, fn] of buttons) {
@@ -106,7 +107,7 @@ const HELP = `
 <h3>Situaciones de juego</h3>
 <p>Dos mazos de cartas traen lo impredecible de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras del dado, y los dos ven la carta y el dado cambiado.</p>
 <ul>
-<li><b>Mazo de partido</b> (49 cartas, 17 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Decisión polémica, Remate de primera o Defensa sólida. Casi todas duran una jugada; la Lluvia dura el resto del partido. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
+<li><b>Mazo de partido</b> (60 cartas, 21 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Decisión polémica, Remate de primera, Defensa sólida o Despeje en la línea. Casi todas duran una jugada; la Lluvia dura el resto del partido. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
 <li><b>Mazo de disciplina</b>: sale con cada falta. Advertencia del árbitro (sigue el partido), amarilla (la segunda es roja), tiro libre directo o roja (con uno menos, al defender una cara «recupera» pasa a falta o córner). Hay un mazo para cada duración, así que en cualquier partido sale más o menos una roja cada 5 partidos.</li>
 </ul>
 <h3>Duración</h3>
@@ -170,12 +171,108 @@ const QUESTIONS = {
   corner: ['¿Ganas por arriba?', '¿Despejas el córner?'],
 };
 
+// ---------- tutorial ----------
+// Consejos que aparecen la primera vez que pasa cada cosa en el partido guiado.
+const COACH = {
+  welcome: ['¡Bienvenido a Calcciopoli!', 'Cada jugada es un duelo: tú y tu rival eligen una carta al mismo tiempo, sin ver la del otro. Si el que defiende adivina, corta la jugada. Este es un partido corto contra una IA fácil y sin reloj: tómate tu tiempo.'],
+  toss: ['El sorteo', 'Elige cara o sello. Quien gana el sorteo saca primero.'],
+  'build-att': ['La salida', 'Tienes la pelota. Elige por dónde sales: izquierda, centro o derecha. Si el rival cierra esa zona, casi siempre te la quita. Si no, llegas al último tercio.'],
+  'build-def': ['Defender la salida', 'El rival sale jugando. Elige qué zona cierras. Si adivinas por dónde sale, casi siempre recuperas la pelota.'],
+  'attack-att': ['El último tercio', 'Elige centro al área, pase filtrado o gambeta. Cada uno tiene su defensa: cerrar bandas frena el centro, achicar la línea frena el pase y la doble marca frena la gambeta. Si no te adivinan, vas al remate.'],
+  'attack-def': ['Defender el área', 'Elige tu defensa: cerrar bandas frena el centro, achicar la línea frena el pase filtrado y la doble marca frena la gambeta.'],
+  'shot-att': ['El remate', 'Patea a la izquierda, al medio o a la derecha, mirando desde el pateador. Si el arquero no adivina, casi siempre es gol.'],
+  'shot-def': ['Tu arquero', 'Elige hacia dónde se tira tu arquero, mirando desde el que patea. Si adivinas, atajas.'],
+  'penalty-att': ['¡Penal!', 'Igual que un remate: elige el lado. Si el arquero no adivina, casi siempre es gol.'],
+  'penalty-def': ['Penal en contra', 'Elige hacia dónde se tira tu arquero. Si adivinas, lo atajas.'],
+  'corner-att': ['El córner', 'Elige a dónde va el centro: primer palo, punto penal o segundo palo. Si el rival no adivina, vas al cabezazo.'],
+  'corner-def': ['Defender el córner', 'Elige qué zona marcas. Si adivinas a dónde va el centro, despejas.'],
+  'shootout-att': ['Penales', 'Cinco por lado y luego muerte súbita. Es el mismo duelo: pateador contra arquero.'],
+  'shootout-def': ['Penales', 'Cinco por lado y luego muerte súbita. Elige hacia dónde se tira tu arquero.'],
+  dice: ['El dado', 'Cuando alguien adivina, o cuando le ganas al arquero, un dado decide el detalle. Arriba ves sus caras: cuántas hay de cada resultado. Las reglas son las mismas para los dos.'],
+  card: ['Situación de juego', 'Cuatro veces por partido sale una carta que cambia caras del dado por una jugada, como una lesión o un tiro colocado. La Lluvia dura todo el partido. Toca la ficha sobre la cancha para ver qué hace.'],
+  disciplina: ['La falta', 'Con cada falta el árbitro saca una carta: advertencia, amarilla, tiro libre o roja. Con una roja, el equipo juega con uno menos el resto del partido.'],
+};
+
+// ---------- el diario del día después ----------
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+// Titular según cómo fue el partido: goleada, remontada, sobre la hora, penales...
+function headline(state, teams, winner) {
+  const [a, b] = state.score;
+  const goals = state.goals || [];
+  const N = (i) => teams[i].name;
+  if (state.pens) {
+    const w = state.winner, p = state.pens.goals;
+    return { kicker: `Definición por penales (${p[w]}-${p[1 - w]})`, title: `¡${N(w)} lo gana desde los doce pasos!` };
+  }
+  if (winner === -1) {
+    if (a === 0) return { kicker: 'Sin goles', title: `${N(0)} y ${N(1)} no se sacan ventaja` };
+    if (a >= 3) return { kicker: 'Partidazo', title: `Lluvia de goles y nadie gana: ${a} a ${b}` };
+    return { kicker: 'Reparto de puntos', title: `${N(0)} y ${N(1)} igualan ${a} a ${b}` };
+  }
+  const w = winner, l = 1 - winner, gw = state.score[w], gl = state.score[l], diff = gw - gl;
+  const first = goals[0], last = goals.filter((g) => g.side === w).pop();
+  if (first && first.side === l && gl > 0) return { kicker: 'Remontada', title: `¡${N(w)} lo da vuelta ante ${N(l)}!` };
+  if (diff >= 3) return { kicker: 'Goleada', title: `¡${N(w)} golea ${gw} a ${gl} a ${N(l)}!` };
+  if (diff === 1 && last && last.half === 2 && last.minute >= 80) return { kicker: 'Sobre la hora', title: `${N(w)} lo gana en el final` };
+  if (gl === 0) return { kicker: 'Valla invicta', title: `${N(w)} se impone y no recibe goles` };
+  return { kicker: diff === 1 ? 'Por la mínima' : 'Victoria clara', title: `${N(w)} vence a ${N(l)}` };
+}
+
+function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadium, tutorial }) {
+  const [a, b] = state.score;
+  const st = state.stats;
+  const h = headline(state, teams, winner);
+  const now = new Date();
+  const date = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+  const log = (state.sit && state.sit.log) || [];
+  // Bajada: la figura y lo que marcó el partido.
+  const bits = [];
+  if (mvp) bits.push(`${name(mvp.side, mvp.i)} (${teams[mvp.side].short}) fue la figura: ${mvpLine(mvp)}.`);
+  const rain = log.find((l) => l.id === 'lluvia');
+  if (rain) bits.push(`Se jugó bajo la lluvia desde el ${fmtMinute(rain.minute, rain.half)}.`);
+  [0, 1].forEach((side) => { if (st.reds && st.reds[side]) bits.push(`${teams[side].name} terminó con ${st.reds[side] === 1 ? 'uno' : st.reds[side]} menos.`); });
+  const goalList = (side) => (state.goals || []).filter((g) => g.side === side)
+    .map((g) => `<li><b>${fmtMinute(g.minute, g.half)}</b> ${name(side, g.i)}${g.kind === 'penal' ? ' (p)' : ''}${g.assist != null ? `<small>asist. ${name(side, g.assist)}</small>` : ''}</li>`).join('') || '<li class="none">Sin goles</li>';
+  const who = (l) => {
+    if (l.side === -1) return 'los dos';
+    const t = teams[l.side].short;
+    return l.player != null && CARDS[l.id].deck === 'disciplina' && l.id !== 'freekick' ? `${name(l.side, l.player)} (${t})` : t;
+  };
+  const claves = log.length
+    ? log.map((l) => `<li><b>${fmtMinute(l.minute ?? 0, l.half)}</b> ${CARDS[l.id].title}<small>${l.id === 'freekick' ? 'para ' : ''}${who(l)}</small></li>`).join('')
+    : '<li class="none">Partido sin sobresaltos.</li>';
+  const row = (label, k) => `<tr><td>${st[k][0]}</td><td>${label}</td><td>${st[k][1]}</td></tr>`;
+  const pens = state.pens ? `<p class="np-pens">Penales: ${state.pens.goals[0]} - ${state.pens.goals[1]}</p>` : '';
+  return `<article class="np">
+    <div class="np-stamp">${tutorial ? 'Tutorial completado' : res}</div>
+    <header class="np-mast"><h1>El Calcciopolitano</h1>
+      <p><span>${date}</span><span>${stadium ? stadium.name : 'Edición deportiva'}</span><span>$ 500</span></p></header>
+    <p class="np-kicker">${h.kicker}</p>
+    <h2 class="np-title">${h.title}</h2>
+    <div class="np-score"><div><b>${teams[0].short}</b><small>${teams[0].name}</small></div><strong>${a} - ${b}</strong><div><b>${teams[1].short}</b><small>${teams[1].name}</small></div></div>
+    ${pens}
+    <p class="np-lead">${bits.join(' ')}</p>
+    <div class="np-cols">
+      <section><h3>Los goles</h3><ul class="np-goals">${goalList(0)}</ul><ul class="np-goals np-r">${goalList(1)}</ul></section>
+      <section><h3>Las claves del partido</h3><ul class="np-keys">${claves}</ul></section>
+    </div>
+    <section><h3>Los números</h3>
+      <table class="np-stats"><tr><th>${teams[0].short}</th><th></th><th>${teams[1].short}</th></tr>${row('Remates', 'shots')}${row('Al arco', 'onTarget')}${row('Córners', 'corners')}${row('Recuperaciones', 'steals')}${st.yellows && st.yellows[0] + st.yellows[1] ? row('Amarillas', 'yellows') : ''}${st.reds && st.reds[0] + st.reds[1] ? row('Rojas', 'reds') : ''}</table>
+      <ul class="np-leaders">${best('st', 'Más recuperaciones')}${best('sv', 'Más atajadas')}${best('sh', 'Más remates')}</ul>
+    </section>
+    ${mvp ? `<aside class="np-mvp"><small>La figura</small><b>${name(mvp.side, mvp.i)}</b><em>${teams[mvp.side].short} · ${mvpLine(mvp)}</em><strong>${mvp.r.toFixed(1)}</strong></aside>` : ''}
+  </article>`;
+}
+
 // ---------- vista del partido ----------
 class MatchView {
   // spectator: sólo mira (la liga, cuando no te toca jugar). endButtons: botones
   // propios para el cuadro final.
-  constructor({ mySide, send, isHost, onRematch, spectator = false, endButtons = null }) {
+  constructor({ mySide, send, isHost, onRematch, spectator = false, endButtons = null, tutorial = false }) {
     this.mySide = mySide;
+    this.tutorial = tutorial;
+    this.coachSeen = new Set();
     this.spectator = spectator;
     this.endButtons = endButtons;
     this.send = send;
@@ -292,7 +389,7 @@ class MatchView {
         await renderer.kickoff(ev.kickoffAfter);
         audio.sound('whistle');
       }
-      if (ev.card) await this.situationCard(ev.card, state);
+      if (ev.card) { await this.coach(ev.card.deck === 'disciplina' ? 'disciplina' : 'card'); await this.situationCard(ev.card, state); }
       if (this.dead) return;
       if (ev.card && ev.card.id === 'freekick') await renderer.cardMove(state.poss, state.situation);
       this.paintFx(state);
@@ -453,6 +550,7 @@ class MatchView {
     if (ev.outcome === 'goal') return `¡GOOOL de ${A}! Anota ${sh.name}.`;
     if (ev.outcome === 'post') return `¡${sh.name} la pega en el palo!`;
     if (ev.outcome === 'wide') return `Remata ${sh.name}... ¡afuera por poco!`;
+    if (ev.outcome === 'clear') return `Remata ${sh.name}... ¡la sacan en la línea!`;
     if (ev.outcome === 'save_corner') return `¡Atajadón de ${kp.name}! Al córner.`;
     if (ev.outcome === 'save_counter') return `¡Ataja ${kp.name} y sale rápido de contra!`;
     return `¡Ataja ${kp.name}! Le adivinó el remate a ${sh.name}.`;
@@ -504,6 +602,8 @@ class MatchView {
 
   startTimer(onExpire) {
     this.stopTimer();
+    // En el tutorial no hay reloj.
+    if (this.tutorial) { $('#timer-bar').style.width = '100%'; $('#timer-bar').classList.remove('low'); return; }
     const t0 = performance.now();
     const bar = $('#timer-bar');
     let lastTick = TURN_SECONDS;
@@ -518,6 +618,19 @@ class MatchView {
     this.timer = requestAnimationFrame(tick);
   }
   stopTimer() { if (this.timer) cancelAnimationFrame(this.timer); this.timer = null; }
+
+  // Tutorial: muestra el consejo una sola vez y espera a que lo cierren.
+  coach(key) {
+    if (!this.tutorial || this.dead || this.coachSeen.has(key) || !COACH[key]) return Promise.resolve();
+    this.coachSeen.add(key);
+    const [title, text] = COACH[key];
+    const el = $('#coach');
+    el.innerHTML = `<div class="coach-box"><small>Tutorial</small><h3>${title}</h3><p>${text}</p><button class="btn primary">Entendido</button></div>`;
+    el.classList.add('show');
+    return new Promise((done) => {
+      el.querySelector('button').onclick = () => { audio.unlock(); el.classList.remove('show'); el.innerHTML = ''; done(); };
+    });
+  }
 
   renderCards(title, roleTxt, roleCls, options, onPick) {
     $('#panel-title').textContent = title;
@@ -551,6 +664,7 @@ class MatchView {
 
   promptToss(state) {
     if (this.spectator) { this.watchingPanel('Sorteo inicial…'); return; }
+    this.coach('welcome').then(() => this.coach('toss'));
     if (state.callerSide !== this.mySide) {
       this.clearCards('El rival elige cara o sello…');
       $('#panel-title').textContent = 'Sorteo inicial';
@@ -567,6 +681,7 @@ class MatchView {
     if (this.spectator) { this.watchingPanel('Los dos eligen su carta…'); return; }
     const att = state.poss === this.mySide;
     const role = att ? 'att' : 'def';
+    this.coach(`${state.situation}-${role}`);
     const sit = state.situation;
     const def = optionsFor(sit);
     let opts = def[role].map((o) => ({ ...o }));
@@ -615,13 +730,8 @@ class MatchView {
     const winner = state.pens ? state.winner : a === b ? -1 : a > b ? 0 : 1;
     const res = this.spectator ? (winner === -1 ? 'Final: empate' : `Gana ${teams[winner].name}`) : winner === -1 ? 'Empate' : winner === me ? '¡Ganaste!' : 'Perdiste';
     if (res === '¡Ganaste!') audio.sound('win');
-    const st = state.stats;
-    const row = (label, k) => `<tr><td>${st[k][0]}</td><td>${label}</td><td>${st[k][1]}</td></tr>`;
-    const pens = state.pens ? `<p class="pens-line">Penales: ${state.pens.goals[0]} - ${state.pens.goals[1]}</p>` : '';
     // Goles con autor y minuto, por equipo.
     const name = (side, i) => playerName(teams[side].id, i);
-    const goalList = (side) => (state.goals || []).filter((g) => g.side === side)
-      .map((g) => `<li>${fmtMinute(g.minute, g.half)} ${name(side, g.i)}${g.kind === 'penal' ? ' (p)' : ''}${g.assist != null ? `<small>asist. ${name(side, g.assist)}</small>` : ''}</li>`).join('') || '<li class="none">—</li>';
     // Figura del partido: la mejor nota.
     const ratings = [];
     if (state.players) {
@@ -646,24 +756,16 @@ class MatchView {
       if (m.p.st) bits.push(`${m.p.st} ${m.p.st === 1 ? 'recuperación' : 'recuperaciones'}`);
       return bits.join(' · ') || 'partidazo';
     };
-    const kit = (side) => this.kits ? swatchCss(this.kits[side]) : '#888';
-    const mvpHtml = mvp ? `<div class="mvp"><span class="kit-swatch" style="background:${kit(mvp.side)}"></span><div><small>FIGURA DEL PARTIDO</small><b>${name(mvp.side, mvp.i)}</b><em>${teams[mvp.side].short} · ${mvpLine(mvp)}</em></div><strong>${mvp.r.toFixed(1)}</strong></div>` : '';
     const best = (key, label) => {
       const top = ratings.filter((x) => x.p[key] > 0).sort((x, y) => y.p[key] - x.p[key])[0];
       return top ? `<li><span>${label}</span><b>${name(top.side, top.i)} (${teams[top.side].short})</b><i>${top.p[key]}</i></li>` : '';
     };
-    const html = `<h2>${res}</h2>
-      <div class="final-score"><div>${teams[0].short}<small>${teams[0].name}</small></div><div>${a} - ${b}</div><div>${teams[1].short}<small>${teams[1].name}</small></div></div>
-      ${pens}
-      <div class="scorers"><ul>${goalList(0)}</ul><ul>${goalList(1)}</ul></div>
-      ${mvpHtml}
-      <ul class="leaders">${best('st', 'Más recuperaciones')}${best('sv', 'Más atajadas')}${best('sh', 'Más remates')}</ul>
-      <table class="stats">${row('Remates', 'shots')}${row('Al arco', 'onTarget')}${row('Córners', 'corners')}${row('Recuperaciones', 'steals')}${st.yellows && st.yellows[0] + st.yellows[1] ? row('Amarillas', 'yellows') : ''}${st.reds && st.reds[0] + st.reds[1] ? row('Rojas', 'reds') : ''}</table>`;
-    if (this.endButtons) { modal(html, this.endButtons(state)); return; }
+    const html = newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadium: renderer && renderer.stadium, tutorial: this.tutorial });
+    if (this.endButtons) { modal(html, this.endButtons(state), 'news'); return; }
     const btns = [];
     if (this.onRematch) btns.push(['Revancha', 'primary', () => { this.onRematch(); }]);
     btns.push(['Volver al menú', 'ghost', () => { leaveMatch(); }]);
-    modal(html, btns);
+    modal(html, btns, 'news');
   }
 
   destroy() {
@@ -671,6 +773,7 @@ class MatchView {
     document.body.classList.remove('watching');
     if (this.dismissCard) this.dismissCard();
     $('#sitcard').classList.remove('show');
+    $('#coach').classList.remove('show');
     this.closeFxTip();
     audio.stadium(false);
   }
@@ -693,6 +796,7 @@ const ui = {
     return wait(Math.min(hold, 1300));
   },
   async dice(value, reason, faces, title) {
+    if (view) await view.coach('dice');
     await rollDice($('#dice'), { value, faces, labels: DIE_LABELS, title, reason, sound: (n) => audio.sound(n) });
   },
   async coin(result, text) {
@@ -742,6 +846,24 @@ function startCpu(level = 'normal', awayId = pickCpuOpponent()) {
   view = new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId); } });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `Contra la IA (${LEVELS[level].label}). ¡Bienvenidos al estadio!`;
+  host.start();
+}
+
+// Partido guiado: corto, contra la IA fácil, sin reloj y con consejos.
+function startTutorial() {
+  audio.unlock();
+  closeModal();
+  let host, cpu;
+  const deliver = (m) => setTimeout(() => { view && view.onMessage(m); cpu.onMessage(m); }, 0);
+  host = new Host({ home: myTeamId, away: pickCpuOpponent(), callerSide: 0, broadcast: deliver, length: 'short' });
+  cpu = new Cpu(1, (m) => host.receive(1, m), 'easy');
+  lastHost = host;
+  view = new MatchView({
+    mySide: 0, isHost: true, send: (m) => host.receive(0, m), tutorial: true,
+    endButtons: () => [['Jugar contra la IA', 'primary', () => { leaveMatch(); startCpu('normal'); }], ['Volver al menú', 'ghost', () => { leaveMatch(); }]],
+  });
+  session = { cleanup: () => { host.broadcast = () => {}; } };
+  $('#feed').textContent = 'Tutorial: partido corto contra la IA fácil.';
   host.start();
 }
 
@@ -1487,7 +1609,8 @@ document.querySelectorAll('#lg-len [data-len]').forEach((b) => (b.onclick = () =
 }));
 $('#btn-join').onclick = () => joinOnline($('#join-code').value);
 $('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
-$('#btn-help').onclick = () => modal(HELP, [['Entendido', 'primary', () => {}]]);
+$('#btn-help').onclick = () => modal(HELP, [['Jugar el tutorial', 'primary', () => startTutorial()], ['Entendido', 'ghost', () => {}]]);
+$('#btn-tutorial').onclick = () => startTutorial();
 // Fichas de efectos activos: al tocarlas se abre un recuadro con su efecto.
 $('#fxbar').addEventListener('click', (e) => {
   const chip = e.target.closest('.fx-chip');
