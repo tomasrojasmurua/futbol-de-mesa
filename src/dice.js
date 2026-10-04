@@ -256,3 +256,11 @@ export async function tossCoin(wrap, { result, text, sound }) {
   wrap.classList.remove('show');
   wrap.innerHTML = '';
 }
+
+// La cara completa de la moneda como imagen (para las cartas de Cara o sello).
+export function coinFaceUrl(k) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><defs><radialGradient id="g" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#fff1a8"/><stop offset=".42" stop-color="#f2c230"/><stop offset=".72" stop-color="#d19a10"/><stop offset="1" stop-color="#9a6c00"/></radialGradient></defs>
+    <circle cx="24" cy="24" r="23.5" fill="#8a6200"/><circle cx="24" cy="24" r="22" fill="url(#g)"/>
+    <circle cx="24" cy="24" r="21.4" fill="none" stroke="#f7d75a" stroke-width=".9"/>${emboss(COIN_ART[k])}</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg.replace(/currentColor/g, '#7a5300'))}`;
+}
