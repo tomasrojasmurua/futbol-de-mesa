@@ -214,8 +214,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         toShot();
         ev.outcome = 'chance';
         if (att === 'dribble') {
-          const r = roll();
-          if (r === 6) { ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal'; }
+          if (die('dribbleWin') === 'penalty') { ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal'; }
         }
       }
       break;

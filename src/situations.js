@@ -20,6 +20,8 @@ export const BASE_DICE = {
   attackDef: ['corner', 'foul', 'steal', 'steal', 'steal', 'counter'],
   shotSave: ['corner', 'save', 'save', 'save', 'save', 'counter'],
   shotBeat: ['post', 'wide', 'goal', 'goal', 'goal', 'goal'],
+  // gambeta que sale en el último tercio: remate, o penal con el 6
+  dribbleWin: ['shoot', 'shoot', 'shoot', 'shoot', 'shoot', 'penalty'],
 };
 
 // Cada carta dice cómo queda el dado entero mientras dura (to: las 6 caras).
@@ -62,8 +64,8 @@ export const CARDS = {
     text: 'En su próximo ataque que le adivinen, dos caras «recupera» pasan a favor de su equipo.',
     fx: [fx('att', S, F('foul steal:2 advance:2 counter')), fx('att', U, F('corner foul steal shoot:2 counter'))] },
   polemica: { deck: 'partido', copies: 3, who: 'poss', title: 'Decisión polémica',
-    text: 'Si le adivinan el próximo ataque en el último tercio, el dado queda: córner, 2 recupera, 2 penal y contra.',
-    fx: [fx('att', U, F('corner steal:2 penalty:2 counter'))] },
+    text: 'En su próximo ataque en el último tercio: si se lo adivinan, el dado queda córner, 2 recupera, 2 penal y contra; si gana la gambeta, 3 de 6 son penal.',
+    fx: [fx('att', U, F('corner steal:2 penalty:2 counter')), fx('att', 'dribbleWin', F('shoot:3 penalty:3'))] },
   lluvia: { deck: 'partido', copies: 2, who: 'both', title: 'Lluvia',
     text: 'Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera».',
     fx: [fx('att', 'shotBeat', F('post wide:2 goal:3'), Infinity)] },

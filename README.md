@@ -43,7 +43,7 @@ Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nun
 | Arquero inspirado | 3 | no tiene la pelota | remate rival: 1 gol pasa a «atajada al córner» | 1 remate |
 | Capitán inspirado | 3 | tiene la pelota | al atacar: 1 «recupera» pasa a «sigue la jugada» | 3 tiradas |
 | Genialidad del crack | 3 | tiene la pelota | al atacar: 2 «recupera» pasan a «sigue la jugada» | 1 tirada |
-| Decisión polémica | 3 | tiene la pelota | ataque defendido: 1 «recupera» pasa a penal | 1 tirada |
+| Decisión polémica | 3 | tiene la pelota | ataque defendido: la falta y 1 «recupera» pasan a penal; gambeta ganada: 2 remates pasan a penal (3 de 6) | 1 jugada |
 | Lluvia | 2 | los dos | remate: 1 gol pasa a «afuera» | hasta el entretiempo |
 | Error del DT | 2 | va ganando (empate: tiene la pelota) | al defender: 1 «recupera» pasa a «sigue la jugada» del rival | 2 tiradas |
 | Golpe de iluminación | 2 | tiene la pelota | remate: «palo» pasa a gol | 1 remate |
