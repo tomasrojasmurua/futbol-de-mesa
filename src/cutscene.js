@@ -50,24 +50,6 @@ export function text(g, str, x, y, color, k = 1) {
 }
 export const textW = (str, k = 1) => plain(str).length * 4 * k - k;
 
-function disc(g, x, y, r, fill, edge) {
-  x = Math.round(x); y = Math.round(y);
-  const R = Math.max(1, Math.round(r));
-  for (let dy = -R; dy <= R; dy++) {
-    const w = Math.round(Math.sqrt(Math.max(0, R * R - dy * dy + R * 0.6)));
-    g.fillStyle = edge || fill;
-    g.fillRect(x - w, y + dy, w * 2 + 1, 1);
-  }
-  if (edge && R >= 2) {
-    const r2 = R - 1;
-    for (let dy = -r2; dy <= r2; dy++) {
-      const w = Math.round(Math.sqrt(Math.max(0, r2 * r2 - dy * dy + r2 * 0.6)));
-      g.fillStyle = fill;
-      g.fillRect(x - w, y + dy, w * 2 + 1, 1);
-    }
-  }
-}
-
 function seeded(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 
 export class Cutscene {
@@ -735,12 +717,9 @@ export class Cutscene {
         g.fillRect(Math.round(pb[0] - rr), Math.round(pb[1] - rr), rr * 2, rr * 2);
       }
     }
-    disc(g, x, y, r, '#ffffff', INK);
-    if (r >= 2.5) {
-      const spin = Math.floor(s * 20) % 2;
-      g.fillStyle = INK;
-      g.fillRect(Math.round(x) - 1 + spin, Math.round(y) - 1, 2, 2);
-    }
+    // la pelota oficial, girando mientras vuela
+    const bi = this.ballImg(Math.max(1.5, r), s > this.T.kick ? (s - this.T.kick) * 30 : 0);
+    g.drawImage(bi, Math.round(x - bi.width / 2), Math.round(y - bi.height / 2));
   }
 
   // Arquero ilustrado de frente: atento en las puntas de los pies o volando.

@@ -76,14 +76,14 @@ export function paintLogo(cv) {
   let y0 = m.height, y1 = 0;
   for (let y = 0; y < m.height; y++) for (let x = 0; x < m.width; x++) if (on(x, y)) { y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
   const th = y1 - y0 + 1;
-  const BR = 10, ballS = Math.ceil(BR * 2) + 2, gap = 4, EX = 2; // EX: relieve hacia abajo
+  const BR = 16, ballS = Math.ceil(BR * 2) + 2, gap = 4, EX = 2; // EX: relieve hacia abajo
   const W = tw + 2 + EX, top = ballS + gap, H = top + th + 2 + EX + 1;
   cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
   // pelota con su sombra
   const cx = W / 2;
   g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(Math.round(cx - BR * 0.75), ballS - 1, Math.round(BR * 1.5), 2);
-  g.drawImage(P4.ball(BR, 0.35), Math.round(cx - ballS / 2), 0);
+  g.drawImage(P4.ball(BR, 0), Math.round(cx - ballS / 2), 0);
   // letras
   const ox = 1, oy = top + 1 - y0;
   const px = (x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };

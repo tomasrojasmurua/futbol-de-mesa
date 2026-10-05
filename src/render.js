@@ -7,6 +7,7 @@ import { playerName } from './squads.js';
 import { Cutscene, text as pxText, textW as pxTextW } from './cutscene.js';
 import { stadiumFor } from './stadiums.js';
 import { P4 } from './players.js';
+const FAR_BALLS = new Map();
 import { p4Kit, HAIR_STYLES } from './playerkit.js';
 
 const PW = 68, PL = 105;           // cancha en metros
@@ -1736,14 +1737,12 @@ export class Renderer {
     const sw = Math.max(2, 4 - Math.floor(bz / 10));
     g.fillStyle = `rgba(0,0,0,${Math.max(0.12, 0.38 - bz * 0.01)})`;
     g.fillRect(X - (sw >> 1), Y, sw, 1);
-    const big = z > 3;
-    const sz = big ? 4 : 3;
-    const bx = X - 1, by = Y - sz - bz;
-    g.fillStyle = '#d8d8d8'; g.fillRect(bx, by, sz, sz);
-    g.fillStyle = '#ffffff'; g.fillRect(bx, by, sz - 1, sz - 1);
-    const f = Math.floor(this.ball.spin) % 3;
-    g.fillStyle = '#2a2a2a';
-    g.fillRect(bx + (f === 0 ? 1 : f === 1 ? 0 : sz - 2), by + (f === 2 ? 0 : 1), 1, 1);
+    // la pelota oficial en chico, girando: imágenes guardadas por tamaño y giro
+    const r = z > 3 ? 2 : 1.6, spin = (Math.floor(this.ball.spin * 2) % 12) / 2;
+    const key = `${r}|${spin}`;
+    if (!FAR_BALLS.has(key)) FAR_BALLS.set(key, P4.ball(r, spin));
+    const im = FAR_BALLS.get(key);
+    g.drawImage(im, X - (im.width >> 1) + 1, Y - im.height + 1 - bz);
   }
 
   // Lluvia sobre la transmisión: tono gris azulado y gotas en diagonal.

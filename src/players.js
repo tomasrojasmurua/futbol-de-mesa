@@ -646,25 +646,97 @@ const P4 = (() => {
   }
 
   // Pelota pintada a mano a su tamaño final (r en píxeles), con gajos que giran.
+  // ---------- pelota oficial: blanca con triadas azules ----------
+  // Una esfera de verdad: 12 círculos blancos (vértices del icosaedro) y, entre
+  // cada tres, una triada azul con puntas rojas; costuras de 32 paneles,
+  // luz desde arriba a la izquierda y brillo. Cada píxel mira qué parte de la
+  // pelota cae ahí, según cómo está girada (spin).
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const nrm = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
+  const ICO = [[0, 1, PHI], [0, -1, PHI], [0, 1, -PHI], [0, -1, -PHI], [1, PHI, 0], [-1, PHI, 0], [1, -PHI, 0], [-1, -PHI, 0], [PHI, 0, 1], [-PHI, 0, 1], [PHI, 0, -1], [-PHI, 0, -1]].map(nrm);
+  const DOD = [];
+  for (let i = 0; i < 12; i++) for (let j = i + 1; j < 12; j++) for (let k = j + 1; k < 12; k++) {
+    const [a, b, c] = [ICO[i], ICO[j], ICO[k]];
+    const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+    if (dot(a, b) > 0.4 && dot(b, c) > 0.4 && dot(a, c) > 0.4) DOD.push(nrm([a[0] + b[0] + c[0], a[1] + b[1] + c[1], a[2] + b[2] + c[2]]));
+  }
+  const PANELS = ICO.concat(DOD);
+  const DEG = 180 / Math.PI;
+  // rampas de color: de la luz a la sombra
+  const RAMP = {
+    w: ['#fffdf6', '#f3ecda', '#e0d6bc', '#c4b797', '#968a6c', '#6a6150'],
+    b: ['#5a88e6', '#3563c8', '#2349a6', '#18347e', '#0f2356', '#0a1838'],
+    r: ['#ff6a5c', '#e8383c', '#bb2430', '#8a1a26', '#5e121c', '#3e0c14'],
+    l: ['#c9d8f8', '#9fb8ee', '#7896d8', '#5672b4', '#3a508a', '#263760'],
+  };
+  const RAMP_RGB = Object.fromEntries(Object.entries(RAMP).map(([k, v]) => [k, v.map(rgb)]));
+  const BLIGHT = nrm([-0.5, -0.62, 0.6]);
+  // rotación de la pelota: una triada mirando a cámara, y el giro alrededor de un eje casi de frente
+  const rotAxis = (ax, t) => {
+    const [x, y, z] = nrm(ax), c = Math.cos(t), s = Math.sin(t), C = 1 - c;
+    return [[c + x * x * C, x * y * C - z * s, x * z * C + y * s], [y * x * C + z * s, c + y * y * C, y * z * C - x * s], [z * x * C - y * s, z * y * C + x * s, c + z * z * C]];
+  };
+  const mul = (A, B) => A.map((row) => [0, 1, 2].map((j) => row[0] * B[0][j] + row[1] * B[1][j] + row[2] * B[2][j]));
+  const BASE = (() => { // deja una triada mirando a cámara
+    const from = DOD[0], to = nrm([-0.08, 0.06, 1]);
+    const ax = [from[1] * to[2] - from[2] * to[1], from[2] * to[0] - from[0] * to[2], from[0] * to[1] - from[1] * to[0]];
+    return rotAxis(ax, Math.acos(from[0] * to[0] + from[1] * to[1] + from[2] * to[2]));
+  })();
+  // material de un punto de la pelota (coordenadas propias): 'w', 'b', 'r' o 'l' y si es costura
+  function material(p, pxd) {
+    let d1 = 999, d2 = 999;
+    for (const c of ICO) { const a = Math.acos(Math.min(1, p[0] * c[0] + p[1] * c[1] + p[2] * c[2])) * DEG; if (a < d1) { d2 = d1; d1 = a; } else if (a < d2) d2 = a; }
+    let dt = 999, dt2 = 999;
+    for (const c of DOD) { const a = Math.acos(Math.min(1, p[0] * c[0] + p[1] * c[1] + p[2] * c[2])) * DEG; if (a < dt) { dt2 = dt; dt = a; } else if (a < dt2) dt2 = a; }
+    let m = 'w';
+    const fine = pxd < 3.5, mid = pxd < 7;    // nivel de detalle según el tamaño
+    const edge = fine ? 27.5 : mid ? 26.5 : 25;
+    if (d1 >= edge) {
+      if (dt2 - dt < Math.min(4, Math.max(1.6, pxd * 0.9))) m = 'w';                    // donde se juntan dos triadas
+      else if (dt > 15) m = fine && Math.floor((dt - 15) / 1.5) % 2 ? 'w' : 'r'; // punta roja (a rayas de cerca)
+      else if (fine && d1 < edge + 1.4 && dt > 3) m = 'w';                  // filo blanco junto al círculo
+      else if (mid && dt > 4 && dt < 13 && d1 > 30 && d1 < 30 + Math.max(1.3, pxd * 0.6)) m = 'l'; // llamarada clara
+      else m = 'b';
+    } else if (fine && d1 > edge - 3.4 && d1 < edge - 2.1) m = 'b';          // línea fina del círculo
+    let seam = false;
+    if (pxd < 5) {
+      let s1 = 9, s2 = 9;
+      for (const c of PANELS) { const a = Math.acos(Math.min(1, p[0] * c[0] + p[1] * c[1] + p[2] * c[2])); if (a < s1) { s2 = s1; s1 = a; } else if (a < s2) s2 = a; }
+      seam = (s2 - s1) * DEG < Math.max(0.8, pxd * 0.4);
+    }
+    return [m, seam];
+  }
   function ball(r, spin = 0) {
     const s = Math.ceil(r * 2) + 2;
     const cv = document.createElement('canvas'); cv.width = s; cv.height = s;
     const g = cv.getContext('2d'), im = g.createImageData(s, s), d = im.data;
     const c = s / 2;
-    const tones = ['#7a7c8e', '#b8bcc8', '#e6e8ec', '#fbfbf8'];
-    const dark = ['#1e1f2a', '#33354a'];
-    const patches = [];
-    for (let k = 0; k < 5; k++) { const a = spin + k * 1.2566; patches.push([Math.cos(a) * 0.62, Math.sin(a) * 0.62 * 0.9 + 0.05]); }
-    patches.push([Math.cos(spin * 0.5) * 0.12, Math.sin(spin * 0.5) * 0.12]);
+    const Rm = mul(rotAxis([0.25, 0.35, 1], spin), BASE);
+    const pxd = DEG / r;
+    // pelotas chicas: varias muestras por píxel y promedio; grandes: una por píxel, en bandas
+    const ss = 1;
     for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-      const nx = (x + 0.5 - c) / r, ny = (y + 0.5 - c) / r, d2 = nx * nx + ny * ny;
-      if (d2 > 1) continue;
-      const lit = -(nx * -0.55 + ny * -0.83) * 0.9 + Math.sqrt(1 - d2) * 0.5;
-      let col = tones[lit > 0.75 ? 3 : lit > 0.2 ? 2 : lit > -0.35 ? 1 : 0];
-      for (const [px, py] of patches) if ((nx - px) ** 2 + (ny - py) ** 2 < (r > 4 ? 0.07 : 0.1)) col = dark[lit > 0 ? 1 : 0];
-      if (d2 > 0.82 && nx + ny > 0.3) col = '#5a5c6e';
-      const i = (y * s + x) * 4, [rr, gg, bb] = rgb(col);
-      d[i] = rr; d[i + 1] = gg; d[i + 2] = bb; d[i + 3] = 255;
+      let acc = [0, 0, 0], n = 0;
+      for (let sy = 0; sy < ss; sy++) for (let sx = 0; sx < ss; sx++) {
+        let nx = (x + (sx + 0.5) / ss - c) / r, ny = (y + (sy + 0.5) / ss - c) / r, d2 = nx * nx + ny * ny;
+        if (d2 > 1 + 0.3 / r) continue;
+        if (d2 > 0.999) { const q = Math.sqrt(d2 / 0.999); nx /= q; ny /= q; d2 = 0.999; }
+        const nz = Math.sqrt(1 - d2);
+        // punto en la pelota: la inversa de la rotación (transpuesta)
+        const p = [Rm[0][0] * nx + Rm[1][0] * ny + Rm[2][0] * nz, Rm[0][1] * nx + Rm[1][1] * ny + Rm[2][1] * nz, Rm[0][2] * nx + Rm[1][2] * ny + Rm[2][2] * nz];
+        const [m, seam] = material(p, pxd);
+        const lam = Math.max(0, nx * BLIGHT[0] + ny * BLIGHT[1] + nz * BLIGHT[2]);
+        const spec = Math.pow(Math.max(0, 2 * lam * nz - BLIGHT[2]), 18);
+        let lit = 0.3 + lam * 0.78 + spec * 0.5;
+        if (d2 > 0.8 && nx + ny > 0.45) lit -= 0.18;                       // borde en sombra
+        let band = lit > 1.0 ? 0 : lit > 0.8 ? 1 : lit > 0.6 ? 2 : lit > 0.4 ? 3 : lit > 0.24 ? 4 : 5;
+        if (seam) band = Math.min(5, band + 1);
+        const col = RAMP_RGB[m][band];
+        acc[0] += col[0]; acc[1] += col[1]; acc[2] += col[2]; n++;
+      }
+      if (!n) continue;
+      const i = (y * s + x) * 4, cover = n / (ss * ss);
+      d[i] = acc[0] / n; d[i + 1] = acc[1] / n; d[i + 2] = acc[2] / n; d[i + 3] = ss > 1 ? Math.round(255 * Math.min(1, cover * 1.25)) : 255;
     }
     g.putImageData(im, 0, 0);
     return cv;
