@@ -2,7 +2,18 @@
 // tirador, con el arquero, el arco y la hinchada. Se dibuja en su propio canvas
 // a baja resolución y se escala en pixel art.
 
+import { P4 } from './players.js';
+import { p4Kit } from './playerkit.js';
+import { buildSide } from './sidecam.js';
+
 const LW = 180; // ancho lógico de la escena
+// Escalas de los jugadores ilustrados (más chico el número, más grande el dibujo).
+const SPR = 8;  // de costado, cerca: carrera, remate y celebración (≈108 px)
+const BSC = 16; // el pateador visto desde atrás (≈54 px)
+const KSC = 28; // el arquero en el arco (≈30 px)
+const SPRITES = new Map(); // cuadros ya pintados, se reusan entre escenas
+const BALLS = new Map();
+const Q = (u, n) => Math.round(Math.max(0, Math.min(1, u)) * n);
 
 const INK = '#14171f';
 const SKY = '#0d1424';
@@ -87,10 +98,13 @@ export class Cutscene {
     this.buildCrowd();
     this.s = 0; this.speed = 1; this.paused = false; this.shake = 0; this.flash = 0;
     const header = o.kind === 'cabezazo';
+    this.prepareArt(o, header);
     const runup = o.kind === 'penal' ? 1.5 : header ? 1.0 : 1.1;
     this.T = { intro: 0.9, kick: 0.9 + runup, F: header ? 0.95 : o.kind === 'penal' ? 0.85 : 0.9 };
     this.T.hit = this.T.kick + this.T.F;
-    this.T.end = this.T.hit + (o.outcome === 'goal' ? 1.5 : 1.2);
+    // con gol, la cámara vuelve de costado para la celebración
+    this.T.cel = this.T.hit + 1.0;
+    this.T.end = o.outcome === 'goal' ? this.T.cel + 2.6 : this.T.hit + 1.2;
     this.showCard();
     this.cv.classList.add('on');
     this.on = true;
@@ -102,7 +116,10 @@ export class Cutscene {
       if (!this.paused) this.s += dt * this.speed;
       this.shake = Math.max(0, this.shake - dt * 3);
       this.flash = Math.max(0, this.flash - dt * 4);
+      this.stepParts(this.paused ? 0 : dt * Math.max(this.speed, 0.4));
+      this.painted = 0;
       this.draw();
+      this.warm(10);
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -175,6 +192,190 @@ export class Cutscene {
         this.crowd.push({ x, y, c: pal[Math.floor(seeded(n) * pal.length)], skin: seeded(n + 1) < 0.7 ? '#e0a77c' : '#9c6440', ph: seeded(n + 2) * 6.28, fanA: seeded(n + 3) < 0.55 });
       }
     }
+  }
+
+  // ---------- jugadores ilustrados ----------
+  prepareArt(o, header) {
+    if (SPRITES.size > 900) SPRITES.clear();
+    this.shKit = p4Kit(o.kitA, false, o.shooter, o.shooter.num);
+    this.gkKit = p4Kit({ gk: o.gkColor }, true, o.keeper, o.keeper.num || 1);
+    this.GY = this.H - 14;
+    const sideKey = `${this.H}|${o.crowd}|${o.stadium && o.stadium.name}`;
+    if (!this.sideCam || this.sideKey !== sideKey) { this.sideCam = buildSide(o, LW, this.H, this.GY); this.sideKey = sideKey; }
+    this.parts = []; this.lastSpr = {}; this.kicked = false; this.celStarted = false; this.camName = null; this.plant = null;
+    const sh = this.shKit, gk = this.gkKit, P = P4.POSES;
+    const dir = o.def === 'L' ? -1 : 1;
+    const jobs = [];
+    const add = (kit, view, sc, key, pose) => jobs.push([kit, view, sc, key, pose]);
+    if (!header) {
+      add(sh, 'side', SPR, 'idle', () => P.idle());
+      for (const i of [0, 5, 12]) add(sh, 'side', SPR, 'kick' + i, () => P.kick(i / 24));
+      for (let i = 0; i < 16; i++) add(sh, 'side', SPR, 'run' + i, () => P.run(i / 16, 0.95));
+      for (let i = 0; i <= 24; i++) add(sh, 'side', SPR, 'kick' + i, () => P.kick(i / 24));
+    } else {
+      add(sh, 'back', BSC, 'idle', () => P.idleFront());
+      add(sh, 'back', BSC, 'header', () => P.header());
+    }
+    for (let i = 0; i < 8; i++) add(gk, 'front', KSC, 'kr' + i, () => P.keeperReady(i / 8));
+    if (o.def === 'C') add(gk, 'front', KSC, 'up', () => P.armsUp(0.25));
+    else for (let i = 0; i <= 16; i++) add(gk, 'front', KSC, `kd${dir}_${i}`, () => P.keeperDive(dir, i / 16));
+    if (!header) for (let i = 8; i <= 16; i++) add(sh, 'back', BSC, 'kb' + i, () => P.kickBack(i / 16));
+    if (o.outcome === 'goal') for (let i = 0; i <= 24; i++) add(sh, 'side', SPR, 'cel' + i, () => P.celebrate(i / 24));
+    this.jobs = jobs;
+  }
+
+  // Pinta los cuadros que vienen de a poco, sin trabar la animación.
+  warm(ms) {
+    const t0 = performance.now();
+    while (this.jobs && this.jobs.length && performance.now() - t0 < ms) {
+      const [kit, view, sc, key, pose] = this.jobs.shift();
+      const k = `${kit.id}|${view}|${sc}|${key}`;
+      if (SPRITES.has(k)) continue;
+      try { SPRITES.set(k, P4.sprite(pose(), kit, view, sc, null, sc >= 20)); } catch (e) { SPRITES.set(k, null); }
+    }
+  }
+
+  // Cuadro de un jugador; si falta, se pinta ya (uno por cuadro) o se repite el anterior.
+  spr(role, kit, view, sc, key, pose) {
+    const k = `${kit.id}|${view}|${sc}|${key}`;
+    let s = SPRITES.get(k);
+    if (s === undefined) {
+      if (this.painted > 0) return this.lastSpr[role] || null;
+      this.painted++;
+      try { s = P4.sprite(pose(), kit, view, sc, null, sc >= 20); } catch (e) { s = null; }
+      SPRITES.set(k, s);
+    }
+    if (s) this.lastSpr[role] = s;
+    return s || this.lastSpr[role] || null;
+  }
+
+  ballImg(r, spin) {
+    const k = `${Math.round(r * 2)}|${Math.round(spin * 2) % 13}`;
+    if (!BALLS.has(k)) BALLS.set(k, P4.ball(Math.round(r * 2) / 2, Math.round(spin * 2) / 2));
+    return BALLS.get(k);
+  }
+
+  stepParts(dt) {
+    if (!this.parts) return;
+    for (const p of this.parts) {
+      p.life -= dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.g || 0) * dt;
+      if (p.wind) p.vx += Math.sin(this.s * 5 + p.y) * dt * 12;
+    }
+    this.parts = this.parts.filter((p) => p.life > 0);
+  }
+
+  drawParts(cam) {
+    const g = this.g;
+    for (const p of this.parts) {
+      if (p.cam !== cam) continue;
+      if (p.smoke) { g.fillStyle = `rgba(${hex(p.c).join(',')},${Math.min(0.5, p.life * 0.3)})`; const z = p.life < 1 ? 3 : 2; g.fillRect(Math.round(p.x), Math.round(p.y), z, z); continue; }
+      g.fillStyle = p.c; g.fillRect(Math.round(p.x), Math.round(p.y), p.paper && Math.sin(p.life * 9) > 0 ? 2 : 1, p.big ? 2 : 1);
+    }
+  }
+
+  // ---------- cámara de costado: carrera y remate ----------
+  sideKick(i) { return this.spr('side', this.shKit, 'side', SPR, 'kick' + i, () => P4.POSES.kick(i / 24)); }
+
+  drawA(s) {
+    const g = this.g, T = this.T, GY = this.GY, side = this.sideCam;
+    const CONTACT = T.kick, KICK0 = T.kick - 0.27, RUN0 = Math.max(0.15, KICK0 - 1.2);
+    // el pie de apoyo queda clavado al lado de la pelota y el empeine llega justo a ella
+    if (this.plant == null) {
+      const c = SPRITES.get(`${this.shKit.id}|side|${SPR}|kick12`);
+      if (c) this.plant = -3 - (c.toe[1][0] - c.ankle[0][0]);
+    }
+    const plant = this.plant == null ? -24 : this.plant;
+    const fromPlant = (sp) => (sp ? plant - (sp.ankle[0][0] - sp.ox) : plant);
+    const k0 = SPRITES.get(`${this.shKit.id}|side|${SPR}|kick0`), k5 = SPRITES.get(`${this.shKit.id}|side|${SPR}|kick5`);
+    const hipEnd = k5 ? fromPlant(k5) : -40, runEnd = (k0 ? fromPlant(k0) : -60) - 6, hipStart = runEnd - 240;
+    const STRIDE = 175;
+    let hip, sp;
+    if (s < RUN0) { hip = hipStart; sp = this.spr('side', this.shKit, 'side', SPR, 'idle', () => P4.POSES.idle()); }
+    else if (s < KICK0) {
+      const k = (s - RUN0) / (KICK0 - RUN0);
+      const e = k < 0.2 ? k * k / 0.4 : k - 0.1; // arranca suave
+      hip = hipStart + (runEnd - hipStart) * (e / 0.9);
+      // la fase de la carrera sigue la distancia, para que los pies no patinen
+      const u0 = 0.4 - ((runEnd - hipStart) / STRIDE) % 1;
+      const u = (((u0 + (hip - hipStart) / STRIDE) % 1) + 1) % 1;
+      const i = Q(u, 16) % 16;
+      sp = this.spr('side', this.shKit, 'side', SPR, 'run' + i, () => P4.POSES.run(i / 16, 0.95));
+    } else {
+      const u = s < CONTACT ? 0.5 * (s - KICK0) / (CONTACT - KICK0) : Math.min(1, 0.5 + (s - CONTACT) * 1.1);
+      sp = this.sideKick(Q(u, 24));
+      hip = u < 0.2 ? runEnd + (hipEnd - runEnd) * (u / 0.2) : fromPlant(sp);
+    }
+    const cam = Math.min(hip + 40, hipEnd + 46) + (s > CONTACT ? Math.min(30, (s - CONTACT) * 120) : 0);
+    side.draw(g, cam, s, 0);
+    let bx = 0, by = GY - 6;
+    if (s >= CONTACT) { const k = s - CONTACT; bx = 4 + k * 900; by = GY - 6 - k * 140; }
+    const px = side.toScreen(hip, cam), bsx = side.toScreen(bx, cam);
+    g.fillStyle = 'rgba(6,22,8,0.4)'; g.beginPath(); g.ellipse(px + 4, GY + 1, 26, 4, 0, 0, 7); g.fill();
+    if (s >= CONTACT) for (let i = 1; i < 6; i++) { g.fillStyle = `rgba(255,255,255,${0.22 - i * 0.035})`; g.fillRect(bsx - i * 7 - 4, Math.round(by + i * 1.1) - 3, 7, 6); }
+    g.fillStyle = 'rgba(6,22,8,0.35)'; g.beginPath(); g.ellipse(bsx, GY + 1, 6, 2, 0, 0, 7); g.fill();
+    if (sp) g.drawImage(sp.cv, px - Math.round(sp.ox), GY - Math.round(sp.oy));
+    const bi = this.ballImg(6, s >= CONTACT ? (s - CONTACT) * 40 : 0);
+    if (s >= CONTACT && s < CONTACT + 0.03) g.drawImage(bi, bsx - bi.width / 2 + 1, by - bi.height / 2 + 2, bi.width - 2, bi.height - 3);
+    else g.drawImage(bi, Math.round(bsx - bi.width / 2), Math.round(by - bi.height / 2));
+    if (s >= CONTACT && !this.kicked) {
+      this.kicked = true;
+      for (let i = 0; i < 18; i++) this.parts.push({ cam: 'A', x: bsx - 2, y: GY - 1, vx: (Math.random() - 0.7) * 70, vy: -30 - Math.random() * 60, g: 220, life: 0.9, c: ['#3d8a37', '#5aa64c', '#77803f', '#2d6a2a'][i % 4], big: i % 3 === 0 });
+    }
+    if (s >= CONTACT && s < CONTACT + 0.1) {
+      const r = 8 + (s - CONTACT) * 160;
+      g.fillStyle = 'rgba(255,250,220,0.8)';
+      for (let a = 0; a < 6.28; a += 0.35) g.fillRect(Math.round(bsx + Math.cos(a) * r), Math.round(by + Math.sin(a) * r * 0.8), 2, 1);
+    }
+    this.drawParts('A');
+  }
+
+  // ---------- cámara de costado: la celebración ----------
+  // corre, salta con los brazos en alto y cae de rodillas deslizándose por el pasto
+  drawC(s) {
+    const g = this.g, GY = this.GY, side = this.sideCam, o = this.o;
+    const k = s - this.T.cel;
+    const top = side.standsTop;
+    if (!this.celStarted) {
+      this.celStarted = true;
+      this.bengalas = [[40, top + 96], [150, top + 96]];
+      const cols = [o.kitA.shirt, o.kitA.alt2 || '#f4f4f4', '#ffd23f'].map((c) => (c.startsWith('#') && c.length === 7 ? c : '#f4f4f4'));
+      for (let i = 0; i < 140; i++) this.parts.push({ cam: 'C', x: Math.random() * LW, y: top - Math.random() * 120, vx: (Math.random() - 0.5) * 10, vy: 14 + Math.random() * 18, life: 6, wind: true, c: cols[(Math.random() * 3) | 0], paper: true });
+    }
+    const RUN_T = 0.45, CEL_T = 1.7, v0 = 300;
+    let wx, sp, sliding = false;
+    if (k < RUN_T) {
+      wx = 120 + v0 * k;
+      const i = Q((((wx / 175) % 1) + 1) % 1, 16) % 16;
+      sp = this.spr('side', this.shKit, 'side', SPR, 'run' + i, () => P4.POSES.run(i / 16, 0.95));
+    } else {
+      const u = Math.min(1, (k - RUN_T) / CEL_T);
+      // en el aire sigue a la misma velocidad; al apoyar las rodillas frena de a poco
+      const tAir = 0.3 * CEL_T, tk = k - RUN_T;
+      const slideT = Math.max(0, tk - tAir), dec = v0 / (0.55 * CEL_T);
+      const slideD = slideT < v0 / dec ? v0 * slideT - dec * slideT * slideT / 2 : v0 * v0 / (2 * dec);
+      wx = 120 + v0 * RUN_T + v0 * Math.min(tk, tAir) + slideD;
+      sliding = slideT > 0 && slideT < v0 / dec;
+      const i = Q(u, 24);
+      sp = this.spr('side', this.shKit, 'side', SPR, 'cel' + i, () => P4.POSES.celebrate(i / 24));
+    }
+    const cam = Math.max(330, wx - 20);
+    side.draw(g, cam, s, 1);
+    for (const b of this.bengalas) if (Math.random() < 0.8) this.parts.push({ cam: 'C', x: b[0] + (Math.random() - 0.5) * 3, y: b[1] - 4, vx: (Math.random() - 0.5) * 6, vy: -10 - Math.random() * 12, life: 1.5 + Math.random(), smoke: true, c: Math.random() < 0.5 ? '#c8c2c8' : '#9e98a6' });
+    const px = side.toScreen(wx, cam);
+    if (sliding) for (let i = 0; i < 3; i++) this.parts.push({ cam: 'C', x: px - 10 - Math.random() * 20, y: GY - 2, vx: -20 - Math.random() * 50, vy: -25 - Math.random() * 45, g: 200, life: 0.6, c: ['#3d8a37', '#5aa64c', '#77803f', '#e8ecef'][(Math.random() * 4) | 0], big: Math.random() < 0.4 });
+    this.drawParts('C');
+    for (const b of this.bengalas) { g.fillStyle = Math.random() < 0.5 ? '#ff4a2a' : '#ffb04a'; g.fillRect(b[0], b[1] - 5, 2, 2); g.fillStyle = 'rgba(255,90,40,0.25)'; g.fillRect(b[0] - 3, b[1] - 8, 8, 8); }
+    g.fillStyle = 'rgba(6,22,8,0.4)'; g.beginPath(); g.ellipse(px + 4, GY + 1, 28, 4, 0, 0, 7); g.fill();
+    // la marca de las rodillas en el pasto
+    if (k > RUN_T + 0.3 * CEL_T) { g.fillStyle = 'rgba(30,70,30,0.35)'; const x0 = side.toScreen(120 + v0 * RUN_T + v0 * 0.3 * CEL_T, cam); g.fillRect(x0, GY - 1, Math.max(0, px - x0), 2); }
+    if (sp) g.drawImage(sp.cv, px - Math.round(sp.ox), GY - Math.round(sp.oy));
+    // resplandor de las bengalas
+    g.globalCompositeOperation = 'screen';
+    const rg = g.createRadialGradient(LW / 2, top + 50, 5, LW / 2, top + 50, 130);
+    rg.addColorStop(0, 'rgba(255,80,40,0.1)'); rg.addColorStop(1, 'rgba(255,80,40,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, LW, this.H);
+    g.globalCompositeOperation = 'source-over';
   }
 
   // ---------- trayectorias ----------
@@ -281,23 +482,41 @@ export class Cutscene {
     // El centro del cuerpo termina de modo que las manos lleguen al rincón.
     const aim = this.target(o.def);
     const tx = aim[0] - dir * 24;
-    if (p < 0.18) return { x: x0 + dir * 3, y: y0 + 1, pose: 'load', dir };
+    if (p < 0.18) return { x: x0 + dir * 3, y: y0 + 1, pose: 'load', dir, p };
     const q = easeOut((p - 0.18) / 0.82);
     const peak = this.gy - 10 - aim[1];
     const lift = Math.sin(clamp(q, 0, 1) * Math.PI * 0.75) * peak;
     const fall = s > T.hit + 0.15 ? clamp((s - T.hit - 0.15) / 0.45, 0, 1) : 0;
-    return { x: lerp(x0, tx, q), y: this.gy - 10 - lift * (1 - fall) + fall * 4, pose: 'dive', dir };
+    return { x: lerp(x0, tx, q), y: this.gy - 10 - lift * (1 - fall) + fall * 4, pose: 'dive', dir, p };
   }
 
   keeperHands(s) {
     const k = this.keeper(s);
-    if (k.pose === 'dive') return [k.x + k.dir * 24, k.y];
-    if (k.pose === 'up') return [k.x, k.y - 33];
-    return [k.x, k.y - 20];
+    if (k.pose === 'dive') return [k.x + k.dir * 17, k.y - 3];
+    if (k.pose === 'up') return [k.x, k.y - 34];
+    return [k.x, k.y - 17];
   }
 
   // ---------- dibujo ----------
   draw() {
+    const g = this.g, H = this.H, s = this.s, o = this.o, T = this.T;
+    // De costado para la carrera y el remate, desde atrás mientras la pelota
+    // viaja al arco y, si es gol, otra vez de costado para la celebración.
+    const camName = o.kind !== 'cabezazo' && s < T.kick + 0.12 ? 'A' : o.outcome === 'goal' && s > T.cel ? 'C' : 'B';
+    if (camName !== this.camName) { if (this.camName) this.flash = Math.max(this.flash, 0.45); this.camName = camName; }
+    if (camName !== 'B') {
+      g.save();
+      g.fillStyle = '#05060a'; g.fillRect(0, 0, LW, H);
+      if (this.shake > 0) g.translate(Math.round((Math.random() - 0.5) * 4 * this.shake), Math.round((Math.random() - 0.5) * 3 * this.shake));
+      if (camName === 'A') this.drawA(s); else this.drawC(s);
+      g.restore();
+    } else this.drawBack();
+
+    // viñeta y destello
+    this.overlays();
+  }
+
+  drawBack() {
     const g = this.g, H = this.H, s = this.s, o = this.o, T = this.T;
     g.save();
     // Cámara: entra desde un plano abierto y se acerca al arco.
@@ -328,8 +547,10 @@ export class Cutscene {
     }
     this.drawShooter(s);
     g.restore();
+  }
 
-    // viñeta y destello
+  overlays() {
+    const g = this.g, H = this.H, s = this.s, T = this.T;
     const vg = g.createRadialGradient(LW / 2, H * 0.45, H * 0.25, LW / 2, H * 0.45, H * 0.8);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
     g.fillStyle = vg; g.fillRect(0, 0, LW, H);
@@ -522,126 +743,49 @@ export class Cutscene {
     }
   }
 
+  // Arquero ilustrado de frente: atento en las puntas de los pies o volando.
   drawKeeper(k) {
-    const g = this.g, o = this.o;
-    const u = 2;
-    const col = o.gkColor, dark = shade(col, -0.35), skin = o.keeper.skin, hair = o.keeper.hair;
-    const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x * u, y * u, w * u, h * u); };
-    g.save();
+    const g = this.g, P = P4.POSES, kit = this.gkKit;
     // sombra
     g.fillStyle = 'rgba(0,0,0,.3)';
     g.fillRect(Math.round(k.x) - (k.pose === 'dive' ? 18 : 10), this.gy, k.pose === 'dive' ? 36 : 20, 2);
-    g.translate(Math.round(k.x), Math.round(k.y));
-    if (k.pose === 'dive') {
-      // cuerpo horizontal alrededor de su centro: la cabeza hacia el lado del vuelo
-      g.rotate(k.dir * Math.PI / 2);
-      g.translate(0, 16);
-    }
-    if (k.pose === 'load') g.translate(0, 2);
-    // piernas
-    R(-3, -6, 2, 5, '#f4f1e6'); R(1, -6, 2, 5, '#f4f1e6');
-    R(-3, -1, 2, 1, INK); R(1, -1, 2, 1, INK);
-    if (k.pose === 'ready' || k.pose === 'load') { R(-4, -6, 1, 4, '#f4f1e6'); R(3, -6, 1, 4, '#f4f1e6'); }
-    R(-3, -8, 6, 2, '#1a1a1a');
-    // torso
-    R(-3, -13, 6, 5, col); R(-3, -9, 6, 1, dark); R(-1, -13, 2, 1, dark);
-    // cabeza
-    R(-1, -16, 2, 3, skin); R(-1, -16, 2, 1, hair);
-    // brazos
-    if (k.pose === 'up' || k.pose === 'dive') {
-      R(-4, -18, 1, 6, col); R(3, -18, 1, 6, col);
-      R(-5, -20, 2, 2, '#ffffff'); R(3, -20, 2, 2, '#ffffff');
+    let sp, center = false;
+    if (k.pose === 'ready') {
+      const i = Math.floor(((this.s * 1.6) % 1) * 8);
+      sp = this.spr('gk', kit, 'front', KSC, 'kr' + i, () => P.keeperReady(i / 8));
+    } else if (k.pose === 'up') {
+      sp = this.spr('gk', kit, 'front', KSC, 'up', () => P.armsUp(0.25));
     } else {
-      R(-6, -12, 3, 1, col); R(3, -12, 3, 1, col);
-      R(-7, -13, 1, 2, '#ffffff'); R(6, -13, 1, 2, '#ffffff');
+      const i = Q(k.p, 16), dir = k.dir;
+      sp = this.spr('gk', kit, 'front', KSC, `kd${dir}_${i}`, () => P.keeperDive(dir, i / 16));
+      center = k.pose === 'dive';
     }
-    g.restore();
+    if (!sp) return;
+    // parado se apoya en los pies; volando se ubica por el centro del cuerpo
+    if (center) g.drawImage(sp.cv, Math.round(k.x - sp.c[0]), Math.round(k.y - 3 - sp.c[1]));
+    else g.drawImage(sp.cv, Math.round(k.x - sp.ox), Math.round(k.y - sp.oy));
   }
 
+  // El pateador visto desde atrás (ilustrado, con el dorsal en la espalda).
   drawShooter(s) {
-    const g = this.g, o = this.o, T = this.T, H = this.H;
+    const g = this.g, o = this.o, T = this.T, H = this.H, P = P4.POSES, kit = this.shKit;
     const header = o.kind === 'cabezazo';
-    const u = 3;
-    const kit = o.kitA, sh = o.shooter;
-    // posición: corre hacia la pelota y luego queda detrás de ella
-    let x, y, frame = 0, kick = 0, jump = 0;
-    const runT = clamp((s - T.intro + 0.2) / (T.kick - T.intro + 0.2), 0, 1);
+    let x, y, jump = 0, sp;
     if (header) {
       x = 86; y = H - 8;
       const j = clamp((s - (T.kick - 0.45)) / 0.9, 0, 1);
       jump = Math.sin(j * Math.PI) * 26;
-      frame = jump > 2 ? 2 : Math.floor(s * 6) % 2;
+      sp = jump > 2 ? this.spr('sh', kit, 'back', BSC, 'header', () => P.header()) : this.spr('sh', kit, 'back', BSC, 'idle', () => P.idleFront());
     } else {
-      x = lerp(o.kind === 'penal' ? 60 : 68, 84, ease(runT));
-      y = lerp(H + 26, H - 12, ease(runT));
-      frame = runT < 1 ? Math.floor(s * 9) % 2 : 0;
-      if (s > T.kick - 0.18 && s < T.kick) kick = 1;      // pierna atrás
-      else if (s >= T.kick && s < T.kick + 0.5) kick = 2; // pierna adelante
+      // remató de costado: acá ya está terminando el golpe, detrás de la pelota
+      x = 84; y = H - 12;
+      const i = Q(0.5 + (s - T.kick) / 0.6 * 0.5, 16);
+      if (i < 8) return;
+      sp = this.spr('sh', kit, 'back', BSC, 'kb' + i, () => P.kickBack(i / 16));
     }
-    // se aleja un poco después del remate
-    if (s > T.kick + 0.4 && !header) y += 0;
-    const R = (px, py, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x + px * u), Math.round(y - jump + py * u), w * u, h * u); };
-    // sombra
     g.fillStyle = 'rgba(0,0,0,.3)';
     g.fillRect(Math.round(x - 12), Math.round(y + 1), 24, 3);
-    const sock = kit.shorts === '#ffffff' ? '#f4f1e6' : kit.shorts;
-    // piernas (vista desde atrás)
-    if (kick === 1) {
-      R(-3, -6, 2, 6, sh.skin); R(-3, -2, 2, 2, sock); R(-3, 0, 2, 1, INK);
-      R(1, -8, 2, 3, sh.skin); R(1, -5, 2, 2, sock); R(1, -3, 2, 1, INK); // talón arriba
-    } else if (kick === 2) {
-      R(-3, -6, 2, 6, sh.skin); R(-3, -2, 2, 2, sock); R(-3, 0, 2, 1, INK);
-      R(1, -6, 2, 3, sh.skin); R(2, -4, 2, 1, sock); // pierna hacia adelante (escorzo)
-    } else if (frame === 2) {
-      R(-3, -6, 2, 4, sh.skin); R(-3, -2, 2, 1, INK); R(1, -6, 2, 5, sh.skin); R(1, -1, 2, 1, INK);
-    } else {
-      const a = frame ? 1 : 0;
-      R(-3, -6, 2, 6 - a, sh.skin); R(-3, -2 - a, 2, 2, sock); R(-3, -a, 2, 1, INK);
-      R(1, -6, 2, 5 + a, sh.skin); R(1, -2 + a - 1, 2, 2, sock); R(1, -1 + a, 2, 1, INK);
-    }
-    // pantalón
-    R(-4, -9, 8, 3, kit.shorts === kit.shirt ? shade(kit.shorts, -0.15) : kit.shorts);
-    // camiseta con dibujo
-    this.shirt(x, y - jump, u, kit, frame, header && jump > 2);
-    // número y nombre en la espalda
-    const numCol = contrast(kit.shirt);
-    const num = String(sh.num);
-    const nk = 2;
-    const nx = Math.round(x - textW(num, nk) / 2), ny = Math.round(y - jump - 14 * u + 6);
-    g.fillStyle = kit.shirt; // fondo liso para que se lea
-    text(g, num, nx, ny + 4, numCol, nk);
-    const name = plain(sh.name).split(' ').pop();
-    if (textW(name) <= 8 * u) text(g, name, Math.round(x - textW(name) / 2), ny - 2, numCol, 1);
-    // cabeza (de espaldas: pelo)
-    R(-2, -19, 4, 4, sh.hair); R(-2, -15, 4, 1, sh.skin); R(-2, -19, 4, 1, shade(sh.hair, 0.15));
-  }
-
-  shirt(x, y, u, kit, frame, armsUp) {
-    const g = this.g;
-    const X = Math.round(x - 4 * u), Y = Math.round(y - 15 * u), W = 8 * u, Hh = 6 * u;
-    g.fillStyle = kit.shirt; g.fillRect(X, Y, W, Hh);
-    g.fillStyle = kit.alt2;
-    switch (kit.pattern) {
-      case 'stripes': for (let i = 1; i < 8; i += 2) g.fillRect(X + i * u, Y, u, Hh); break;
-      case 'hoops': for (let i = 1; i < 6; i += 2) g.fillRect(X, Y + i * u, W, u); break;
-      case 'band': g.fillRect(X, Y + 2 * u, W, u * 1.5); break;
-      case 'sash': for (let i = 0; i < 6; i++) g.fillRect(X + (5 - i) * u + 1, Y + i * u, u + 2, u); break;
-      case 'center': g.fillRect(X + 3 * u, Y, 2 * u, Hh); break;
-      case 'checks': for (let i = 0; i < 8; i++) for (let j = 0; j < 6; j++) if ((i + j) % 2) g.fillRect(X + i * u, Y + j * u, u, u); break;
-      default: break;
-    }
-    // brazos
-    const sleeve = kit.pattern === 'sleeves' ? kit.alt2 : kit.shirt;
-    const sk = this.o.shooter.skin;
-    if (armsUp) {
-      g.fillStyle = sleeve; g.fillRect(X - u, Y - 2 * u, u, 3 * u); g.fillRect(X + W, Y - 2 * u, u, 3 * u);
-      g.fillStyle = sk; g.fillRect(X - u, Y - 4 * u, u, 2 * u); g.fillRect(X + W, Y - 4 * u, u, 2 * u);
-    } else {
-      const a = frame ? u : 0;
-      g.fillStyle = sleeve; g.fillRect(X - u, Y + u, u, 2 * u); g.fillRect(X + W, Y + u, u, 2 * u);
-      g.fillStyle = sk; g.fillRect(X - u - (a ? u : 0), Y + 3 * u - a, u, 2 * u); g.fillRect(X + W + (a ? 0 : u), Y + 3 * u - (a ? 0 : u), u, 2 * u);
-    }
-    g.fillStyle = 'rgba(0,0,0,.15)'; g.fillRect(X, Y + Hh - 2, W, 2);
+    if (sp) g.drawImage(sp.cv, Math.round(x - sp.ox), Math.round(y - jump - sp.oy));
   }
 }
 
@@ -654,8 +798,4 @@ function shade(c, k) {
   const [r, g, b] = hex(c);
   const f = (v) => Math.round(clamp(k < 0 ? v * (1 + k) : v + (255 - v) * k, 0, 255));
   return `rgb(${f(r)},${f(g)},${f(b)})`;
-}
-function contrast(c) {
-  const [r, g, b] = hex(c);
-  return r * 0.3 + g * 0.59 + b * 0.11 > 150 ? '#14171f' : '#ffffff';
 }

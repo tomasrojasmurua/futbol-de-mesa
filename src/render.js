@@ -6,6 +6,8 @@ import { hexRgb } from './teams.js';
 import { playerName } from './squads.js';
 import { Cutscene, text as pxText, textW as pxTextW } from './cutscene.js';
 import { stadiumFor } from './stadiums.js';
+import { P4 } from './players.js';
+import { p4Kit, HAIR_STYLES } from './playerkit.js';
 
 const PW = 68, PL = 105;           // cancha en metros
 const S = 4;                        // píxeles por metro (resolución interna)
@@ -51,6 +53,14 @@ function tone(c, k) {
   return `rgb(${f(r)},${f(g)},${f(b)})`;
 }
 function lum(hex) { const [r, g, b] = hexRgb(hex); return 0.299 * r + 0.587 * g + 0.114 * b; }
+// ---------- jugadores ilustrados de la vista de lejos ----------
+// La misma ilustración de la escena del tiro, reducida a unos 16 px de alto:
+// proporciones reales y sin ojos ni números, como se ven desde la cámara de TV.
+// Se pintan de a poco entre cuadros; mientras tanto se usa el sprite simple.
+const HD_SCALE = 56;
+const RUN_FRAMES = 16;
+// Festejo en el lugar: rodilla arriba y brazos en alto (8 cuadros).
+const cheerPose = (u) => ({ lift: Math.max(0, Math.sin(u * 6.28)) * 20, legs: [{ a: 0.12, f: 0, k: 0.1 }, { a: 0.12, f: 0.9, k: 1.6 }], arms: [{ a: 2.6 + Math.sin(u * 6.28) * 0.15, e: 0.2 }, { a: 2.75, e: 0.1 }] });
 
 // ---------- sprites (7x13) ----------
 // h pelo · s piel · S piel sombra · e ojos · t camiseta · T camiseta sombra
@@ -168,6 +178,8 @@ export class Renderer {
     this.world.width = WW; this.world.height = WH;
     this.wctx = this.world.getContext('2d');
     this.spriteCache = new Map();
+    this.hd = new Map(); this.hdKits = new Map();
+    this.hdNow = []; this.hdLater = []; this.hdQueued = new Set();
     this.mySide = 0;
     this.kits = null;
     this.players = [[], []];
@@ -225,12 +237,91 @@ export class Renderer {
           side: s, i, x, y, vx: 0, vy: 0, tx: x, ty: y, anim: 0, facing: s === 0 ? -1 : 1, fx: 0, z: 0,
           skin: SKINS[Math.floor(seeded(seed) * SKINS.length)],
           hair: HAIRS[Math.floor(seeded(seed + 3) * HAIRS.length)],
+          style: HAIR_STYLES[Math.floor(seeded(seed + 5) * HAIR_STYLES.length)],
           ov: null, lock: null, boost: 1, fallen: 0, dive: null, pose: null, jump: null, cheer: 0,
         };
       });
     }
     this.ball.owner = null;
     this.ball.x = 34; this.ball.y = 52.5; this.ball.z = 0;
+    this.prewarmPlayers();
+  }
+
+  // ---------- jugadores ilustrados ----------
+  hdKit(p, kit, isGK) {
+    const key = `${kit.shirt}${kit.alt2}${kit.pattern}${kit.shorts}${isGK ? kit.gk : ''}|${p.skin}${p.hair}${p.style || ''}`;
+    let k = this.hdKits.get(key);
+    if (!k) { k = p4Kit(kit, isGK, p); this.hdKits.set(key, k); }
+    return k;
+  }
+
+  // Devuelve el cuadro si ya está pintado; si no, lo encarga (now: lo antes posible).
+  hdGet(kk, view, key, pose, now) {
+    const k = `${kk.id}|${view}|${key}`;
+    const s = this.hd.get(k);
+    if (s !== undefined) return s;
+    const tag = now ? k + '!' : k;
+    if (!this.hdQueued.has(tag)) {
+      (now ? this.hdNow : this.hdLater).push({ k, kk, view, pose });
+      this.hdQueued.add(tag);
+    }
+    return null;
+  }
+
+  hdWork(ms) {
+    const t0 = performance.now();
+    while ((this.hdNow.length || this.hdLater.length) && performance.now() - t0 < ms) {
+      const j = this.hdNow.length ? this.hdNow.shift() : this.hdLater.shift();
+      if (this.hd.has(j.k)) continue;
+      let s = false;
+      try { s = P4.sprite(j.pose(), j.kk, j.view, HD_SCALE, null, true); } catch (e) { console.warn('sprite', e); }
+      this.hd.set(j.k, s);
+      this.hdQueued.delete(j.k); this.hdQueued.delete(j.k + '!');
+    }
+  }
+
+  // Encarga de antemano la carrera y la postura quieta de los 22.
+  prewarmPlayers() {
+    if (this.hd.size > 6000) this.hd.clear();
+    this.hdNow.length = 0; this.hdLater.length = 0; this.hdQueued.clear();
+    const all = this.players.flat();
+    for (const p of all) {
+      const kk = this.hdKit(p, this.kits[p.side], p.i === 0);
+      if (p.i === 0) for (const v of ['front', 'back']) for (let i = 0; i < 8; i++) this.hdGet(kk, v, 'ready' + i, () => P4.POSES.keeperReady(i / 8));
+      else { this.hdGet(kk, 'side', 'idle', () => P4.POSES.idle()); for (const v of ['front', 'back']) this.hdGet(kk, v, 'idle', () => P4.POSES.idleFront()); }
+    }
+    for (let i = 0; i < RUN_FRAMES; i++) for (const p of all) {
+      const kk = this.hdKit(p, this.kits[p.side], p.i === 0), u = i / RUN_FRAMES;
+      this.hdGet(kk, 'side', 'r' + i, () => P4.POSES.run(u, 0.9));
+      for (const v of ['front', 'back']) this.hdGet(kk, v, 'r' + i, () => P4.POSES.runFront(u, 0.9));
+    }
+  }
+
+  // Elige vista, cuadro y postura del jugador ilustrado. dir < 0 = espejado.
+  hdPick(p, isGK, fx, facing, flipDir, now) {
+    const fb = facing < -0.2 ? 'back' : 'front';
+    if (p.dive && p.dive.dir !== 0) {
+      const i = Math.round(clamp(p.dive.t / p.dive.dur, 0, 1) * 16), dir = flipDir(p.dive.dir);
+      return { view: fb, key: `dive${dir}_${i}`, pose: () => P4.POSES.keeperDive(dir, i / 16), dir: 1, dive: i / 16 };
+    }
+    if (p.pose && p.pose.kind === 'slide') return { view: 'side', key: 'slide', pose: () => P4.POSES.slide(), dir: flipDir(p.pose.dir) };
+    if (p.fallen > 0) return { view: 'side', key: 'fallen', pose: () => P4.POSES.fallen(), dir: fx >= 0 ? 1 : -1 };
+    if (p.dive) return { view: fb, key: 'catch', pose: () => P4.POSES.armsUp(0.25), dir: 1 };
+    if (p.jump) return { view: fb, key: 'header', pose: () => P4.POSES.header(), dir: 1 };
+    if (p.cheer > 0) {
+      const i = Math.floor((((now / 1000) * 1.4 + p.i * 0.37) % 1) * 8);
+      return { view: fb, key: 'cheer' + i, pose: () => cheerPose(i / 8), dir: 1 };
+    }
+    const side = Math.abs(fx) > 0.75, dir = fx > 0 ? 1 : -1;
+    if (Math.hypot(p.vx, p.vy) > 0.5) {
+      const i = Math.floor((((p.anim * 1.7) / 4) % 1) * RUN_FRAMES) % RUN_FRAMES, u = i / RUN_FRAMES;
+      return side ? { view: 'side', key: 'r' + i, pose: () => P4.POSES.run(u, 0.9), dir } : { view: fb, key: 'r' + i, pose: () => P4.POSES.runFront(u, 0.9), dir: 1 };
+    }
+    if (isGK) {
+      const i = Math.floor((((now / 1000) * 1.6) % 1) * 8);
+      return { view: fb, key: 'ready' + i, pose: () => P4.POSES.keeperReady(i / 8), dir: 1 };
+    }
+    return side ? { view: 'side', key: 'idle', pose: () => P4.POSES.idle(), dir } : { view: fb, key: 'idle', pose: () => P4.POSES.idleFront(), dir: 1 };
   }
 
   resize() {
@@ -255,6 +346,7 @@ export class Renderer {
     this.update(real * this.ts, real);
     if (this.cv.clientWidth) this.resize();
     this.draw(now);
+    this.hdWork(7);
     requestAnimationFrame((t) => this.loop(t));
   }
 
@@ -1004,7 +1096,7 @@ export class Renderer {
   // Nombre y número del jugador en el plantel de su equipo.
   playerInfo(p) {
     const team = this.teams[p.side];
-    return { name: playerName(team.id, p.i), num: NUMS[p.i], team: team.short, skin: p.skin, hair: p.hair };
+    return { name: playerName(team.id, p.i), num: NUMS[p.i], team: team.short, skin: p.skin, hair: p.hair, style: p.style };
   }
 
   async playShot(ev, A, D) {
@@ -1591,6 +1683,28 @@ export class Renderer {
     if (this.mySide === 1) { facing = -facing; fx = -fx; }
     const flipDir = (d) => (this.mySide === 1 ? -d : d);
 
+    const now = performance.now();
+    const cheerHop = p.cheer > 0 && !p.jump ? Math.round(Math.abs(Math.sin(now / 120)) * 3) : 0;
+    const kk = this.hdKit(p, kit, isGK);
+    const pick = this.hdPick(p, isGK, fx, facing, flipDir, now);
+    const hs = this.hdGet(kk, pick.view, pick.key, pick.pose, true);
+    if (hs) {
+      let dx, dy;
+      if (pick.dive != null) {
+        // la estirada se ubica por el centro del cuerpo, que baja hasta el pasto
+        const q = pick.dive;
+        dx = x - hs.c[0];
+        dy = y - lerp(9, 3, q) - lift - hs.c[1];
+      } else {
+        dx = x - (pick.dir < 0 ? hs.cv.width - hs.ox : hs.ox);
+        dy = y - hs.oy - lift - cheerHop;
+      }
+      dx = Math.round(dx); dy = Math.round(dy);
+      if (pick.dir < 0) { g.save(); g.translate(dx + hs.cv.width, dy); g.scale(-1, 1); g.drawImage(hs.cv, 0, 0); g.restore(); }
+      else g.drawImage(hs.cv, dx, dy);
+      return;
+    }
+
     let view, frame = 0, dir = 1, img;
     if (p.dive && p.dive.dir !== 0) { view = 'dive'; dir = flipDir(p.dive.dir); }
     else if (p.pose && p.pose.kind === 'slide') { view = 'slide'; dir = flipDir(p.pose.dir); }
@@ -1604,7 +1718,6 @@ export class Renderer {
     }
     img = this.sprite(kit, isGK, p.skin, p.hair, view, frame);
     const bob = (view === 'front' || view === 'back' || view === 'side') && (frame === 1 || frame === 3) ? 1 : 0;
-    const cheerHop = p.cheer > 0 && !p.jump ? Math.round(Math.abs(Math.sin(performance.now() / 120)) * 3) : 0;
     const dx = x - Math.floor(img.width / 2), dy = y - img.height - lift - bob - cheerHop + (POSES[view] ? 1 : 0);
     if (dir < 0) {
       g.save(); g.translate(dx + img.width, dy); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore();
