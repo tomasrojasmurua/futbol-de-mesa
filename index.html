@@ -18,9 +18,23 @@
 <body>
   <!-- MENÚ -->
   <section id="screen-menu" class="screen active">
-    <div class="menu-inner">
+    <canvas id="title-art" aria-hidden="true"></canvas>
+    <div class="home">
       <h1 class="logo"><span class="name">CALCCIOPOLI</span></h1>
       <p class="tag">Lee la jugada, gana el mano a mano y grita el gol.</p>
+      <div class="home-actions">
+        <button id="btn-play" class="btn primary play">JUGAR</button>
+        <button id="btn-career-continue" class="btn ghost" hidden>Seguir carrera</button>
+        <button id="btn-cup-continue" class="btn ghost" hidden>Continuar torneo</button>
+        <nav class="home-foot"><button id="btn-tutorial" class="link">Tutorial</button><button id="btn-help" class="link">Reglas</button></nav>
+      </div>
+    </div>
+  </section>
+
+  <!-- ELEGIR MODO -->
+  <section id="screen-play" class="screen">
+    <header class="bar"><button class="back" data-back>◂</button><h2>¿Cómo quieres jugar?</h2></header>
+    <div class="play-list">
       <button id="btn-team" class="team-pick">
         <span class="kit-swatch" id="my-swatch"></span>
         <span><small>Tu equipo</small><b id="my-team-name">Racing Club</b></span>
@@ -30,25 +44,25 @@
         <small>Duración</small>
         <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
       </div>
-      <button id="btn-create" class="btn primary">Crear sala</button>
-      <button id="btn-league" class="btn">Crear liga (2 a 4 jugadores)</button>
-      <div class="join-row">
-        <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
-        <button id="btn-join" class="btn">Unirse</button>
+      <button id="btn-cpu" class="mode"><canvas data-icon="ball"></canvas><span><b>Partido rápido</b><small>Contra la IA</small></span><i>▸</i></button>
+      <button id="btn-career" class="mode"><canvas data-icon="cup"></canvas><span><b>Carrera</b><small>10 ligas reales</small></span><i>▸</i></button>
+      <button id="btn-cup" class="mode"><canvas data-icon="bracket"></canvas><span><b>Torneo</b><small>Eliminación directa contra la IA</small></span><i>▸</i></button>
+      <button id="btn-room" class="mode"><canvas data-icon="duo"></canvas><span><b>Sala 1 vs 1</b><small>Con un amigo, en otro teléfono</small></span><i>▾</i></button>
+      <div id="room-opts" class="room-opts" hidden>
+        <button id="btn-create" class="btn primary">Crear sala</button>
+        <div class="join-row">
+          <input id="join-code" maxlength="5" placeholder="CÓDIGO" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+          <button id="btn-join" class="btn">Unirse</button>
+        </div>
       </div>
-      <button id="btn-cpu" class="btn ghost">Jugar contra la IA</button>
-      <button id="btn-career" class="btn ghost">Modo carrera (ligas)</button>
-      <button id="btn-cup" class="btn ghost">Torneo contra la IA</button>
-      <button id="btn-cup-continue" class="btn ghost" hidden>Continuar torneo</button>
-      <button id="btn-tutorial" class="btn ghost">Tutorial: aprende a jugar</button>
-      <button id="btn-help" class="link">¿Cómo se juega?</button>
+      <button id="btn-league" class="mode"><canvas data-icon="table"></canvas><span><b>Liga de amigos</b><small>De 2 a 4 jugadores</small></span><i>▸</i></button>
       <p id="menu-msg" class="msg"></p>
     </div>
   </section>
 
   <!-- SELECCIÓN DE EQUIPO -->
   <section id="screen-teams" class="screen">
-    <header class="bar"><button class="back" data-back>◂</button><h2>Elige tu equipo</h2></header>
+    <header class="bar"><button class="back" data-back="screen-play">◂</button><h2>Elige tu equipo</h2></header>
     <div id="team-grid" class="team-grid"></div>
   </section>
 
@@ -111,7 +125,7 @@
 
   <!-- CARRERA -->
   <section id="screen-career-pick" class="screen">
-    <header class="bar"><button class="back" data-back>◂</button><h2>Modo carrera</h2></header>
+    <header class="bar"><button class="back" data-back="screen-play">◂</button><h2>Modo carrera</h2></header>
     <div id="career-leagues" class="league-list"></div>
   </section>
   <section id="screen-career-teams" class="screen">

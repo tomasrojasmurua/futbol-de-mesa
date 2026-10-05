@@ -13,6 +13,7 @@ import { icon, iconFor } from './icons.js';
 import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 import { fxTipHtml, cardArt } from './cardinfo.js';
+import { paintTitle, paintIcon } from './titleart.js';
 
 const $ = (s) => document.querySelector(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -47,7 +48,25 @@ function paintMyTeam() {
   const t = teamById(myTeamId);
   $('#my-team-name').textContent = t.name;
   $('#my-swatch').style.background = swatchCss(t.kit);
+  paintHome();
 }
+
+// Portada: la escena se pinta en píxeles grandes del tamaño justo de la pantalla.
+const TITLE_RIVAL = { shirt: '#c8202a', alt2: '#f4f2ec', pattern: 'plain', shorts: '#f4f2ec' };
+let homeSize = '';
+function paintHome(force = true) {
+  const cv = $('#title-art');
+  if (!cv) return;
+  const vw = innerWidth, vh = innerHeight;
+  const k = Math.max(1, Math.floor(Math.min(vw / 180, vh / 320)));
+  const W = Math.ceil(vw / k), H = Math.ceil(vh / k);
+  if (!force && homeSize === `${W}x${H}`) return;
+  homeSize = `${W}x${H}`;
+  try { paintTitle(cv, W, H, teamById(myTeamId).kit, TITLE_RIVAL); } catch (e) { console.warn('portada', e); return; }
+  cv.style.width = `${W * k}px`; cv.style.height = `${H * k}px`;
+}
+let homeTimer = 0;
+addEventListener('resize', () => { clearTimeout(homeTimer); homeTimer = setTimeout(() => paintHome(false), 200); });
 
 function buildTeamGrid() {
   const grid = $('#team-grid');
@@ -66,7 +85,7 @@ function buildTeamGrid() {
       myTeamId = t.id;
       try { localStorage.setItem('fdm-team', t.id); } catch { /* sin storage */ }
       paintMyTeam();
-      show('screen-menu');
+      show('screen-play');
     };
     grid.appendChild(b);
   }
@@ -1307,6 +1326,11 @@ function paintCupButton() {
   const b = $('#btn-cup-continue');
   b.hidden = !saved || !!champion(saved);
   if (saved) b.textContent = `Continuar torneo con ${teamById(saved.me).short}`;
+  // Carrera guardada sin terminar: un toque para volver a ella.
+  const c = Object.values(loadCareers()).find((x) => x && !seasonOver(x));
+  const cb = $('#btn-career-continue');
+  cb.hidden = !c;
+  if (c) cb.textContent = `Seguir carrera con ${teamById(c.me).short} · fecha ${c.round + 1}`;
 }
 
 function cupMenu() {
@@ -1525,7 +1549,7 @@ function showCareer() {
     btn('Jugar partido', 'primary', () => playCareerMatch());
     btn('Simular mi partido', '', () => { playRound(c, null); saveCareer(); showCareer(); });
   }
-  btn('Salir (queda guardado)', 'ghost', () => { career = null; show('screen-menu'); });
+  btn('Salir (queda guardado)', 'ghost', () => { career = null; show('screen-menu'); paintCupButton(); });
   // Tabla completa.
   const dg = (r) => (r.gf - r.gc > 0 ? '+' : '') + (r.gf - r.gc);
   $('#career-table').innerHTML = '<tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr>' + t.map((r, k) => {
@@ -1583,7 +1607,11 @@ function confirmQuitCareer() {
 paintMyTeam();
 buildTeamGrid();
 $('#btn-team').onclick = () => { buildTeamGrid(); show('screen-teams'); };
-document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show('screen-menu')));
+document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show(b.dataset.back || 'screen-menu')));
+$('#btn-play').onclick = () => show('screen-play');
+$('#btn-room').onclick = () => { const o = $('#room-opts'); o.hidden = !o.hidden; $('#btn-room').classList.toggle('open', !o.hidden); };
+$('#btn-career-continue').onclick = () => showCareerPick();
+document.querySelectorAll('canvas[data-icon]').forEach((c) => paintIcon(c, c.dataset.icon));
 $('#btn-cpu').onclick = () => modal(`<h2>Contra la IA</h2>
   <p><b>Fácil:</b> tiene mañas y repite jugadas; si lo lees, le ganas.</p>
   <p><b>Normal:</b> juega suelto y de vez en cuando se anticipa.</p>
@@ -1632,6 +1660,8 @@ const params = new URLSearchParams(location.search);
 if (params.get('sala')) {
   $('#join-code').value = params.get('sala').toUpperCase();
   $('#menu-msg').textContent = 'Elige tu equipo y toca «Unirse».';
+  $('#room-opts').hidden = false; $('#btn-room').classList.add('open');
+  show('screen-play');
 }
 if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(); }
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');

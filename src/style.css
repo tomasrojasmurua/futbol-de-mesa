@@ -18,12 +18,35 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .screen.active { display: flex; flex-direction: column; }
 
 /* ---------- menú ---------- */
-#screen-menu, #screen-lobby, #screen-league {
+#screen-lobby, #screen-league {
   align-items: center; justify-content: center;
   background:
     repeating-linear-gradient(180deg, #2f7d30 0 28px, #348a35 28px 56px);
 }
-#screen-menu::before, #screen-lobby::before, #screen-league::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(20,23,31,.25), rgba(20,23,31,.85)); }
+/* Portada: escena pintada de fondo, logo arriba y JUGAR abajo */
+#screen-menu { background: #07080e; overflow: hidden; align-items: center; }
+#title-art { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); image-rendering: pixelated; }
+#screen-menu::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(5,6,12,.86) 0%, rgba(5,6,12,.55) 18%, rgba(5,6,12,0) 32%, rgba(5,6,12,0) 62%, rgba(5,6,12,.8) 100%); }
+.home { position: relative; z-index: 1; flex: 1; width: min(360px, calc(100% - 32px)); display: flex; flex-direction: column; text-align: center; padding: max(28px, 4vh) 0 max(18px, 3vh); }
+.home .logo .name { font-size: clamp(24px, 8.5vw, 36px); }
+.home .tag { margin: 6px 0 0; font-size: 20px; color: #e8ecdf; text-shadow: 2px 2px 0 #000; }
+.home-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.btn.play { font-size: 16px; padding: 18px 12px; letter-spacing: 3px; }
+.home-actions .btn.ghost { background: rgba(5,8,14,.72); font-size: 10px; }
+.home-foot { display: flex; justify-content: center; gap: 28px; margin-top: 4px; }
+.home-foot .link { font-size: 20px; text-shadow: 2px 2px 0 #000; }
+/* Elegir modo */
+#screen-play { background: var(--bg); }
+.play-list { flex: 1; overflow-y: auto; width: min(420px, 100%); margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+.mode { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; font: inherit; color: var(--ink); padding: 12px 14px; background: var(--panel); border: 0; box-shadow: 0 0 0 3px #0c0f15; cursor: pointer; }
+.mode canvas { width: 30px; height: 30px; flex: none; image-rendering: pixelated; }
+.mode b { display: block; font-family: var(--px); font-size: 12px; line-height: 1.5; font-weight: 400; }
+.mode small { display: block; color: var(--mute); font-size: 16px; line-height: 1.1; margin-top: 3px; }
+.mode i { margin-left: auto; font-style: normal; color: var(--mute); }
+.mode:hover, .mode:focus-visible, .mode.open { box-shadow: 0 0 0 3px #0c0f15, inset 4px 0 0 var(--gold); background: var(--panel2); }
+.mode:active { transform: translateY(1px); }
+.room-opts { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 6px 18px; }
+#screen-lobby::before, #screen-league::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(20,23,31,.25), rgba(20,23,31,.85)); }
 .menu-inner { position: relative; width: min(360px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 12px; text-align: center; }
 .logo { font-family: var(--px); margin: 0 0 4px; line-height: 1.25; display: flex; flex-direction: column; gap: 6px; }
 .logo .name { font-size: clamp(20px, 7vw, 28px); letter-spacing: 1px; color: var(--gold); text-shadow: 3px 3px 0 #a34a00, 6px 6px 0 #000; }
