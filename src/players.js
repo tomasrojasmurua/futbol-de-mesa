@@ -840,6 +840,15 @@ const P4 = (() => {
     fallen: () => ({ lean: 0.05, twist: 0.5, rot: -1.5, legs: [{ a: 0.15, k: 0.4, p: 0.4 }, { a: -0.1, k: 0.2, p: 0.5 }], arms: [{ a: 0.6, e: 0.5 }, { a: 1.2, e: 0.4 }] }),
     idleFront: () => ({ legs: [{ a: 0.08, f: 0, k: 0.06 }, { a: 0.08, f: 0, k: 0.06 }], arms: [{ a: 0.14, e: 0.12, f: 0, ef: 0.3 }, { a: 0.14, e: 0.12, f: 0, ef: 0.3 }] }),
     idle: (u = 0) => ({ lean: 0.04 + Math.sin(u * 6.28) * 0.01, twist: 0.5, legs: [{ a: -0.08, k: 0.1, p: 0 }, { a: 0.12, k: 0.14, p: 0 }], arms: [{ a: -0.06, e: 0.38 + Math.sin(u * 6.28) * 0.04 }, { a: 0.12, e: 0.42 }] }),
+    // Tanda de penales: abrazados en el círculo central (de frente o de espaldas;
+    // los antebrazos caen sobre los hombros del de al lado).
+    linked: (u = 0) => ({ legs: [{ a: 0.1, f: 0, k: 0.06 + Math.sin(u * 6.28) * 0.03 }, { a: 0.1, f: 0, k: 0.06 }], arms: [{ a: 1.5, e: -0.7, f: 0, ef: 0 }, { a: 1.5, e: -0.7, f: 0, ef: 0 }] }),
+    // Los que pierden, en el pasto (de costado): sentado apoyado en las manos,
+    // de rodillas con las manos en la cabeza, de rodillas mirando el piso y tirado boca arriba.
+    sitBack: () => ({ lean: -0.35, twist: 0.5, legs: [{ a: 1.5, k: 1.3, p: 0 }, { a: 1.3, k: 1.0, p: 0 }], arms: [{ a: -0.6, e: 0.2 }, { a: -0.4, e: 0.3 }], headTilt: 0.5 }),
+    kneelHead: () => ({ lean: 0.3, twist: 0.5, legs: [{ a: 0, k: 1.6, p: 0.9 }, { a: 0.1, k: 1.6, p: 0.9 }], arms: [{ a: 2.9, e: 2.7 }, { a: 2.7, e: 2.8 }], headTilt: -0.3 }),
+    kneelDown: () => ({ lean: 0.6, twist: 0.5, legs: [{ a: 0, k: 1.6, p: 0.9 }, { a: 0.1, k: 1.6, p: 0.9 }], arms: [{ a: 0.3, e: 0.4 }, { a: 0.2, e: 0.3 }], headTilt: -0.6 }),
+    lieBack: () => ({ lean: 0, twist: 0.5, rot: 1.55, legs: [{ a: 0.5, k: 0.9, p: 0.3 }, { a: 0.05, k: 0.1, p: 0.4 }], arms: [{ a: 2.3, e: 2.4 }, { a: 3.3, e: 0.3 }], headTilt: 0 }),
     kick: (u) => keyed(KICK, u, false),
     celebrate: (u) => keyed(CELE, u, false),
     keeperReady: (u = 0) => keyed(READY, u, true),
