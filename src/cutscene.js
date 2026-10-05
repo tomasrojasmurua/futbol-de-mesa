@@ -28,6 +28,10 @@ const SIDE_POSES = {
   // una pierna estirada hacia la pelota y la otra rodilla abajo, las manos arriba
   gkCharge: () => ({ lean: 0.35, twist: 0.45, headTilt: -0.15, legs: [{ a: 0.5, k: 0.9, p: 0.3 }, { a: -0.1, k: 0.9, p: 0.3 }], arms: [{ a: 1.2, e: 0.2 }, { a: 0.9, e: 0.2 }] }),
   gkSpread: () => ({ lean: 0.3, twist: 0.45, headTilt: -0.1, legs: [{ a: 1.1, k: 0.2, p: 0.3 }, { a: -0.2, k: 1.6, p: 0.3 }], arms: [{ a: 2.3, e: 0.1 }, { a: 1.3, e: 0.2 }] }),
+  // la atajada: de rodillas abrazando la pelota; y el saque rápido (carga y suelta)
+  gkHold: () => ({ lean: 0.5, twist: 0.45, headTilt: 0.3, legs: [{ a: 1.4, k: 2.2, p: 0.3 }, { a: 0.2, k: 2.2, p: 0.3 }], arms: [{ a: 0.9, e: 1.4 }, { a: 0.7, e: 1.5 }] }),
+  gkThrow0: () => ({ lean: -0.15, twist: 0.45, headTilt: -0.1, legs: [{ a: 0.35, k: 0.15, p: 0.1 }, { a: -0.3, k: 0.3, p: 0.2 }], arms: [{ a: 3.4, e: 0.3 }, { a: 1.0, e: 0.4 }] }),
+  gkThrow1: () => ({ lean: 0.35, twist: 0.45, headTilt: 0.1, legs: [{ a: 0.5, k: 0.3, p: 0.1 }, { a: -0.5, k: 0.4, p: 0.4 }], arms: [{ a: 1.4, e: 0.05 }, { a: 0.3, e: 0.4 }] }),
   wallJ: () => ({ lean: 0.02, twist: 0.45, legs: [{ a: 0.25, k: 0.9, p: 0.5 }, { a: 0.3, k: 0.95, p: 0.5 }], arms: [{ a: 0.2, e: 1.5 }, { a: 0.15, e: 1.6 }] }),
 };
 const SPRITES = new Map(); // cuadros ya pintados, se reusan entre escenas
@@ -99,13 +103,15 @@ export class Cutscene {
     this.buildCrowd();
     this.s = 0; this.speed = 1; this.paused = false; this.shake = 0; this.flash = 0;
     const header = o.kind === 'cabezazo';
+    // mano a mano atajado: todo se ve de costado y la pelota le llega enseguida al arquero
+    this.manoSave = o.kind === 'mano' && String(o.outcome).startsWith('save');
     this.prepareArt(o, header);
     const runup = { penal: 1.5, cabezazo: 1.3, remate: 1.35, mano: 1.45, libre: 1.75 }[o.kind] || 1.3;
-    this.T = { intro: 0.9, kick: 0.9 + runup, F: header ? 0.95 : o.kind === 'penal' ? 0.85 : 0.9 };
+    this.T = { intro: 0.9, kick: 0.9 + runup, F: header ? 0.95 : o.kind === 'penal' ? 0.85 : this.manoSave ? 0.24 : 0.9 };
     this.T.hit = this.T.kick + this.T.F;
     // con gol, la cámara vuelve de costado para la celebración
     this.T.cel = this.T.hit + 1.0;
-    this.T.end = o.outcome === 'goal' ? this.T.cel + 2.6 : this.T.hit + 1.2;
+    this.T.end = o.outcome === 'goal' ? this.T.cel + 2.6 : this.T.hit + (this.manoSave ? 1.7 : 1.2);
     this.showCard();
     this.cv.classList.add('on');
     this.on = true;
@@ -215,7 +221,7 @@ export class Cutscene {
     const dk = this.dKits[0];
     const runs = (kit) => { for (let i = 0; i < 16; i++) add(kit, 'side', SPR, 'run' + i, () => P.run(i / 16, 0.95)); };
     if (o.kind === 'remate') { runs(dk); add(dk, 'side', SPR, 'slide', () => P.slide()); }
-    if (o.kind === 'mano') { const gm = this.gkKitM; runs(dk); runs(gm); add(gm, 'side', SPR, 'gkCharge', SIDE_POSES.gkCharge); add(gm, 'side', SPR, 'gkSpread', SIDE_POSES.gkSpread); }
+    if (o.kind === 'mano') { const gm = this.gkKitM; runs(dk); runs(gm); add(gm, 'side', SPR, 'gkCharge', SIDE_POSES.gkCharge); for (const k of ['gkSpread', 'gkHold', 'gkThrow0', 'gkThrow1']) add(gm, 'side', SPR, k, SIDE_POSES[k]); }
     if (o.kind === 'cabezazo') { runs(sh); runs(dk); for (const k of ['hj0', 'hj1', 'dj']) add(k === 'dj' ? dk : sh, 'side', SPR, k, SIDE_POSES[k]); add(sh, 'side', SPR, 'idle', () => P.idle()); }
     if (o.kind === 'libre') for (const k of this.wKits) { add(k, 'side', SPR, 'wall', SIDE_POSES.wall); add(k, 'side', SPR, 'wallJ', SIDE_POSES.wallJ); add(k, 'front', 22, 'idleF', () => P.idleFront()); }
     if (!header) {
@@ -319,6 +325,8 @@ export class Cutscene {
       const u = s < CONTACT ? 0.5 * (s - KICK0) / (CONTACT - KICK0) : Math.min(1, 0.5 + (s - CONTACT) * 1.1);
       sp = this.sideKick(Q(u, 24));
       hip = u < 0.2 ? runEnd + (hipEnd - runEnd) * (u / 0.2) : fromPlant(sp);
+      // pasado el remate vuelve a quedarse parado
+      if (s > CONTACT + 0.8) sp = this.spr('side', this.shKit, 'side', SPR, 'idle', () => P4.POSES.idle());
     }
     return { hip, sp, hipEnd, runEnd, hipStart, CONTACT, KICK0, RUN0, running };
   }
@@ -362,12 +370,12 @@ export class Cutscene {
     const px = side.toScreen(hip, cam), bsx = side.toScreen(bx, cam);
     if (opt.behind) opt.behind(cam);
     g.fillStyle = 'rgba(6,22,8,0.4)'; g.beginPath(); g.ellipse(px + 4, GY + 1, 26, 4, 0, 0, 7); g.fill();
-    if (s >= CONTACT) for (let i = 1; i < 6; i++) { g.fillStyle = `rgba(255,255,255,${0.22 - i * 0.035})`; g.fillRect(bsx - i * 7 - 4, Math.round(by + i * 1.1) - 3, 7, 6); }
+    if (s >= CONTACT && (!opt.trail || opt.trail(s - CONTACT))) for (let i = 1; i < 6; i++) { g.fillStyle = `rgba(255,255,255,${0.22 - i * 0.035})`; g.fillRect(bsx - i * 7 - 4, Math.round(by + i * 1.1) - 3, 7, 6); }
     const air = GY - 6 - by;
     g.fillStyle = `rgba(6,22,8,${Math.max(0.12, 0.35 - air * 0.003)})`; g.beginPath(); g.ellipse(bsx, GY + 1, 6, 2, 0, 0, 7); g.fill();
     if (sp) g.drawImage(sp.cv, px - Math.round(sp.ox), GY - Math.round(sp.oy));
     if (opt.front) opt.front(cam);
-    const bi = this.ballImg(6, s >= CONTACT ? (s - CONTACT) * 40 : opt.dribble ? -bx / 6 : 0);
+    const bi = this.ballImg(6, s >= CONTACT ? (opt.spin ? opt.spin(s - CONTACT) : (s - CONTACT) * 40) : opt.dribble ? -bx / 6 : 0);
     if (s >= CONTACT && s < CONTACT + 0.03) g.drawImage(bi, bsx - bi.width / 2 + 1, by - bi.height / 2 + 2, bi.width - 2, bi.height - 3);
     else g.drawImage(bi, Math.round(bsx - bi.width / 2), Math.round(by - bi.height / 2));
     if (s >= CONTACT && !this.kicked) {
@@ -414,12 +422,42 @@ export class Cutscene {
     const kx = (t) => {
       // el arquero sale corriendo, frena agachado y se abre en cruz cuando le pegan
       if (t < KICK0 - 0.2) return lerp(330, 110, easeOut(clamp((t - RUN0) / (KICK0 - 0.2 - RUN0), 0, 1)));
-      return 110 - easeOut(clamp((t - KICK0 + 0.2) / 0.5, 0, 1)) * 40;
+      return 110 - easeOut(clamp((t - KICK0 + 0.2) / 0.5, 0, 1)) * (this.manoSave ? 14 : 40);
+    };
+    // atajada: el remate le pega en la mano baja; después se queda con ella, la manda al córner
+    // o se levanta y saca rápido para el contragolpe
+    const o = this.o, save = this.manoSave, HIT = T.hit - T.kick, THROW = HIT + 0.75;
+    const gkPhase = (t) => {
+      if (t < KICK0 - 0.2) return 'run';
+      if (t < KICK0 - 0.06) return 'gkCharge';
+      const k = t - T.kick;
+      if (!save || k < HIT + 0.12 || o.outcome === 'save_corner') return 'gkSpread';
+      if (o.outcome === 'save_counter') return k < THROW - 0.25 ? 'gkHold' : k < THROW ? 'gkThrow0' : 'gkThrow1';
+      return 'gkHold';
+    };
+    // un punto del dibujo del arquero en el mundo (está espejado: mira a la izquierda)
+    const gkAt = (pose, pt, t) => {
+      const c = SPRITES.get(`${gk.id}|side|${SPR}|${pose}`);
+      if (!c) return [kx(t) - 30, GY - 40];
+      const p = pt === 'hold' ? [(c.hand[0][0] + c.hand[1][0]) / 2 - 3, (c.hand[0][1] + c.hand[1][1]) / 2]
+        : c.hand.reduce((a, b) => ((pt === 'low' ? b[1] > a[1] : b[1] < a[1]) ? b : a));
+      return [kx(t) + c.ox - p[0], GY - c.oy + p[1]];
+    };
+    const savePath = (k) => {
+      const C = gkAt('gkSpread', 'low', T.hit);
+      if (k < HIT) { const u = k / HIT; return [lerp(4, C[0], u), lerp(GY - 6, C[1], u) - Math.sin(u * Math.PI) * 6]; }
+      const j = k - HIT;
+      if (o.outcome === 'save_corner') return [C[0] + j * 170, C[1] - j * 330 + j * j * 420];
+      const pose = gkPhase(T.kick + k);
+      if (pose === 'gkThrow1') { const H0 = gkAt('gkThrow0', 'high', T.kick + THROW), q = k - THROW; return [H0[0] - q * 420, H0[1] - q * 230 + q * q * 260]; }
+      return pose === 'gkSpread' ? C : pose === 'gkThrow0' ? gkAt('gkThrow0', 'high', T.kick + k) : gkAt('gkHold', 'hold', T.kick + k);
     };
     this.sideShot(s, {
       runLen: 300, dribble: true,
-      // la pica por arriba del arquero
-      path: (k) => { const x = 4 + k * 560; return [x, GY - 6 - x * 1.6 + x * x * 0.0034]; },
+      // la pica por arriba del arquero, o el remate que el arquero ataja
+      path: (k) => (save ? savePath(k) : [4 + k * 560, GY - 6 - (4 + k * 560) * 1.6 + (4 + k * 560) ** 2 * 0.0034]),
+      trail: (k) => !save || k < HIT || (o.outcome === 'save_corner' && k < HIT + 0.4) || (o.outcome === 'save_counter' && k > THROW),
+      spin: (k) => (!save || k < HIT ? k * 40 : o.outcome === 'save_corner' ? k * 60 : o.outcome === 'save_counter' && k > THROW ? k * 30 : HIT * 40),
       cam: (base, hip) => Math.min(hip + 45, Math.max(base, (hip + kx(s)) / 2)),
       behind: (cam) => {
         // el defensa corre detrás y no llega
@@ -428,7 +466,7 @@ export class Cutscene {
       },
       front: (cam) => {
         const x = kx(s);
-        const ph = s < KICK0 - 0.2 ? 'run' : s < KICK0 - 0.06 ? 'gkCharge' : 'gkSpread';
+        const ph = gkPhase(s);
         const sp = ph === 'run' ? this.runSpr('gkr', gk, -x) : this.spr('gkr', gk, 'side', SPR, ph, SIDE_POSES[ph]);
         this.actor(sp, x, cam, 0, true, ph === 'gkSpread' ? 30 : 22);
       },
@@ -680,7 +718,7 @@ export class Cutscene {
     const g = this.g, H = this.H, s = this.s, o = this.o, T = this.T;
     // De costado para la carrera y el remate, desde atrás mientras la pelota
     // viaja al arco y, si es gol, otra vez de costado para la celebración.
-    const camName = s < T.kick + (SIDE_AFTER[o.kind] ?? 0.12) ? 'A' : o.outcome === 'goal' && s > T.cel ? 'C' : 'B';
+    const camName = this.manoSave || s < T.kick + (SIDE_AFTER[o.kind] ?? 0.12) ? 'A' : o.outcome === 'goal' && s > T.cel ? 'C' : 'B';
     if (camName !== this.camName) { if (this.camName) this.flash = Math.max(this.flash, 0.45); this.camName = camName; }
     if (camName !== 'B') {
       g.save();
