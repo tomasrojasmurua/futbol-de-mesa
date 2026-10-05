@@ -13,7 +13,7 @@ import { icon, iconFor } from './icons.js';
 import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 import { fxTipHtml, cardArt } from './cardinfo.js';
-import { paintTitle, paintIcon } from './titleart.js';
+import { paintGrass, paintLogo, paintIcon } from './titleart.js';
 
 const $ = (s) => document.querySelector(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -51,19 +51,25 @@ function paintMyTeam() {
   paintHome();
 }
 
-// Portada: la escena se pinta en píxeles grandes del tamaño justo de la pantalla.
-const TITLE_RIVAL = { shirt: '#c8202a', alt2: '#f4f2ec', pattern: 'plain', shorts: '#f4f2ec' };
+// Portada: pasto en píxeles grandes del tamaño justo de la pantalla, y el logo.
 let homeSize = '';
 function paintHome(force = true) {
   const cv = $('#title-art');
   if (!cv) return;
   const vw = innerWidth, vh = innerHeight;
-  const k = Math.max(1, Math.floor(Math.min(vw / 180, vh / 320)));
-  const W = Math.ceil(vw / k), H = Math.ceil(vh / k);
-  if (!force && homeSize === `${W}x${H}`) return;
-  homeSize = `${W}x${H}`;
-  try { paintTitle(cv, W, H, teamById(myTeamId).kit, TITLE_RIVAL); } catch (e) { console.warn('portada', e); return; }
-  cv.style.width = `${W * k}px`; cv.style.height = `${H * k}px`;
+  const k = Math.max(2, Math.round(vw / 200));
+  const W = Math.ceil(vw / k) + 1, H = Math.ceil(vh / k) + 1;
+  if (force || homeSize !== `${W}x${H}`) {
+    homeSize = `${W}x${H}`;
+    try { paintGrass(cv, W, H); cv.style.width = `${W * k}px`; cv.style.height = `${H * k}px`; } catch (e) { console.warn('pasto', e); }
+  }
+  const logo = $('#logo-art');
+  try {
+    const { W: lw } = paintLogo(logo);
+    const lk = Math.max(2, Math.floor(Math.min(vw - 40, 440) / lw));
+    logo.style.width = `${logo.width * lk}px`; logo.style.height = `${logo.height * lk}px`;
+    logo.parentElement.classList.add('drawn');
+  } catch (e) { console.warn('logo', e); }
 }
 let homeTimer = 0;
 addEventListener('resize', () => { clearTimeout(homeTimer); homeTimer = setTimeout(() => paintHome(false), 200); });
@@ -1652,9 +1658,13 @@ document.addEventListener('click', (e) => {
   if (view && view.fxOpen && !e.target.closest('#fxtip')) view.closeFxTip();
 });
 const muteBtn = $('#btn-mute');
-const paintMute = () => muteBtn.classList.toggle('off', audio.isMuted());
+const paintMute = () => { muteBtn.classList.toggle('off', audio.isMuted()); if ($('#btn-home-mute')) $('#btn-home-mute').classList.toggle('off', audio.isMuted()); };
 paintMute();
 muteBtn.onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); paintMute(); };
+const homeMute = $('#btn-home-mute');
+const paintHomeMute = () => homeMute.classList.toggle('off', audio.isMuted());
+paintHomeMute();
+homeMute.onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); paintHomeMute(); paintMute(); };
 
 const params = new URLSearchParams(location.search);
 if (params.get('sala')) {

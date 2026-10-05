@@ -26,15 +26,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Portada: escena pintada de fondo, logo arriba y JUGAR abajo */
 #screen-menu { background: #07080e; overflow: hidden; align-items: center; }
 #title-art { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); image-rendering: pixelated; }
-#screen-menu::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(5,6,12,.86) 0%, rgba(5,6,12,.55) 18%, rgba(5,6,12,0) 32%, rgba(5,6,12,0) 62%, rgba(5,6,12,.8) 100%); }
-.home { position: relative; z-index: 1; flex: 1; width: min(360px, calc(100% - 32px)); display: flex; flex-direction: column; text-align: center; padding: max(28px, 4vh) 0 max(18px, 3vh); }
+#screen-menu::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(5,10,6,0) 60%, rgba(5,10,6,.55) 100%); }
+.home { position: relative; z-index: 1; flex: 1; width: min(360px, calc(100% - 32px)); display: flex; flex-direction: column; text-align: center; padding: max(24px, 3vh) 0 max(18px, 3vh); }
+.home-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.home .logo { margin: 0; align-items: center; }
+#logo-art { image-rendering: pixelated; display: block; filter: drop-shadow(0 6px 0 rgba(0,0,0,.35)); }
+.home .logo.drawn .name { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.home .logo:not(.drawn) #logo-art { display: none; }
 .home .logo .name { font-size: clamp(24px, 8.5vw, 36px); }
-.home .tag { margin: 6px 0 0; font-size: 20px; color: #e8ecdf; text-shadow: 2px 2px 0 #000; }
-.home-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.home .tag { margin: 0; font-size: 21px; line-height: 1.15; color: #f1f5ea; text-shadow: 2px 2px 0 rgba(0,0,0,.6); max-width: 300px; }
+.home-actions { display: flex; flex-direction: column; gap: 10px; }
 .btn.play { font-size: 16px; padding: 18px 12px; letter-spacing: 3px; }
-.home-actions .btn.ghost { background: rgba(5,8,14,.72); font-size: 10px; }
-.home-foot { display: flex; justify-content: center; gap: 28px; margin-top: 4px; }
-.home-foot .link { font-size: 20px; text-shadow: 2px 2px 0 #000; }
+.home-actions .btn.ghost { background: rgba(6,16,8,.6); font-size: 10px; }
+.home-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 12px; border-top: 2px solid rgba(0,0,0,.3); }
+.home-foot .link { font-size: 21px; text-decoration: none; text-shadow: 2px 2px 0 rgba(0,0,0,.5); padding: 4px 2px; }
+.home-foot .sound.off { opacity: .45; text-decoration: line-through; }
 /* Elegir modo */
 #screen-play { background: var(--bg); }
 .play-list { flex: 1; overflow-y: auto; width: min(420px, 100%); margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
