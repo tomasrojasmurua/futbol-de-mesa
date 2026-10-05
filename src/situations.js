@@ -1,6 +1,6 @@
 // Situaciones de juego: dos mazos de cartas que le pasan cosas al partido.
 //
-// - Mazo de PARTIDO (49 cartas, 17 situaciones): se roba en cuatro momentos
+// - Mazo de PARTIDO (60 cartas, 21 situaciones): se roba en cuatro momentos
 //   fijos (al 40% y al 80% de cada tiempo, en una salida). A quién le toca lo
 //   decide la jugada: el que tiene la pelota, el que defiende, el que va
 //   perdiendo o ganando, o los dos.
@@ -8,7 +8,8 @@
 //   que la cometió (el tiro libre, al que la recibió).
 //
 // Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los dados.
-// Cada carta dura una tirada del dado que nombra; la Lluvia, todo el partido.
+// Cada carta dura una tirada del dado que nombra (y vence al terminar el tiempo);
+// la Lluvia, todo el partido, también en la tanda de penales.
 // Las copias de cada carta definen qué tan seguido sale.
 
 // Los cuatro dados del partido.
@@ -88,7 +89,7 @@ export const CARDS = {
     text: 'Si adivina el próximo ataque rival en el último tercio, la quita limpia: 4 recupera y 2 contra, sin falta ni córner.',
     fx: [fx('def', U, F('steal:4 counter:2'))] },
   despeje: { deck: 'partido', copies: 3, who: 'def', title: 'Despeje en la línea',
-    text: 'En el próximo remate rival que supere al arquero, una cara de gol pasa a «despeje»: un defensor la saca en la línea.',
+    text: 'En el próximo remate rival que supere al arquero (no en penales), una cara de gol pasa a «despeje»: un defensor la saca en la línea.',
     fx: [fx('def', 'shotBeat', F('post wide goal:3 clear'))] },
   presion: { deck: 'partido', copies: 3, who: 'def', title: 'Presión alta',
     text: 'Si adivina la próxima salida rival, lo apura sin falta: 4 recupera y 2 contra.',
@@ -157,6 +158,8 @@ export function rollFaces(s, die, A, D) {
   const used = [];
   for (const e of s.sit.fx) {
     if (!e.dice.includes(die) || e.side !== (e.role === 'att' ? A : D)) continue;
+    // un defensor no saca un penal en la línea: el Despeje queda para el próximo remate
+    if (e.card === 'despeje' && s.situation === 'penalty') continue;
     applyFx(f, die, e);
     used.push(e);
   }
@@ -190,7 +193,10 @@ function applyFx(f, die, e) {
 // Falta: se roba del mazo de disciplina. D cometió la falta, A la recibe.
 export function foul(s, ev, A, D, rng) {
   if (!s.sit) return;
-  const id = draw(s, 'disciplina', rng);
+  let id = draw(s, 'disciplina', rng);
+  // el tiro libre directo solo sale de faltas en el último tercio; en la salida,
+  // lejos del arco, el árbitro solo advierte y sigue el juego
+  if (id === 'freekick' && s.situation !== 'attack') id = 'warning';
   const player = FOULERS[Math.floor(rng() * FOULERS.length)];
   const card = { deck: 'disciplina', id, side: D, player };
   if (id === 'yellow') {
@@ -210,10 +216,17 @@ export function foul(s, ev, A, D, rng) {
   logCard(s, card);
 }
 
-// Entretiempo: se seca la cancha (se van los efectos «hasta el entretiempo»).
+// Las cartas de una jugada vencen al terminar cada tiempo: solo siguen las que
+// duran todo el partido (la Lluvia y la roja).
+export function expireOneUse(s) {
+  if (!s.sit) return;
+  s.sit.fx = s.sit.fx.filter((e) => e.uses === null);
+}
+
+// Entretiempo: vencen las cartas que no se usaron en el primer tiempo.
 export function halfTime(s) {
   if (!s.sit) return;
-  s.sit.fx = s.sit.fx.filter((e) => !e.half);
+  expireOneUse(s);
   if (s.sit.drawn < 2) s.sit.drawn = 2;
 }
 

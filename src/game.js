@@ -1,7 +1,7 @@
 // Lógica pura del partido. El anfitrión (host) es la autoridad: resuelve cada
 // jugada con las dos elecciones y una tirada de dado, y envía el evento a ambos.
 
-import { newSituations, rollFaces, foul, afterPlay, halfTime, BASE_DICE } from './situations.js';
+import { newSituations, rollFaces, foul, afterPlay, halfTime, expireOneUse, BASE_DICE } from './situations.js';
 
 export const HALF_MINUTES = 45;
 export const TURN_SECONDS = 12;
@@ -285,6 +285,8 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       if (s.score[0] === s.score[1] && s.shootout !== false) {
         // Empate: tanda de penales. Patea primero el que no sacó al inicio.
         ev.shootoutStart = true;
+        // a la tanda solo llega lo que dura todo el partido (la Lluvia)
+        expireOneUse(s);
         s.situation = 'shootout'; s.shotKind = 'penal';
         s.poss = 1 - s.kickoff;
         s.pens = { first: s.poss, goals: [0, 0], kicks: [0, 0], log: [[], []] };
@@ -308,8 +310,10 @@ function kickShootout(s, ev, rng) {
   ev.round = p.kicks[A] + 1;
   if (ev.match) { ev.outcome = 'save'; if (s.players) s.players[D][0].ps++; }
   else {
+    // el mismo dado del remate, con lo que dura todo el partido (si llueve, una cara de gol menos)
+    ev.die = 'shotBeat'; ev.faces = rollFaces(s, 'shotBeat', A, D);
     const r = (ev.dice = d6(rng));
-    ev.outcome = r === 1 ? 'post' : r <= MISS_ON ? 'wide' : 'goal';
+    ev.outcome = ev.faces[r - 1];
   }
   const scored = ev.outcome === 'goal';
   p.kicks[A]++;
