@@ -64,8 +64,8 @@ export const CARDS = {
     text: 'En su próximo ataque que le adivinen, dos caras «recupera» pasan a favor de su equipo.',
     fx: [fx('att', S, F('foul steal:2 advance:2 counter')), fx('att', U, F('corner foul steal shoot:2 counter'))] },
   polemica: { deck: 'partido', copies: 3, who: 'poss', title: 'Decisión polémica',
-    text: 'En su próximo ataque en el último tercio: si se lo adivinan, el dado queda córner, 2 recupera, 2 penal y contra; si gana la gambeta, 3 de 6 son penal.',
-    fx: [fx('att', U, F('corner steal:2 penalty:2 counter')), fx('att', 'dribbleWin', F('shoot:3 penalty:3'))] },
+    text: 'En su próximo ataque en el último tercio: si se lo adivinan, el dado queda córner, 2 recupera, 2 penal y contra; si gana la gambeta, 3 de 6 son penal (y la carta sigue).',
+    fx: [fx('att', U, F('corner steal:2 penalty:2 counter')), { ...fx('att', 'dribbleWin', F('shoot:3 penalty:3')), free: true }] },
   lluvia: { deck: 'partido', copies: 2, who: 'both', title: 'Lluvia',
     text: 'Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera».',
     fx: [fx('att', 'shotBeat', F('post wide:2 goal:3'), Infinity)] },
@@ -165,7 +165,8 @@ export function rollFaces(s, die, A, D) {
     applyFx(f, die, e);
     used.push(e);
   }
-  for (const e of used) if (e.uses !== null) e.uses--;
+  // free: el efecto se aplica sin gastar la carta (se va junto con el otro dado)
+  for (const e of used) if (e.uses !== null && !e.free) e.uses--;
   // Una carta de dos dados (salida y último tercio) vale una sola vez: cuando se
   // gasta uno, se va también el otro.
   const spent = new Set(used.filter((e) => e.uses === 0 && e.inst != null).map((e) => e.inst));
