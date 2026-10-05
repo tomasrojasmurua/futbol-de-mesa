@@ -24,6 +24,10 @@ const SIDE_POSES = {
   dj: () => ({ lean: 0.0, twist: 0.45, headTilt: -0.1, legs: [{ a: 0.1, k: 1.2, p: 0.6 }, { a: 0.3, k: 1.4, p: 0.6 }], arms: [{ a: 2.4, e: 0.3 }, { a: 2.0, e: 0.4 }] }),
   // la barrera: parados con las manos adelante, y el salto
   wall: () => ({ lean: 0.02, twist: 0.45, legs: [{ a: 0.0, k: 0.05, p: 0 }, { a: 0.05, k: 0.05, p: 0 }], arms: [{ a: 0.2, e: 1.5 }, { a: 0.15, e: 1.6 }] }),
+  // el arquero achica: se agacha con los brazos abiertos y después se abre en cruz,
+  // una pierna estirada hacia la pelota y la otra rodilla abajo, las manos arriba
+  gkCharge: () => ({ lean: 0.35, twist: 0.45, headTilt: -0.15, legs: [{ a: 0.5, k: 0.9, p: 0.3 }, { a: -0.1, k: 0.9, p: 0.3 }], arms: [{ a: 1.2, e: 0.2 }, { a: 0.9, e: 0.2 }] }),
+  gkSpread: () => ({ lean: 0.3, twist: 0.45, headTilt: -0.1, legs: [{ a: 1.1, k: 0.2, p: 0.3 }, { a: -0.2, k: 1.6, p: 0.3 }], arms: [{ a: 2.3, e: 0.1 }, { a: 1.3, e: 0.2 }] }),
   wallJ: () => ({ lean: 0.02, twist: 0.45, legs: [{ a: 0.25, k: 0.9, p: 0.5 }, { a: 0.3, k: 0.95, p: 0.5 }], arms: [{ a: 0.2, e: 1.5 }, { a: 0.15, e: 1.6 }] }),
 };
 const SPRITES = new Map(); // cuadros ya pintados, se reusan entre escenas
@@ -205,12 +209,15 @@ export class Cutscene {
     const jobs = [];
     const add = (kit, view, sc, key, pose) => jobs.push([kit, view, sc, key, pose]);
     this.dKits = DEF_LOOKS.map((l, i) => p4Kit(o.kitD, false, l, [4, 6, 3, 5][i]));
+    // los que miran a la izquierda se dibujan espejados: el número va invertido
+    const mir = (k) => ({ ...k, numMirror: true, id: k.id + '|m' });
+    this.wKits = this.dKits.map(mir); this.gkKitM = mir(gk);
     const dk = this.dKits[0];
     const runs = (kit) => { for (let i = 0; i < 16; i++) add(kit, 'side', SPR, 'run' + i, () => P.run(i / 16, 0.95)); };
     if (o.kind === 'remate') { runs(dk); add(dk, 'side', SPR, 'slide', () => P.slide()); }
-    if (o.kind === 'mano') { runs(dk); runs(gk); add(gk, 'side', SPR, 'slide', () => P.slide()); }
+    if (o.kind === 'mano') { const gm = this.gkKitM; runs(dk); runs(gm); add(gm, 'side', SPR, 'gkCharge', SIDE_POSES.gkCharge); add(gm, 'side', SPR, 'gkSpread', SIDE_POSES.gkSpread); }
     if (o.kind === 'cabezazo') { runs(sh); runs(dk); for (const k of ['hj0', 'hj1', 'dj']) add(k === 'dj' ? dk : sh, 'side', SPR, k, SIDE_POSES[k]); add(sh, 'side', SPR, 'idle', () => P.idle()); }
-    if (o.kind === 'libre') for (const k of this.dKits) { add(k, 'side', SPR, 'wall', SIDE_POSES.wall); add(k, 'side', SPR, 'wallJ', SIDE_POSES.wallJ); add(k, 'front', 22, 'idleF', () => P.idleFront()); }
+    if (o.kind === 'libre') for (const k of this.wKits) { add(k, 'side', SPR, 'wall', SIDE_POSES.wall); add(k, 'side', SPR, 'wallJ', SIDE_POSES.wallJ); add(k, 'front', 22, 'idleF', () => P.idleFront()); }
     if (!header) {
       add(sh, 'side', SPR, 'idle', () => P.idle());
       for (const i of [0, 5, 12]) add(sh, 'side', SPR, 'kick' + i, () => P.kick(i / 24));
@@ -402,17 +409,17 @@ export class Cutscene {
 
   // Mano a mano: se va solo, el defensa queda atrás y el arquero sale a achicar.
   drawMano(s) {
-    const T = this.T, GY = this.GY, dk = this.dKits[0], gk = this.gkKit;
+    const T = this.T, GY = this.GY, dk = this.dKits[0], gk = this.gkKitM;
     const KICK0 = T.kick - 0.27, RUN0 = Math.max(0.15, KICK0 - 1.2);
     const kx = (t) => {
-      // el arquero sale corriendo y se tira a los pies cuando le pegan
-      if (t < KICK0 - 0.05) return lerp(330, 96, easeOut(clamp((t - RUN0) / (KICK0 - 0.05 - RUN0), 0, 1)));
-      return 96 - easeOut(clamp((t - KICK0 + 0.05) / 0.5, 0, 1)) * 52;
+      // el arquero sale corriendo, frena agachado y se abre en cruz cuando le pegan
+      if (t < KICK0 - 0.2) return lerp(330, 110, easeOut(clamp((t - RUN0) / (KICK0 - 0.2 - RUN0), 0, 1)));
+      return 110 - easeOut(clamp((t - KICK0 + 0.2) / 0.5, 0, 1)) * 40;
     };
     this.sideShot(s, {
       runLen: 300, dribble: true,
       // la pica por arriba del arquero
-      path: (k) => { const x = 4 + k * 560; return [x, GY - 6 - x * 1.3 + x * x * 0.0028]; },
+      path: (k) => { const x = 4 + k * 560; return [x, GY - 6 - x * 1.6 + x * x * 0.0034]; },
       cam: (base, hip) => Math.min(hip + 45, Math.max(base, (hip + kx(s)) / 2)),
       behind: (cam) => {
         // el defensa corre detrás y no llega
@@ -421,8 +428,9 @@ export class Cutscene {
       },
       front: (cam) => {
         const x = kx(s);
-        const sp = s < KICK0 - 0.05 ? this.runSpr('gkr', gk, -x) : this.spr('gkr', gk, 'side', SPR, 'slide', () => P4.POSES.slide());
-        this.actor(sp, x, cam, 0, true, s < KICK0 - 0.05 ? 22 : 30);
+        const ph = s < KICK0 - 0.2 ? 'run' : s < KICK0 - 0.06 ? 'gkCharge' : 'gkSpread';
+        const sp = ph === 'run' ? this.runSpr('gkr', gk, -x) : this.spr('gkr', gk, 'side', SPR, ph, SIDE_POSES[ph]);
+        this.actor(sp, x, cam, 0, true, ph === 'gkSpread' ? 30 : 22);
       },
     });
   }
@@ -437,13 +445,13 @@ export class Cutscene {
       // pasa rozando las cabezas de la barrera
       path: (k) => { const x = 4 + k * 620; return [x, GY - 6 - x * 0.9 + x * x * 0.0011]; },
       // antes del golpe se ven el pateador y la pelota; después sigue a la pelota hasta la barrera
-      cam: (base, hip) => Math.max(base, hip / 2 + 8) + (s > T.kick ? Math.min(150, (s - T.kick) * 420) : 0),
+      cam: (base, hip) => Math.max(base, hip / 2 + 8) + (s > T.kick ? Math.min(165, (s - T.kick) * 620) : 0),
       front: (cam) => {
         // de atrás hacia adelante, cada uno un poco corrido
         for (let i = 3; i >= 0; i--) {
-          const kit = this.dKits[i], h = jump(i);
+          const kit = this.wKits[i], h = jump(i);
           const sp = h > 1 ? this.spr('w' + i, kit, 'side', SPR, 'wallJ', SIDE_POSES.wallJ) : this.spr('w' + i, kit, 'side', SPR, 'wall', SIDE_POSES.wall);
-          this.actor(sp, WX + i * 4, cam, h, true, 14, i * 3);
+          this.actor(sp, WX + i * 9, cam, h, true, 14, i * 4);
         }
       },
     });

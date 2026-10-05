@@ -604,9 +604,10 @@ const P4 = (() => {
       const L = pose.view === 'side' ? pose.legs[1] : pose.legs[0];
       const [x0, y0] = to(lerp2(L.hip, L.knee, 0.22).map((v, i) => v + (i ? 0 : (pose.view === 'side' ? 6 : -10))));
       const col = kit.numColor || (lum(kit.shorts) > 140 ? '#1c1c2a' : '#f2efe6');
-      const s = String(kit.num);
+      // numMirror: el sprite se va a dibujar espejado, así que el número va al revés para que se lea bien
+      const m = kit.numMirror, s = m ? [...String(kit.num)].reverse().join('') : String(kit.num);
       let x = x0 - Math.floor((s.length * 4 - 1) / 2);
-      for (const ch of s) { const fg = FONT[ch]; if (fg) for (let i = 0; i < 15; i++) if (fg[i] === '1') set(x + (i % 3), y0 + Math.floor(i / 3), col); x += 4; }
+      for (const ch of s) { const fg = FONT[ch]; if (fg) for (let i = 0; i < 15; i++) if (fg[i] === '1') set(x + (m ? 2 - (i % 3) : i % 3), y0 + Math.floor(i / 3), col); x += 4; }
     }
     // tapones bajo la suela
     if (scale <= 9) for (const L of pose.legs) {
