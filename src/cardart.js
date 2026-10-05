@@ -136,7 +136,7 @@ const CARDART = (() => {
     lesion(g) {
       stadium(g, { flashes: 2, seed: 21 });
       line(g, 41, 0.6);
-      const down = S({ lean: 0, twist: 0.5, rot: -1.62, legs: [{ a: 1.25, k: 2.1, p: 0.5 }, { a: 0.15, k: 0.2, p: 0.6 }], arms: [{ a: 0.75, e: 0.35 }, { a: 0.9, e: 0.25 }], headTilt: -0.5 }, AWAY2, 'side');
+      const down = S({ lean: 0.25, twist: 0.5, rot: -1.62, legs: [{ a: 1.35, k: 1.55, p: 0.3 }, { a: 0.12, k: 0.25, p: 0.6 }], arms: [{ a: 1.05, e: 0.25 }, { a: 0.95, e: 0.35 }], headTilt: -0.3 }, AWAY2, 'side');
       shadow(g, 40, 56, 20); put(g, down, 40, 57);
       const med = S({ lean: 0.35, twist: 0.45, lift: 0, legs: [{ a: 1.25, k: 2.0, p: 0.3 }, { a: 0.05, k: 1.65, p: 1.2 }], arms: [{ a: 1.0, e: 0.6 }, { a: 1.2, e: 0.5 }] }, MEDIC, 'side');
       shadow(g, 76, 57, 11); const m = put(g, med, 76, 57, true);

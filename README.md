@@ -6,7 +6,7 @@ Juego de fútbol de cartas para celular, para 2 jugadores en una sala (o contra 
 
 1. **Sorteo**: el que entra a la sala elige cara o sello. El ganador saca.
 2. **Salida**: quien tiene la pelota elige izquierda, centro o derecha; el rival elige qué zona cierra. Si adivina, recupera la pelota.
-3. **Último tercio**: centro al área, pase filtrado o gambeta, contra cerrar bandas, achicar la línea o doble marca.
+3. **Último tercio**: centro al área, pase filtrado o gambeta, contra cerrar bandas, achicar espacios o doble marca.
 4. **Remate**: el atacante elige palo izquierdo, medio o palo derecho; el arquero rival elige hacia dónde se tira. Cada remate se ve en una escena animada a pantalla completa, desde atrás del tirador, con su nombre y el del arquero.
 
 Si el partido termina empatado se define por penales (cinco por lado y después muerte súbita). Al final aparecen los goleadores con minuto y asistencia, la figura del partido y las estadísticas.

@@ -31,7 +31,7 @@ export const OPTIONS = {
     ],
     def: [
       { id: 'cross', label: 'Cerrar bandas', icon: '⇹', hint: 'para el centro' },
-      { id: 'through', label: 'Achicar línea', icon: '═', hint: 'para el pase filtrado' },
+      { id: 'through', label: 'Achicar espacios', icon: '═', hint: 'para el pase filtrado' },
       { id: 'dribble', label: 'Doble marca', icon: '⛨', hint: 'para la gambeta' },
     ],
     attTitle: 'Último tercio: ¿cómo atacas?',

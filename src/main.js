@@ -119,7 +119,7 @@ const HELP = `
 <h3>1. La salida</h3>
 <p>Quien tiene la pelota elige por dónde sale: izquierda, centro o derecha. El rival elige qué zona cierra. Si el rival adivina, recupera la pelota; si no, el ataque llega al último tercio.</p>
 <h3>2. El último tercio</h3>
-<p>El atacante elige <b>centro al área</b>, <b>pase filtrado</b> o <b>gambeta</b>. El defensor elige <b>cerrar bandas</b> (para el centro), <b>achicar la línea</b> (para el pase filtrado) o <b>doble marca</b> (para la gambeta). Si el defensor acierta, corta el ataque.</p>
+<p>El atacante elige <b>centro al área</b>, <b>pase filtrado</b> o <b>gambeta</b>. El defensor elige <b>cerrar bandas</b> (para el centro), <b>achicar espacios</b> (para el pase filtrado) o <b>doble marca</b> (para la gambeta). Si el defensor acierta, corta el ataque.</p>
 <h3>3. El remate</h3>
 <p>El atacante patea a un palo o al medio; el arquero elige hacia dónde se tira. Si adivina, ataja. Si no... ¡casi siempre es gol!</p>
 <h3>El dado</h3>
@@ -204,8 +204,8 @@ const COACH = {
   toss: ['El sorteo', 'Elige cara o sello. Quien gana el sorteo saca primero.'],
   'build-att': ['La salida', 'Tienes la pelota. Elige por dónde sales: izquierda, centro o derecha. Si el rival cierra esa zona, casi siempre te la quita. Si no, llegas al último tercio.'],
   'build-def': ['Defender la salida', 'El rival sale jugando. Elige qué zona cierras. Si adivinas por dónde sale, casi siempre recuperas la pelota.'],
-  'attack-att': ['El último tercio', 'Elige centro al área, pase filtrado o gambeta. Cada uno tiene su defensa: cerrar bandas frena el centro, achicar la línea frena el pase y la doble marca frena la gambeta. Si no te adivinan, vas al remate.'],
-  'attack-def': ['Defender el área', 'Elige tu defensa: cerrar bandas frena el centro, achicar la línea frena el pase filtrado y la doble marca frena la gambeta.'],
+  'attack-att': ['El último tercio', 'Elige centro al área, pase filtrado o gambeta. Cada uno tiene su defensa: cerrar bandas frena el centro, achicar espacios frena el pase y la doble marca frena la gambeta. Si no te adivinan, vas al remate.'],
+  'attack-def': ['Defender el área', 'Elige tu defensa: cerrar bandas frena el centro, achicar espacios frena el pase filtrado y la doble marca frena la gambeta.'],
   'shot-att': ['El remate', 'Patea a la izquierda, al medio o a la derecha, mirando desde el pateador. Si el arquero no adivina, casi siempre es gol.'],
   'shot-def': ['Tu arquero', 'Elige hacia dónde se tira tu arquero, mirando desde el que patea. Si adivinas, atajas.'],
   'penalty-att': ['¡Penal!', 'Igual que un remate: elige el lado. Si el arquero no adivina, casi siempre es gol.'],

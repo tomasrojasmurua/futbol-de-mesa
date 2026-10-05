@@ -658,7 +658,13 @@ export class Cutscene {
         return [end[0] + out * 26 * a, end[1] + 70 * a - Math.sin(a * Math.PI) * 26, lerp(1.6, 3.2, a), false];
       }
       case 'wide': {
-        return [end[0] + (end[0] - 90) * 0.35 * a, end[1] - 22 * a, lerp(1.4, 0.8, a), true];
+        // pasa por arriba del travesaño y cae detrás del arco: se ve a través de la red,
+        // pica en el pasto de atrás y rueda
+        const land = this.gy - 7, t = (s - T.hit) / 0.75;
+        const x = end[0] + (end[0] - 90) * 0.05 * Math.min(t, 1.6);
+        if (t < 1) return [x, end[1] - 7 * Math.sin(t * Math.PI * 0.6) + (land - end[1]) * t * t, lerp(2.2, 1.9, t), true];
+        const k = t - 1;
+        return [x, land - Math.abs(Math.sin(k * Math.PI * 2.2)) * 4 * Math.exp(-k * 3), 1.9, true];
       }
       case 'save_corner': {
         const out = end[0] < 90 ? -1 : 1;
@@ -678,9 +684,8 @@ export class Cutscene {
     if (o.match) return aim;
     if (o.outcome === 'goal' || o.outcome === 'clear') return [aim[0] + (o.att === 'L' ? -4 : o.att === 'R' ? 4 : 0), aim[1] - 2];
     if (o.outcome === 'post') return o.att === 'C' ? [96, this.gTop] : [o.att === 'L' ? this.gL + 1 : this.gR - 1, this.gTop + 14];
-    // afuera
-    if (o.att === 'C') return [100, this.gTop - 12];
-    return [o.att === 'L' ? this.gL - 12 : this.gR + 12, this.gTop + 8];
+    // afuera: por arriba del travesaño, hacia el lado al que iba
+    return [lerp(aim[0], 90, 0.3) + (o.att === 'C' ? 6 : 0), this.gTop - 8];
   }
 
   // Arquero: estado en s → { x, y, pose, dir, lift }
@@ -758,7 +763,15 @@ export class Cutscene {
     const b = this.ball(s);
     const goalSide = o.outcome === 'goal' && s > T.hit;
     this.drawNet(goalSide ? b : null, s);
-    if (b && b[3]) this.drawBall(b, s);
+    if (b && b[3]) {
+      // tiro afuera: la sombra y el piquecito en el pasto de atrás del arco
+      if (o.outcome === 'wide' && s > T.hit) {
+        const k = (s - T.hit) / 0.75;
+        g.fillStyle = `rgba(0,0,0,${0.12 + Math.min(1, k) * 0.18})`; g.fillRect(Math.round(b[0] - 1), this.gy - 6, 3, 1);
+        if (k > 1 && k < 1.35) { g.fillStyle = 'rgba(200,240,190,0.8)'; for (const dx of [-3, -2, 2, 3]) g.fillRect(Math.round(b[0] + dx), this.gy - 7 - (Math.abs(dx) === 2 ? 1 : 0), 1, 1); }
+      }
+      this.drawBall(b, s);
+    }
     // en el mano a mano que no se ataja el arquero quedó atrás en la jugada: arco vacío
     if (!this.manoOpen) this.drawKeeper(this.keeper(s));
     this.drawPosts();

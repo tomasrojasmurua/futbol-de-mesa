@@ -397,8 +397,13 @@ export class Renderer {
       else {
         const sp = Math.hypot(p.vx, p.vy);
         const dx = sp > 0.3 ? p.vx / sp : p.fx, dy = sp > 0.3 ? p.vy / sp : p.facing;
-        b.x = lerp(b.x, p.x + dx * 0.75, Math.min(1, dt * 18));
-        b.y = lerp(b.y, p.y + dy * 0.75, Math.min(1, dt * 18));
+        // en los pies: un poco adelante y al costado del pie que la lleva, con toquecitos
+        // al correr; hacia arriba/abajo de la pantalla el adelanto se acorta para que
+        // la pelota quede a la altura de los botines y no de las rodillas
+        b.touch = (b.touch || 0) + sp * dt * 1.4;
+        const lead = 0.8 + (sp > 0.3 ? Math.abs(Math.sin(b.touch)) * 0.35 : 0);
+        b.x = lerp(b.x, p.x + dx * lead - dy * 0.3, Math.min(1, dt * 18));
+        b.y = lerp(b.y, p.y + dy * lead * 0.45 + dx * 0.3, Math.min(1, dt * 18));
         b.z = Math.max(0, b.z - dt * 8);
         b.spin += sp * dt * 3;
       }
@@ -664,6 +669,8 @@ export class Renderer {
   async dribble(side, uv, dur = 1, zig = 0) {
     const p = this.ball.owner;
     if (!p) return;
+    // si la había ganado de cabeza, la baja con el pecho y sigue con los pies
+    this.ball.head = false;
     this.moveTo(p, this.W(side, uv[0], uv[1]), dur, { zig });
     await this.wait(dur);
   }
@@ -1783,7 +1790,9 @@ export class Renderer {
       ents.push({ y: this.px(this.ref.x, this.ref.y)[1], d: () => this.drawRef(g) });
       const b = this.ball;
       const [bx, by] = this.px(b.x, b.y);
-      ents.push({ y: by + 0.1, d: () => this.drawBall(g, bx, by, b.z) });
+      // la pelota que se conduce se dibuja delante de su dueño, a la altura de los pies
+      const oy = b.owner && !b.flight && !b.head ? this.px(b.owner.x, b.owner.y)[1] + 0.2 : -Infinity;
+      ents.push({ y: Math.max(by + 0.1, oy), d: () => this.drawBall(g, bx, by, b.z) });
       ents.sort((a, b2) => a.y - b2.y).forEach((e) => e.d());
       // estela de la pelota
       for (const t of this.trail) {
