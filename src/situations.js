@@ -104,7 +104,7 @@ export const CARDS = {
     text: 'Con uno menos todo el partido: cuando defiende y adivina, una cara «recupera» pasa a falta en la salida o a córner en el último tercio.' },
 };
 
-const RED_FX = [fx('def', S, F('foul:2 steal:3 counter'), Infinity), fx('def', U, F('corner:2 foul steal:2 counter'), Infinity)];
+export const RED_FX = [fx('def', S, F('foul:2 steal:3 counter'), Infinity), fx('def', U, F('corner:2 foul steal:2 counter'), Infinity)];
 
 const DECKS = {};
 for (const [id, c] of Object.entries(CARDS)) if (c.copies) (DECKS[c.deck] ||= []).push(...Array(c.copies).fill(id));

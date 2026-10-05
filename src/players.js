@@ -278,13 +278,22 @@ const P4 = (() => {
       // ruedo del short
       const hemA = lerp2(top, bot, 0.93);
       shade(g, () => smoothPath(g, limbPoly(hemA, bot, 132, 128)), hemA, bot, 130, d(Sh), { lit: 0.2, deep: true });
+      // pantalón largo (DT, cuarto árbitro): cubre la pierna hasta el tobillo
+      if (kit.trousers) {
+        shade(g, () => smoothPath(g, limbPoly(top, L.knee, 138, 104)), top, L.knee, 124, d(Sh), { deep: true, lit: 0.3 });
+        shade(g, () => smoothPath(g, limbPoly(L.knee, lerp2(L.knee, L.ankle, 1.04), 100, 84)), L.knee, L.ankle, 92, d(Sh), { deep: true, lit: 0.25 });
+        stroke(g, [lerp2(top, L.knee, 0.35), lerp2(top, L.knee, 0.8)], d(Sh)[1], 8);
+        stroke(g, [lerp2(L.knee, L.ankle, 0.1), lerp2(L.knee, L.ankle, 0.9)], d(Sh)[3], 6); // raya del planchado
+      }
       // sombra que el short proyecta sobre el muslo, y la de la rodilla sobre la canilla
-      g.save(); smoothPath(g, thigh); g.clip();
-      g.fillStyle = 'rgba(30,8,40,0.42)'; smoothPath(g, limbPoly(bot, lerp2(L.hip, L.knee, 0.64), 150, 140)); g.fill();
-      g.restore();
-      g.save(); smoothPath(g, shin); g.clip();
-      g.fillStyle = 'rgba(30,8,40,0.3)'; smoothPath(g, limbPoly(L.knee, lerp2(L.knee, L.ankle, 0.12), 100, 100)); g.fill();
-      g.restore();
+      if (!kit.trousers) {
+        g.save(); smoothPath(g, thigh); g.clip();
+        g.fillStyle = 'rgba(30,8,40,0.42)'; smoothPath(g, limbPoly(bot, lerp2(L.hip, L.knee, 0.64), 150, 140)); g.fill();
+        g.restore();
+        g.save(); smoothPath(g, shin); g.clip();
+        g.fillStyle = 'rgba(30,8,40,0.3)'; smoothPath(g, limbPoly(L.knee, lerp2(L.knee, L.ankle, 0.12), 100, 100)); g.fill();
+        g.restore();
+      }
       // botín con suela, puntera y tapones
       const heel = add(L.ankle, [side ? -26 : L.side * -10, 20]);
       const toe = L.toe;
@@ -631,7 +640,7 @@ const P4 = (() => {
     const box = [0, 0, W, HH];
     finish(cv, info, pose, kit, scale, box);
     const mid = lerp2(pose.N, pose.H0, 0.5);
-    const out = { cv, ox: pose.H0[0] / scale, oy: GROUND / scale, hip: [pose.H0[0] / scale, pose.H0[1] / scale], c: [mid[0] / scale, mid[1] / scale], toe: pose.legs.map((l) => [l.toe[0] / scale, l.toe[1] / scale]), ankle: pose.legs.map((l) => [l.ankle[0] / scale, l.ankle[1] / scale]) };
+    const out = { cv, ox: pose.H0[0] / scale, oy: GROUND / scale, hip: [pose.H0[0] / scale, pose.H0[1] / scale], c: [mid[0] / scale, mid[1] / scale], toe: pose.legs.map((l) => [l.toe[0] / scale, l.toe[1] / scale]), ankle: pose.legs.map((l) => [l.ankle[0] / scale, l.ankle[1] / scale]), hand: pose.arms.map((a) => [a.ha[0] / scale, a.ha[1] / scale]) };
     if (k) cache.set(k, out);
     return out;
   }

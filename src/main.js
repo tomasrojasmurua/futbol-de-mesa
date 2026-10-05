@@ -12,6 +12,7 @@ import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
 import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
+import { fxTipHtml, cardArt } from './cardinfo.js';
 
 const $ = (s) => document.querySelector(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -415,6 +416,9 @@ class MatchView {
     const el = $('#sitcard');
     el.className = `sitcard ${card.deck} k-${card.id}${this.spectator || both ? '' : good ? ' good' : ' bad'}`;
     el.innerHTML = `<div class="sc-box"><small>${card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA'}</small><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em><p>${info.text}</p><u class="sc-tap">${this.spectator ? '' : 'Toca para seguir'}</u></div>`;
+    // La ilustración con las camisetas del partido (si no se pudo pintar, queda el símbolo).
+    const art = renderer && renderer.kits ? cardArt(card.id, renderer.kits, card.side, CARDS.chilena && CARDS.chilena.who === 'def') : null;
+    if (art) { const box = el.querySelector('.sc-art'); box.textContent = ''; box.classList.add('pic'); box.appendChild(art); }
     audio.sound(card.id === 'red' || card.id === 'yellow' ? 'whistle' : 'card');
     if (card.id === 'red' || card.id === 'yellow') audio.sound('boo');
     requestAnimationFrame(() => el.classList.add('show'));
@@ -465,11 +469,11 @@ class MatchView {
     const team = teamById(this.state.teams[side]);
     const mine = this.spectator ? '' : side === this.mySide ? ' (tú)' : ' (rival)';
     const tip = $('#fxtip');
-    tip.innerHTML = `<b>${id === 'red' ? 'Con uno menos' : info.title}</b><em>${team.name}${mine}</em><p>${info.text}</p>`;
+    tip.innerHTML = fxTipHtml(this.state, info, id, side, `${team.name}${mine}`);
     const wrap = document.querySelector('.pitch-wrap').getBoundingClientRect();
     const r = chip.getBoundingClientRect();
     tip.style.top = `${r.bottom - wrap.top + 6}px`;
-    tip.style.left = `${Math.max(6, Math.min(r.left - wrap.left, wrap.width - 226))}px`;
+    tip.style.left = `${Math.max(6, Math.min(r.left - wrap.left, wrap.width - 254))}px`;
     tip.classList.add('show');
     document.querySelectorAll('.fx-chip.open').forEach((c) => c.classList.remove('open'));
     chip.classList.add('open');
