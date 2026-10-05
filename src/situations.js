@@ -164,7 +164,10 @@ export function rollFaces(s, die, A, D) {
     used.push(e);
   }
   for (const e of used) if (e.uses !== null) e.uses--;
-  s.sit.fx = s.sit.fx.filter((e) => e.uses === null || e.uses > 0);
+  // Una carta de dos dados (salida y último tercio) vale una sola vez: cuando se
+  // gasta uno, se va también el otro.
+  const spent = new Set(used.filter((e) => e.uses === 0 && e.inst != null).map((e) => e.inst));
+  s.sit.fx = s.sit.fx.filter((e) => e.uses === null || (e.uses > 0 && !spent.has(e.inst)));
   return f;
 }
 
@@ -257,7 +260,7 @@ export function afterPlay(s, ev, halfLen, rng) {
   const already = id === 'lluvia' && sit.rain;
   if (id === 'lluvia') sit.rain = true;
   for (const side of already ? [] : sides) {
-    for (const e of c.fx) sit.fx.push({ ...e, uses: e.uses === Infinity ? null : e.uses, side, card: id });
+    for (const e of c.fx) sit.fx.push({ ...e, uses: e.uses === Infinity ? null : e.uses, side, card: id, inst: `${id}-${sit.drawn}-${side}` });
   }
   ev.card = { deck: 'partido', id, side: sides.length > 1 ? -1 : sides[0] };
   logCard(s, ev.card);
