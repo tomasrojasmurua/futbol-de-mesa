@@ -36,6 +36,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => t * t * (3 - 2 * t);
 const rnd = (a, b) => a + Math.random() * (b - a);
+const pickR = (a) => a[Math.floor(Math.random() * a.length)];
 
 function seeded(n) {
   const x = Math.sin(n * 9301 + 49297) * 233280;
@@ -666,6 +667,23 @@ export class Renderer {
     return r;
   }
 
+  // Pase a un compañero elegido (si ya la tiene él, no hace nada).
+  async passTo(side, p, uv, opts = {}) {
+    if (!p || p === this.ball.owner) return p;
+    return this.pass(side, uv, { ...opts, recv: p });
+  }
+
+  // Compañero por número de puesto que no sea ninguno de `not`.
+  mate(side, nums, not = []) {
+    for (const n of nums) { const p = this.byNum(side, n); if (p && !not.includes(p)) return p; }
+    return null;
+  }
+
+  // Desmarques: compañeros que pican al espacio mientras se arma la jugada.
+  runs(side, list, boost = 1.3) {
+    for (const [p, u, v] of list) if (p && p !== this.ball.owner) { p.ov = this.W(side, u, v); p.boost = boost; }
+  }
+
   async dribble(side, uv, dur = 1, zig = 0) {
     const p = this.ball.owner;
     if (!p) return;
@@ -687,7 +705,8 @@ export class Renderer {
     const D = 1 - A;
     const to = this.W(A, uv[0], uv[1]);
     const passer = this.ball.owner;
-    const r = recv || this.nearest(A, to[0], to[1], true, passer ? [passer] : []);
+    // nunca se la pasa a sí mismo: si el elegido es el que la tiene, va el compañero más cercano
+    const r = recv && recv !== passer ? recv : this.nearest(A, to[0], to[1], true, passer ? [passer] : []);
     const d = def || this.nearest(D, to[0], to[1], true);
     const header = style === 'header';
     const rEnd = defWins ? this.short(r, to, header ? 1.1 : 1.8) : to;
@@ -903,14 +922,52 @@ export class Renderer {
     await this.ui.dice(ev.dice, ev.diceText, ev.diceFaces, ev.diceTitle);
   }
 
+  // Contragolpe armado: el que roba la suelta enseguida y la jugada sale con
+  // pases (pelotazo al 9, diagonal del lateral, lateral-volante-pase o el
+  // volante que conduce y filtra). Corren 3 o 4; el resto acompaña.
   async counterRun(ev, newA) {
     this.ui.banner('¡CONTRAGOLPE!', { small: true });
     this.cam.tzoom = 1.35;
-    const lane = LANE_U[ev.laneAfter || 'C'];
-    const [, v] = this.ballUV(newA);
-    await this.dribble(newA, [lerp(this.ballUV(newA)[0], lane, 0.5), Math.min(v + 8, 60)], 0.7);
-    await this.pass(newA, [lane, Math.min(v + 26, 70)], { dur: 1.0, h: 3 });
-    await this.dribble(newA, [lane, 73], 0.6);
+    const A = newA, lane = LANE_U[ev.laneAfter || 'C'];
+    const side = lane < 34 ? 'L' : lane > 34 ? 'R' : (Math.random() < 0.5 ? 'L' : 'R');
+    const wing = this.byNum(A, side === 'L' ? 5 : 8);
+    const fwd = this.mate(A, Math.abs(this.byNum(A, 9).x - this.W(A, lane, 60)[0]) < Math.abs(this.byNum(A, 10).x - this.W(A, lane, 60)[0]) ? [9, 10] : [10, 9]);
+    const other = this.mate(A, [9, 10], [fwd]);
+    // si la recuperó muy atrás (el arquero, un central), primero una salida corta
+    let [u, v] = this.ballUV(A);
+    if (v < 20) {
+      const out = this.mate(A, u < 34 ? [6, 7] : [7, 6], [this.ball.owner]);
+      await this.passTo(A, out, [clamp(u + (34 - u) * 0.5, 20, 48), 30], { dur: 0.8, h: 1.2 });
+      [u, v] = this.ballUV(A);
+    } else await this.dribble(A, [u + (34 - u) * 0.05, v + 1.2], 0.25);
+    const far = clamp(v + 28, 52, 70);
+    this.runs(A, [[fwd, lane, far - 2], [other, 68 - lane * 0.6 - 4, far - 6], [wing, side === 'L' ? 10 : 58, far - 4]], 1.4);
+    const kind = pickR(['pelotazo', 'diagonal', 'lateral', 'volante']);
+    if (kind === 'pelotazo') {
+      // pelota larga al 9, que pica hacia adelante
+      await this.passTo(A, fwd, [lane, far], { dur: 1.15, h: 3.4 });
+    } else if (kind === 'diagonal') {
+      // el lateral del otro lado cambia de frente buscando al puntero
+      const fb = this.byNum(A, side === 'L' ? 4 : 1);
+      await this.passTo(A, fb, [side === 'L' ? 58 : 10, v + 4], { dur: 0.6, h: 0.3 });
+      await this.passTo(A, wing, [side === 'L' ? 10 : 58, far], { dur: 1.25, h: 3.6 });
+    } else if (kind === 'lateral') {
+      // lateral → volante → pase al que pica
+      const fb = this.byNum(A, side === 'L' ? 1 : 4), cm = this.byNum(A, side === 'L' ? 6 : 7);
+      await this.passTo(A, fb, [side === 'L' ? 9 : 59, v + 4], { dur: 0.55, h: 0.3 });
+      await this.passTo(A, cm, [lerp(34, lane, 0.3), v + 11], { dur: 0.6, h: 0.3 });
+      await this.passTo(A, fwd, [lane, far], { dur: 0.95, h: 0.4 });
+    } else {
+      // el volante la recibe, conduce unos metros y filtra
+      const cm = this.mate(A, [6, 7], [this.ball.owner]);
+      await this.passTo(A, cm, [34 + rnd(-4, 4), v + 6], { dur: 0.55, h: 0.3 });
+      const [cu, cv] = this.ballUV(A);
+      await this.dribble(A, [lerp(cu, lane, 0.25), cv + 7], 0.9);
+      await this.passTo(A, pickR([fwd, wing]), [lane, far], { dur: 0.95, h: 0.4 });
+    }
+    // un par de pasos para acomodarse en el último tercio
+    const [eu, ev2] = this.ballUV(A);
+    if (ev2 < 70) await this.dribble(A, [lerp(eu, lane, 0.5), Math.min(72, ev2 + 5)], 0.6);
   }
 
   async afterSteal(D) {
@@ -965,24 +1022,54 @@ export class Renderer {
     return false;
   }
 
+  // La salida: la pelota pasa por varios jugadores hasta el tercio elegido.
+  // Cada vez sale una forma distinta (toque corto, cambio de frente, pelotazo
+  // o pared); el último pase es el duelo que decide si llega.
   async playBuild(ev, A, D) {
     this.cam.tzoom = 1.3; this.cam.follow = null;
     this.possSide = A;
     this.ensureOwner(A);
     const lane = LANE_U[ev.att];
     this.focus[D] = 68 - LANE_U[ev.def];
-    const [cu0, cv] = this.ballUV(A);
-    void cu0;
-    const v1 = clamp(cv + 6, 26, 46);
-    await this.pass(A, [lerp(34, lane, 0.35) + rnd(-3, 3), v1], { dur: cv < 15 ? 1.0 : 0.75, h: cv < 15 ? 1.8 : 0.3 });
-    await this.dribble(A, [lerp(this.ballUV(A)[0], lane, 0.55), v1 + 6], 0.8);
-    // El pase decisivo: largo por la banda o raso por el medio.
-    const long = ev.att !== 'C';
+    const kind = pickR(['corto', 'cambio', 'pelotazo', 'pared']);
+    // quién recibe el pase decisivo: el puntero de esa banda o un delantero por el medio
+    const target = [clamp(lane + rnd(-2, 2), 5, 63), 66];
+    const recvFor = (passer) => ev.att === 'L' ? this.mate(A, [5, 9, 1], [passer]) : ev.att === 'R' ? this.mate(A, [8, 10, 4], [passer]) : this.mate(A, pickR([[9, 10, 6], [10, 9, 7]]), [passer]);
+    let [u, v] = this.ballUV(A);
+    if (kind === 'corto') {
+      // dos o tres pases cortos, avanzando y cargando hacia el carril
+      const n = v > 40 ? 1 : v > 25 ? 2 : 3;
+      for (let k = 0; k < n; k++) {
+        [u, v] = this.ballUV(A);
+        const to = [clamp(lerp(u, lane, 0.3) + rnd(-7, 7), 6, 62), Math.min(v + rnd(7, 11), 56)];
+        await this.pass(A, to, { dur: 0.6, h: 0.25 });
+        await this.wait(0.1);
+      }
+    } else if (kind === 'cambio') {
+      // un pase corto para cargar del otro lado y después el cambio de frente
+      const away = lane < 34 ? 46 : lane > 34 ? 22 : (Math.random() < 0.5 ? 22 : 46);
+      await this.pass(A, [away + rnd(-3, 3), Math.min(v + 7, 50)], { dur: 0.65, h: 0.25 });
+    } else if (kind === 'pared') {
+      // pasa, pica y se la devuelven
+      const first = this.ball.owner;
+      const wall = this.mate(A, u < 34 ? [6, 7, 5] : [7, 6, 8], [first]);
+      const wallAt = [clamp(u + (u < 34 ? 7 : -7), 8, 60), Math.min(v + 5, 50)];
+      const run = [clamp(lerp(u, lane, 0.3), 8, 60), Math.min(v + 13, 56)];
+      const p1 = this.passTo(A, wall, wallAt, { dur: 0.55, h: 0.2 });
+      this.moveTo(first, this.W(A, ...run), 1.0);
+      await p1;
+      await this.passTo(A, first, run, { dur: 0.5, h: 0.2 });
+    }
+    // el pase decisivo: largo y por arriba a la banda (o el pelotazo), raso por el medio
+    const passer = this.ball.owner;
+    const recv = recvFor(passer);
+    const long = ev.att !== 'C' || kind === 'pelotazo';
+    if (recv) { recv.ov = this.short(recv, this.W(A, ...target), 3); recv.boost = 1.2; }
     this.cam.tzoom = 1.4;
-    const winner = await this.duelPass(ev, A, [clamp(lane + rnd(-2, 2), 5, 63), 66], {
-      h: long ? 3.4 : 0.3, dur: long ? 1.3 : 1.0, defWins: ev.match, style: long ? 'header' : 'slide',
+    const winner = await this.duelPass(ev, A, target, {
+      h: long ? (kind === 'pelotazo' ? 4 : 3.4) : 0.3, dur: long ? 1.3 : 1.0, defWins: ev.match, style: long ? 'header' : 'slide', recv,
     });
-    if (!ev.match) { await this.dribble(A, [lane, 73], 0.7); return; }
+    if (!ev.match) { await this.dribble(A, [lerp(this.ballUV(A)[0], lane, 0.5), 70], 0.5); return; }
     await this.diceMoment(ev);
     if (await this.cardPlay(ev, A)) return;
     if (ev.outcome === 'foul') {
@@ -1005,13 +1092,28 @@ export class Renderer {
     this.ensureOwner(A);
     this.defStyle[D] = ev.def;
     const lane = LANE_U[ev.lane] ?? 34;
-    const fw = this.players[A].slice(9);
     if (ev.att === 'cross') {
+      // Centro: la abre a un compañero de la banda (el puntero o el lateral que pasa
+      // al ataque) y ese tira el centro; al área entran los delanteros, nunca el que centra.
       const wingU = ev.lane === 'R' ? 62 : ev.lane === 'L' ? 6 : (Math.random() < 0.5 ? 6 : 62);
-      const target = [wingU < 34 ? 38 : 30, 95.5];
-      const runner = wingU < 34 ? fw[1] : fw[0];
-      fw[0].ov = this.W(A, wingU < 34 ? 30 : 38, 92); fw[1].ov = this.W(A, wingU < 34 ? 37 : 31, 90);
-      await this.dribble(A, [wingU, 86], 1.1);
+      const L = wingU < 34;
+      const owner = this.ball.owner;
+      const [ou] = this.ballUV(A);
+      const wide = [this.byNum(A, L ? 5 : 8), this.byNum(A, L ? 1 : 4)];
+      let crosser = wide.includes(owner) && Math.abs(ou - wingU) < 14 ? owner : (Math.random() < 0.6 ? wide[0] : wide[1]);
+      if (crosser === owner && !wide.includes(owner)) crosser = wide[0];
+      const target = [L ? 38 : 30, 95.5];
+      const heads = [this.byNum(A, 9), this.byNum(A, 10)].filter((p) => p !== crosser);
+      const runner = heads[L ? heads.length - 1 : 0] || this.mate(A, [6, 7], [crosser]);
+      const second = heads.find((p) => p !== runner) || this.mate(A, [7, 6], [crosser, runner]);
+      this.runs(A, [[runner, L ? 31 : 37, 90], [second, L ? 37 : 31, 88], [this.mate(A, [6, 7], [crosser]), 34, 82]], 1.2);
+      if (crosser !== owner) {
+        const at = [wingU + (L ? 3 : -3), 79];
+        crosser.ov = this.W(A, ...at); crosser.boost = 1.4;
+        await this.wait(0.15);
+        await this.passTo(A, crosser, at, { dur: 0.8, h: 0.35 });
+      }
+      await this.dribble(A, [wingU + (L ? 1 : -1), 84], 0.55);
       this.cam.tzoom = 1.6;
       const marker = this.nearest(D, ...this.W(A, target[0], target[1]), true);
       await this.duelPass(ev, A, target, { h: 6, dur: 1.3, defWins: ev.match, style: 'header', recv: runner, def: marker });
@@ -1029,13 +1131,38 @@ export class Renderer {
       return;
     }
     if (ev.att === 'through') {
-      const [cu] = this.ballUV(A);
-      await this.dribble(A, [lerp(cu, 34, 0.5), 74], 0.7);
+      // Pase entre líneas: lo recibe otro que pica en diagonal a la espalda del defensor
+      // (filtrado directo, un toque al lado y filtrado, o pared con el 9).
+      const [cu, cv] = this.ballUV(A);
+      await this.dribble(A, [lerp(cu, 34, 0.3), Math.max(cv, 70) + 1.5], 0.4);
       const runU = 34 + (lane < 34 ? -5 : lane > 34 ? 5 : rnd(-4, 4));
-      fw[0].ov = this.W(A, runU, 84); fw[0].boost = 1.4;
-      await this.wait(0.2);
+      const owner = this.ball.owner;
+      const kind = pickR(['directo', 'toque', 'pared']);
+      let runner;
+      if (kind === 'pared') {
+        // se la da al 9 de espaldas y pica: el 9 se la devuelve al espacio
+        const nine = this.mate(A, [9, 10, 6], [owner]);
+        const [ou, ov] = this.ballUV(A);
+        await this.passTo(A, nine, [lerp(ou, 34, 0.5), ov + 7], { dur: 0.5, h: 0.2 });
+        runner = owner;
+        this.moveTo(owner, this.W(A, runU + (runU < 34 ? -3 : 3), 84), 0.7);
+        await this.wait(0.15);
+      } else {
+        if (kind === 'toque') {
+          const [ou, ov] = this.ballUV(A);
+          const side = this.mate(A, ou < 34 ? [7, 6] : [6, 7], [owner]);
+          await this.passTo(A, side, [clamp(ou + (ou < 34 ? 6 : -6), 14, 54), ov + 0.5], { dur: 0.45, h: 0.15 });
+        }
+        const holder = this.ball.owner;
+        runner = this.mate(A, runU < 34 ? [9, 5, 10, 8] : [10, 8, 9, 5], [holder]);
+        // arranca abierto y entra en diagonal
+        const [ru] = this.U(A, runner.x, runner.y);
+        runner.lock = null;
+        runner.ov = this.W(A, runU + (ru < runU ? -2 : 2), 85); runner.boost = 1.45;
+        await this.wait(0.2);
+      }
       this.cam.tzoom = 1.6;
-      await this.duelPass(ev, A, [runU, 89], { h: 0.25, dur: 1.0, defWins: ev.match, style: 'slide', recv: fw[0] });
+      await this.duelPass(ev, A, [runU, 89], { h: 0.25, dur: 1.0, defWins: ev.match, style: 'slide', recv: runner });
       if (!ev.match) {
         this.players[D][0].ov = this.W(A, 34, 99.5);
         await this.dribble(A, [runU * 0.7 + 34 * 0.3, 92], 0.5);
@@ -1053,14 +1180,28 @@ export class Renderer {
       await this.afterSteal(D);
       return;
     }
-    // Gambeta
-    const [cu] = this.ballUV(A);
+    // Gambeta: si sale, se saca a uno (a veces a dos) y remata; de vez en cuando
+    // queda solo frente al arquero. Es solo la imagen: la regla sigue siendo un remate.
+    const [cu, cv] = this.ballUV(A);
     const endU = clamp(lerp(cu, 34, 0.7) + rnd(-4, 4), 24, 44);
-    await this.dribble(A, [lerp(cu, endU, 0.4), 80], 0.8, 1);
+    await this.dribble(A, [lerp(cu, endU, 0.4), Math.max(cv + 3, 76)], 0.7, 1);
     this.cam.tzoom = 1.65;
-    await this.duelDribble(ev, A, [endU, 89], { defWins: ev.match });
+    const look = ev.match ? null : ev.outcome === 'penalty' ? 'pen' : pickR(['afuera', 'afuera', 'adentro', 'adentro', 'mano']);
+    await this.duelDribble(ev, A, [endU, look === 'afuera' ? 83 : 86], { defWins: ev.match });
     if (!ev.match) {
       await this.diceMoment(ev);
+      if (look === 'adentro') {
+        // se saca a un segundo rival con un recorte y remata con él encima
+        const d2 = this.nearest(D, this.ball.x, this.ball.y, true);
+        const cut = [clamp(endU + (endU < 34 ? 5 : -5), 22, 46), 90];
+        d2.ov = this.W(A, cut[0] + (endU < 34 ? -1.5 : 1.5), 91.5); d2.boost = 1.3;
+        await this.dribble(A, cut, 0.55, 1);
+      } else if (look === 'mano') {
+        // se va solo: el arquero sale a achicar
+        this.players[D][0].ov = this.W(A, 34, 98.5);
+        await this.dribble(A, [lerp(endU, 34, 0.6), 93], 0.6);
+        this.shotLook = 'mano';
+      }
       if (ev.outcome === 'penalty') {
         const victim = this.ball.owner;
         const fouler = this.nearest(D, this.ball.x, this.ball.y, true);
@@ -1255,7 +1396,7 @@ export class Renderer {
     const scene = this.cut.play({
       // Si el arquero adivinó, la escena siempre la muestra en sus manos: el dado
       // decide después (se le escapa, la saca al córner o sale de contra).
-      kind: ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.match ? 'save' : ev.outcome,
+      kind: ev.shotKind === 'remate' && this.shotLook ? this.shotLook : ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.match ? 'save' : ev.outcome,
       shooter: sh, keeper: kp,
       kitA: this.kits[A], kitD: this.kits[D], gkColor: this.kits[D].gk,
       crowd: [this.kits[A].shirt, this.kits[D].shirt],
@@ -1270,6 +1411,7 @@ export class Renderer {
         if (ev.outcome === 'goal') this.reveal(ev);
       },
     });
+    this.shotLook = null;
     await this.ui.fadeIn();
     await scene;
     await this.ui.fadeOut();
