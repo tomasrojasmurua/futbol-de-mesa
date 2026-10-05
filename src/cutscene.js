@@ -105,6 +105,7 @@ export class Cutscene {
     const header = o.kind === 'cabezazo';
     // mano a mano atajado: todo se ve de costado y la pelota le llega enseguida al arquero
     this.manoSave = o.kind === 'mano' && String(o.outcome).startsWith('save');
+    this.manoOpen = o.kind === 'mano' && !this.manoSave;
     this.prepareArt(o, header);
     const runup = { penal: 1.5, cabezazo: 1.3, remate: 1.35, mano: 1.45, libre: 1.75 }[o.kind] || 1.3;
     this.T = { intro: 0.9, kick: 0.9 + runup, F: header ? 0.95 : o.kind === 'penal' ? 0.85 : this.manoSave ? 0.24 : 0.9 };
@@ -625,16 +626,18 @@ export class Cutscene {
     const end = this.finalPoint();
     const p = clamp((s - T.kick) / T.F, 0, 1);
     const k = 0.62;
+    // la pica del mano a mano sube más
+    const arc = this.manoOpen ? 24 : 18;
     let x, y;
     if (o.match || p <= k) {
       const goal = o.match ? end : aim;
       const q = easeOut(p);
-      x = lerp(start[0], goal[0], q); y = lerp(start[1], goal[1], q) - Math.sin(p * Math.PI) * 18;
+      x = lerp(start[0], goal[0], q); y = lerp(start[1], goal[1], q) - Math.sin(p * Math.PI) * arc;
     } else {
       const qk = easeOut(k);
-      const mx = lerp(start[0], aim[0], qk), my = lerp(start[1], aim[1], qk) - Math.sin(k * Math.PI) * 18;
+      const mx = lerp(start[0], aim[0], qk), my = lerp(start[1], aim[1], qk) - Math.sin(k * Math.PI) * arc;
       const q = (p - k) / (1 - k);
-      x = lerp(mx, end[0], q); y = lerp(my, end[1], q) - Math.sin(Math.PI * (k + q * (1 - k))) * 18 * (1 - q);
+      x = lerp(mx, end[0], q); y = lerp(my, end[1], q) - Math.sin(Math.PI * (k + q * (1 - k))) * arc * (1 - q);
     }
     let r = lerp(3.4, 1.4, easeOut(p));
     if (s <= T.hit) return [x, y, r, false];
@@ -756,7 +759,8 @@ export class Cutscene {
     const goalSide = o.outcome === 'goal' && s > T.hit;
     this.drawNet(goalSide ? b : null, s);
     if (b && b[3]) this.drawBall(b, s);
-    this.drawKeeper(this.keeper(s));
+    // en el mano a mano que no se ataja el arquero quedó atrás en la jugada: arco vacío
+    if (!this.manoOpen) this.drawKeeper(this.keeper(s));
     this.drawPosts();
     if (b && !b[3]) {
       // sombra
