@@ -20,7 +20,7 @@ El dado aparece en momentos clave. Cada cara muestra un símbolo de lo que pasa,
 | Situación | Dado |
 |---|---|
 | La defensa adivina en la salida | 1: falta y sigue el ataque · 2-5: recupera · 6: contragolpe |
-| La defensa adivina en el área | 1: córner · 2: falta y sigue el ataque · 3-5: recupera · 6: contragolpe |
+| La defensa adivina en el área | 1: córner · 2: falta (penal si fue con centro o gambeta, que terminan dentro del área; si no, sigue el ataque) · 3-5: recupera · 6: contragolpe |
 | El arquero adivina | 1: rebote al córner · 2-5: ataja · 6: saque rápido de contra |
 | El remate supera al arquero | 1: palo · 2: afuera · 3-6: gol (igual para remate, cabezazo, mano a mano y penal) |
 | Gambeta exitosa | 6: penal |
