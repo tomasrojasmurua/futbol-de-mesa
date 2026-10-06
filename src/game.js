@@ -168,7 +168,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
 
   if (s.situation === 'shootout') return kickShootout(s, ev, rng);
   // Tira uno de los cuatro dados (con las cartas activas) y devuelve la cara.
-  const die = (name) => { ev.die = name; ev.faces = rollFaces(s, name, A, D); return ev.faces[roll() - 1]; };
+  const die = (name) => { ev.die = name; ev.dieCards = []; ev.faces = rollFaces(s, name, A, D, ev.dieCards); return ev.faces[roll() - 1]; };
   const goal = (kind) => {
     ev.outcome = 'goal';
     s.stats.onTarget[A]++;
@@ -263,6 +263,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
           // penal de la Decisión polémica: más caras de gol (encima de las otras cartas)
           ev.faces = ev.faces.map((x, i) => (BASE_DICE.shotBeat[i] !== POLEMICA_BEAT[i] && x === BASE_DICE.shotBeat[i] ? POLEMICA_BEAT[i] : x));
           f = ev.faces[ev.dice - 1];
+          if (!ev.dieCards.some((c) => c.id === 'polemica')) ev.dieCards.push({ id: 'polemica', side: A });
         }
         if (f === 'goal') goal(kind);
         else if (f === 'corner') {
@@ -335,7 +336,7 @@ function kickShootout(s, ev, rng) {
   if (ev.match) { ev.outcome = 'save'; if (s.players) s.players[D][0].ps++; }
   else {
     // el mismo dado del remate, con lo que dura todo el partido (si llueve, una cara de gol menos)
-    ev.die = 'shotBeat'; ev.faces = rollFaces(s, 'shotBeat', A, D);
+    ev.die = 'shotBeat'; ev.dieCards = []; ev.faces = rollFaces(s, 'shotBeat', A, D, ev.dieCards);
     const r = (ev.dice = d6(rng));
     ev.outcome = ev.faces[r - 1];
   }

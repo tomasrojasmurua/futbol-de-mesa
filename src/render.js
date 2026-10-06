@@ -948,7 +948,7 @@ export class Renderer {
   async diceMoment(ev) {
     if (ev.dice == null || ev._diced) return;
     ev._diced = true;
-    await this.ui.dice(ev.dice, ev.diceText, ev.diceFaces, ev.diceTitle);
+    await this.ui.dice(ev.dice, ev.diceText, ev.diceFaces, ev.diceTitle, ev);
   }
 
   // Contragolpe armado: el que roba la suelta enseguida y la jugada sale con

@@ -166,7 +166,8 @@ export function newSituations() {
 
 // Caras del dado para esta tirada, con las cartas activas aplicadas. A es el que
 // ataca y D el que defiende. Cada efecto que toca este dado gasta un uso.
-export function rollFaces(s, die, A, D) {
+// out (opcional): ahí se anotan las cartas que cambiaron este dado.
+export function rollFaces(s, die, A, D, out) {
   const f = [...BASE_DICE[die]];
   if (!s.sit) return f;
   const used = [];
@@ -176,6 +177,7 @@ export function rollFaces(s, die, A, D) {
     if (e.card === 'despeje' && s.situation === 'penalty') continue;
     applyFx(f, die, e);
     used.push(e);
+    if (out && !out.some((c) => c.id === e.card && c.side === e.side)) out.push({ id: e.card, side: e.side });
   }
   // free: el efecto se aplica sin gastar la carta (se va junto con el otro dado)
   for (const e of used) if (e.uses !== null && !e.free) e.uses--;
@@ -292,6 +294,28 @@ export function activeEffects(state) {
     if (seen.has(key)) continue;
     seen.add(key);
     out.push({ id: f.card, side: f.side, title: CARDS[f.card].title });
+  }
+  return out;
+}
+
+// Cartas que se juegan en la jugada que viene (para avisar antes de decidir).
+// Las que duran todo el partido (Lluvia, roja) no se avisan en cada jugada.
+const PLAY_DICE = {
+  build: ['buildDef', 'buildWin'],
+  attack: ['attackDef', 'attackWin', 'dribbleWin'],
+  shot: ['shotSave', 'shotBeat'],
+  penalty: ['shotSave', 'shotBeat'],
+};
+export function fxInPlay(state) {
+  const dice = state.sit && PLAY_DICE[state.situation];
+  if (!dice) return [];
+  const A = state.poss, D = 1 - A, seen = new Set(), out = [];
+  for (const e of state.sit.fx) {
+    if (e.uses === null || !e.dice.some((d) => dice.includes(d))) continue;
+    if (e.side !== (e.role === 'att' ? A : D)) continue;
+    if (e.card === 'despeje' && state.situation === 'penalty') continue;
+    const key = `${e.card}:${e.side}`;
+    if (!seen.has(key)) { seen.add(key); out.push({ id: e.card, side: e.side }); }
   }
   return out;
 }
