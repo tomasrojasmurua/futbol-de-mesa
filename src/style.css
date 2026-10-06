@@ -71,10 +71,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .len-row small { color: var(--mute); font-size: 16px; margin-right: auto; }
 .len-row button { font-family: var(--px); font-size: 9px; padding: 9px 8px; background: rgba(0,0,0,.45); color: #fff; border: 0; box-shadow: 0 0 0 3px #0c0f15; }
 .len-row button.on { background: #ffd23f; color: #14171f; }
-.team-pick { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 12px; background: rgba(0,0,0,.45); border: 0; box-shadow: 0 0 0 3px #0c0f15; }
-.team-pick small { display: block; color: var(--mute); font-size: 16px; }
-.team-pick b { font-family: var(--px); font-size: 11px; line-height: 1.4; }
-.team-pick .chev { margin-left: auto; font-size: 22px; }
 
 .kit-swatch { width: 24px; height: 28px; flex: none; display: inline-block; image-rendering: pixelated; box-shadow: 0 0 0 2px #0c0f15; }
 
@@ -599,4 +595,4 @@ body.watching .cards .duel-card { pointer-events: none; }
 .trophy-detail canvas { width: 120px; height: 184px; image-rendering: pixelated; }
 .trophy-detail ul { list-style: none; margin: 0; padding: 0; color: var(--ink); font-size: 19px; }
 .kit-swatch.flag { height: auto !important; aspect-ratio: 3 / 2; image-rendering: pixelated; }
-.team-btn .kit-swatch.flag, .team-pick .kit-swatch.flag { width: 36px; }
+.team-btn .kit-swatch.flag { width: 36px; }
