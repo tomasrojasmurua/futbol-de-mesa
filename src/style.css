@@ -598,3 +598,5 @@ body.watching .cards .duel-card { pointer-events: none; }
 .trophy-detail { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .trophy-detail canvas { width: 120px; height: 184px; image-rendering: pixelated; }
 .trophy-detail ul { list-style: none; margin: 0; padding: 0; color: var(--ink); font-size: 19px; }
+.kit-swatch.flag { height: auto !important; aspect-ratio: 3 / 2; image-rendering: pixelated; }
+.team-btn .kit-swatch.flag, .team-pick .kit-swatch.flag { width: 36px; }

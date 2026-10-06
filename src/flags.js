@@ -82,6 +82,90 @@ const FLAGS = {
     }
     return x < 14 ? '#046a38' : '#da291c';
   },
+  // ---------- selecciones ----------
+  // Uruguay: nueve franjas y el sol de mayo en el cuadro blanco.
+  uru: (x, y) => {
+    if (x < 14 && y < 13) { const d = Math.hypot(x + 0.5 - 7, y + 0.5 - 6.5); if (d < 2.4) return '#f6b40e'; if (d < 4.4 && Math.cos(Math.atan2(y + 0.5 - 6.5, x + 0.5 - 7) * 8) > 0.3) return '#e09a0a'; return '#f6f6f6'; }
+    return Math.floor(y / (24 / 9)) % 2 ? '#0038a8' : '#f6f6f6';
+  },
+  // Colombia: amarillo la mitad, azul y rojo.
+  col: (x, y) => (y < 12 ? '#fcd116' : y < 18 ? '#003893' : '#ce1126'),
+  // Perú: rojo, blanco y rojo.
+  per: (x) => (x < 12 || x >= 24 ? '#d91023' : '#f6f6f6'),
+  // Japón: el sol rojo.
+  jpn: (x, y) => (disc(x, y, 18, 12, 6.6) ? '#bc002d' : '#f6f6f6'),
+  // Ecuador: como Colombia, con el escudo al centro.
+  ecu: (x, y) => {
+    if (disc(x, y, 18, 11.5, 3.6)) return y < 9 ? '#6b4a1c' : disc(x, y, 18, 12, 2.2) ? '#4f9fd8' : '#7a5a2a';
+    return y < 12 ? '#ffdd00' : y < 18 ? '#034ea2' : '#ed1c24';
+  },
+  // Paraguay: rojo, blanco y azul con el escudo.
+  par: (x, y) => {
+    if (disc(x, y, 18, 12, 3.2) && !disc(x, y, 18, 12, 2.2)) return '#2f7d32';
+    if (disc(x, y, 18, 12, 1)) return '#f6b40e';
+    return y < 8 ? '#d52b1e' : y < 16 ? '#f6f6f6' : '#0038a8';
+  },
+  // Venezuela: amarillo, azul y rojo con el arco de ocho estrellas.
+  ven: (x, y) => {
+    if (y >= 8 && y < 16) {
+      for (let i = 0; i < 8; i++) { const a = Math.PI * (1.1 + i * 0.114); const sx = 18 + Math.cos(a) * 6.2, sy = 15 + Math.sin(a) * 6.2; if (Math.abs(x + 0.5 - sx) < 0.75 && Math.abs(y + 0.5 - sy) < 0.75) return '#ffffff'; }
+      return '#00247d';
+    }
+    return y < 8 ? '#ffcc00' : '#cf142b';
+  },
+  // Bolivia: rojo, amarillo y verde.
+  bol: (x, y) => (y < 8 ? '#d52b1e' : y < 16 ? '#f9e300' : '#007934'),
+  // Estados Unidos: franjas y el cuadro azul con estrellas.
+  usa: (x, y) => {
+    if (x < 15 && y < 13) return (x % 3 === 1 && y % 3 === 1) || (x % 3 === 2 && y % 3 === 2 && x < 14 && y < 12) ? '#ffffff' : '#3c3b6e';
+    return Math.floor(y / (24 / 13)) % 2 ? '#f6f6f6' : '#b22234';
+  },
+  // Bélgica: negro, amarillo y rojo.
+  bel: (x) => (x < 12 ? '#1a1a1a' : x < 24 ? '#fdda24' : '#ef3340'),
+  // Marruecos: rojo con la estrella verde.
+  mar: (x, y) => {
+    const inS = inStar(x + 0.5, y + 0.5, 18, 12.4, 6.4), inI = inStar(x + 0.5, y + 0.5, 18, 12.4, 4.2);
+    return inS && !inI ? '#006233' : '#c1272d';
+  },
+  // Senegal: verde, amarillo y rojo con la estrella verde.
+  sen: (x, y) => (x >= 12 && x < 24 ? (inStar(x + 0.5, y + 0.5, 18, 12.4, 4.6) ? '#00853f' : '#fdef42') : x < 12 ? '#00853f' : '#e31b23'),
+  // Corea del Sur: el taegeuk y los cuatro trigramas.
+  kor: (x, y) => {
+    const px = x + 0.5, py = y + 0.5, d = Math.hypot(px - 18, py - 12);
+    if (d < 5.4) {
+      // mitad roja arriba, azul abajo, con la curva en S
+      const up = py - 12 < -(px - 18) * 0.55;
+      const s1 = Math.hypot(px - (18 - 2.2), py - (12 + 1.2)) < 2.7, s2 = Math.hypot(px - (18 + 2.2), py - (12 - 1.2)) < 2.7;
+      return (up && !s1) || s2 ? '#cd2e3a' : '#0047a0';
+    }
+    const tri = (cx, cy) => Math.abs(px - cx) < 3 && Math.abs(py - cy) < 2.6 && Math.floor((py - cy + 2.6) / 1.75) % 1 === 0 && ((py - cy + 2.6) % 1.75) < 1.1;
+    if (tri(6, 5) || tri(30, 5) || tri(6, 19) || tri(30, 19)) return '#1a1a1a';
+    return '#f6f6f6';
+  },
+  // Suiza: la cruz blanca sobre rojo.
+  sui: (x, y) => ((Math.abs(x + 0.5 - 18) < 1.8 && Math.abs(y + 0.5 - 12) < 6.2) || (Math.abs(y + 0.5 - 12) < 1.8 && Math.abs(x + 0.5 - 18) < 6.2) ? '#ffffff' : '#d52b1e'),
+  // Dinamarca: la cruz nórdica.
+  den: (x, y) => (Math.abs(x + 0.5 - 13) < 1.8 || Math.abs(y + 0.5 - 12) < 1.8 ? '#ffffff' : '#c8102e'),
+  // Canadá: la hoja de arce.
+  can: (x, y) => {
+    if (x < 9 || x >= 27) return '#d52b1e';
+    const px = x + 0.5 - 18, py = y + 0.5 - 11;
+    const a = Math.atan2(py, px), r = Math.hypot(px, py);
+    const leaf = r < 5.6 * (0.62 + 0.38 * Math.abs(Math.cos(a * 2.5 + 1.2))) && py < 5;
+    if (leaf || (Math.abs(px) < 0.6 && py >= 3 && py < 7.5)) return '#d52b1e';
+    return '#f6f6f6';
+  },
+  // Países Bajos: rojo, blanco y azul.
+  ned: (x, y) => (y < 8 ? '#ae1c28' : y < 16 ? '#f6f6f6' : '#21468b'),
+  // Croacia: rojo, blanco y azul con el escudo ajedrezado.
+  cro: (x, y) => {
+    if (x >= 14 && x < 22 && y >= 6 && y < 17) {
+      if (y < 8) return (x % 2) ? '#0093dd' : '#171796';
+      const w = y > 13 ? 4 - (y - 13) : 4;
+      if (Math.abs(x + 0.5 - 18) <= w) return ((x + y) % 2) ? '#ff0000' : '#ffffff';
+    }
+    return y < 8 ? '#ff0000' : y < 16 ? '#f6f6f6' : '#171796';
+  },
   // Sin país: azul con un planeta al centro (selecciones y otros clubes).
   world: (x, y) => {
     const px = x + 0.5, py = y + 0.5, d = Math.hypot(px - 18, py - 12);
@@ -104,6 +188,14 @@ export const GROUP_FLAG = {
   'Premier League': 'en', 'Serie A': 'it', Bundesliga: 'de', 'Ligue 1': 'fr', 'Primeira Liga': 'pt',
   'Otros clubes': 'world', Selecciones: 'world',
 };
+
+// Bandera de cada selección (id del equipo → bandera).
+const NATION_FLAG = { arg: 'ar', chi: 'cl', bra: 'br', mex: 'mx', esp: 'es', fra: 'fr', ger: 'de', eng: 'en', ita: 'it', por: 'pt' };
+export const teamFlag = (id) => (FLAGS[id] ? id : NATION_FLAG[id]) || null;
+const urls = {};
+export function flagUrl(key) {
+  return urls[key] || (urls[key] = paintFlag(document.createElement('canvas'), key).toDataURL());
+}
 
 export function paintFlag(cv, key) {
   const f = FLAGS[key] || FLAGS.world;
