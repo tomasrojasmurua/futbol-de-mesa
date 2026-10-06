@@ -37,7 +37,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => t * t * (3 - 2 * t);
 const rnd = (a, b) => a + Math.random() * (b - a);
 // Penal en el partido, en coordenadas del que patea (por número de camiseta).
-const PEN_ATT = { 0: [34, 9], 1: [13, 64], 2: [27, 56], 3: [41, 56], 4: [55, 64], 5: [16, 87.3], 6: [31, 77], 7: [39, 74.5], 8: [52, 87.3], 9: [28, 85.3], 10: [40, 85.3] };
+const PEN_ATT = { 0: [34, 4], 1: [13, 64], 2: [27, 56], 3: [41, 56], 4: [55, 64], 5: [16, 87.3], 6: [31, 77], 7: [39, 74.5], 8: [52, 87.3], 9: [28, 85.3], 10: [40, 85.3] };
 const PEN_DEF = { 0: [34, 104.4], 1: [18.5, 88], 2: [24, 86.2], 3: [44, 86.2], 4: [49.5, 88], 5: [12.5, 86.4], 6: [30.5, 79], 7: [37.5, 79.5], 8: [55.5, 86.4], 9: [33, 55], 10: [47, 70] };
 const pickR = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -442,7 +442,7 @@ export class Renderer {
         let u, v;
         if (row === 'G') {
           u = clamp(34 + (bu - 34) * 0.12, 30.5, 37.5);
-          v = bv < 25 ? 4.5 : 2.5;
+          v = bv < 25 ? 2.8 : 1.6;
         } else {
           const w = row === 'D' ? 0.85 : row === 'M' ? 1 : 1.05;
           v = fv + shiftV * w;
@@ -864,7 +864,7 @@ export class Renderer {
     await this.fade(() => {
       const cu = laneSide === 'L' ? 0.8 : 67.2;
       this.placeTeam(A, (p) => {
-        if (p.i === 0) return [34, 30];
+        if (p.i === 0) return [34, 4];
         const box = { 2: [29, 98], 3: [38, 99], 9: [32, 95], 10: [36, 93], 6: [34, 89] }[p.i];
         if (box) return box;
         if (p.i === (laneSide === 'L' ? 5 : 8)) return [cu + (laneSide === 'L' ? -0.6 : 0.6), 105.4];
