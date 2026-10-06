@@ -74,17 +74,45 @@ function paintHome(force = true) {
 let homeTimer = 0;
 addEventListener('resize', () => { clearTimeout(homeTimer); homeTimer = setTimeout(() => paintHome(false), 200); });
 
+// Elegir equipo en dos pasos: primero la liga (o grupo), después el equipo.
+const teamGroups = () => [...new Set(TEAMS.map((t) => t.group))];
+const longName = (t) => Math.max(...t.name.split(' ').map((w) => w.length)) > 10;
+
 function buildTeamGrid() {
-  const grid = $('#team-grid');
-  grid.innerHTML = '';
-  let group = '';
-  for (const t of TEAMS) {
-    if (t.group !== group) {
-      group = t.group;
-      const h = document.createElement('h3'); h.textContent = group; grid.appendChild(h);
-    }
+  $('#teams-title').textContent = 'Elige la liga';
+  $('#teams-back').onclick = () => show('screen-play');
+  $('#team-grid').hidden = true;
+  const list = $('#team-groups');
+  list.hidden = false;
+  list.innerHTML = '';
+  const mine = teamById(myTeamId);
+  for (const g of teamGroups()) {
+    const teams = TEAMS.filter((t) => t.group === g);
     const b = document.createElement('button');
-    b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (Math.max(...t.name.split(' ').map((w) => w.length)) > 10 ? ' long' : '');
+    b.className = 'league-btn' + (mine?.group === g ? ' saved' : '');
+    b.innerHTML = `<b>${g}</b><small>${teams.length} equipos</small><span class="kits"></span>${mine?.group === g ? `<em>Tu equipo: ${mine.name}</em>` : ''}`;
+    for (const t of teams.slice(0, 12)) {
+      const k = document.createElement('i');
+      k.className = 'kit-swatch';
+      k.style.background = swatchCss(t.kit);
+      b.querySelector('.kits').appendChild(k);
+    }
+    b.onclick = () => buildGroupTeams(g);
+    list.appendChild(b);
+  }
+  list.scrollTop = 0;
+}
+
+function buildGroupTeams(g) {
+  $('#teams-title').textContent = g;
+  $('#teams-back').onclick = () => buildTeamGrid();
+  $('#team-groups').hidden = true;
+  const grid = $('#team-grid');
+  grid.hidden = false;
+  grid.innerHTML = '';
+  for (const t of TEAMS.filter((x) => x.group === g)) {
+    const b = document.createElement('button');
+    b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
     b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
     b.onclick = () => {
@@ -95,6 +123,7 @@ function buildTeamGrid() {
     };
     grid.appendChild(b);
   }
+  grid.scrollTop = 0;
 }
 
 // ---------- modal ----------

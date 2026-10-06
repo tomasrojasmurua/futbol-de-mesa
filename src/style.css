@@ -250,14 +250,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .tdie.land, .tres .rk { animation: none; } }
 /* Moneda del sorteo: disco de oro con canto, en 3D sobre el mismo paño. */
 .tleg i.mc { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1a8, #f2c230 45%, #c58f0a 80%); }
-.tleg i.mc svg { width: 24px; height: 24px; }
+.tleg i.mc img { width: 26px; height: 26px; display: block; }
 .tray .tcoin { --cs: 76px; position: absolute; width: var(--cs); height: var(--cs); perspective: 420px; z-index: 1; will-change: transform; }
 .tcoin .c3 { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
 .tcoin .ce { position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(#8a6200 0 4deg, #b8860b 4deg 8deg); }
 .tcoin .cf { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; backface-visibility: hidden;
   background: radial-gradient(circle at 35% 30%, #fff1a8, #f2c230 42%, #d19a10 72%, #9a6c00);
   box-shadow: inset 0 0 0 3px #8a6200, inset 0 0 0 5px #f7d75a, inset 0 0 0 6px #a87a08, inset -4px -6px 10px rgba(90,50,0,.35); }
-.tcoin .cf svg { width: 92%; height: 92%; }
+.tcoin .cf img { width: 100%; height: 100%; display: block; }
 .tcoin .cf.f { transform: translateZ(3px); }
 .tcoin .cf.b { transform: rotateX(180deg) translateZ(3px); }
 .tcoin.land { filter: drop-shadow(0 0 3px #000) drop-shadow(0 0 10px rgba(255,210,63,.7)); animation: tland .4s ease-out; }
@@ -389,6 +389,9 @@ body.watching .cards .duel-card { pointer-events: none; }
 .league-btn b { font-family: var(--px); font-size: 11px; font-weight: normal; }
 .league-btn small { color: var(--mute); font-size: 17px; text-align: right; }
 .league-btn em { grid-column: 1 / -1; font-style: normal; color: var(--mute); font-size: 17px; }
+.league-btn .kits { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+.league-btn .kits .kit-swatch { width: 16px; height: 16px; flex: none; }
+.league-list[hidden], .team-grid[hidden] { display: none; }
 .league-btn.saved { box-shadow: 0 0 0 3px var(--gold); }
 .league-btn.saved em { color: var(--gold); }
 .opt-row { margin: 8px 0; flex-wrap: wrap; }
