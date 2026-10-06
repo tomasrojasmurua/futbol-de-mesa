@@ -12,7 +12,7 @@ import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
 import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
-import { fxTipHtml, cardArt, cardBodyHtml, cardLine, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
+import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
 
 const $ = (s) => document.querySelector(s);
@@ -183,14 +183,6 @@ function diceTitle(ev) {
 function cardInfo(sit, role, id, iAttack) {
   const screen = iAttack || SHOT_SITS.includes(sit) ? id : MIRROR[id];
   return { label: describe(sit, role, id, iAttack), img: iconFor(sit, role, id, screen) };
-}
-
-// Copia de una ilustración (la original queda en caché y puede estar en la carta).
-function cloneCanvas(c) {
-  const d = document.createElement('canvas');
-  d.width = c.width; d.height = c.height;
-  d.getContext('2d').drawImage(c, 0, 0);
-  return d;
 }
 
 function cardHtml({ label, img, hint }, role, tag) {
@@ -455,9 +447,12 @@ class MatchView {
     const ribbon = tone === 'fav' ? 'A TU FAVOR' : tone === 'con' ? 'EN TU CONTRA' : both ? 'PARA LOS DOS' : deckName;
     const sub = this.spectator ? (both ? 'Afecta a los dos equipos' : '') : both ? 'Afecta a los dos equipos' : card.side === this.mySide ? 'Te salió a ti' : 'Le salió al rival';
     if (both) who = `${teams[0].name} y ${teams[1].name}`;
+    // La franja ya dice de quién es; el nombre solo hace falta para quien mira
+    // o para saber qué jugador vio la tarjeta.
+    const showWho = this.spectator || (card.deck === 'disciplina' && card.id !== 'freekick');
     const el = $('#sitcard');
     el.className = `sitcard ${card.deck} k-${card.id} ${tone}`;
-    el.innerHTML = `<div class="sc-box"><div class="sc-ribbon">${ribbon}${sub ? `<span>${sub}</span>` : ''}</div><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em>${cardBodyHtml(card.second ? 'red' : card.id, view, both)}<u class="sc-tap">${this.spectator ? '' : 'Toca para seguir'}</u></div>`;
+    el.innerHTML = `<div class="sc-box"><div class="sc-ribbon">${ribbon}${sub ? `<span>${sub}</span>` : ''}</div><div class="sc-art"><i></i></div><b>${title}</b>${showWho ? `<em>${who}</em>` : ''}${cardBodyHtml(card.second ? 'red' : card.id, view, both, false)}<u class="sc-tap">${this.spectator ? '' : 'Toca para seguir'}</u></div>`;
     // La ilustración con las camisetas del partido (si no se pudo pintar, queda el símbolo).
     const art = renderer && renderer.kits ? cardArt(card.id, renderer.kits, card.side, CARDS.chilena && CARDS.chilena.who === 'def') : null;
     if (art) { const box = el.querySelector('.sc-art'); box.textContent = ''; box.classList.add('pic'); box.appendChild(art); }
@@ -789,9 +784,7 @@ class MatchView {
       const title = c.id === 'red' ? 'Con uno menos' : CARDS[c.id].title;
       const el = document.createElement('div');
       el.className = `cardband ${tone}`;
-      el.innerHTML = `<span class="rm-art"></span><div><small>CARTA EN JUEGO (${who})</small><b>${title}</b> cambió ${marked.length ? 'las caras con ★' : 'este dado'}</div>`;
-      const art = c.id !== 'red' && renderer && renderer.kits ? cardArt(c.id, renderer.kits, both ? -1 : c.side, CARDS.chilena && CARDS.chilena.who === 'def') : null;
-      if (art) el.querySelector('.rm-art').appendChild(cloneCanvas(art));
+      el.innerHTML = `★ <b>${title}</b> (${who})`;
       band.appendChild(el);
     }
     return { band, marked };
@@ -804,13 +797,8 @@ class MatchView {
     $('#remind').innerHTML = live.map((f) => {
       const mine = f.side === this.mySide;
       const good = ['lesion', 'errordt'].includes(f.id) ? !mine : mine;
-      const head = mine ? 'TU CARTA SE JUEGA AHORA' : 'CARTA DEL RIVAL EN JUEGO';
-      return `<div class="remind ${good ? 'fav' : 'con'}" data-id="${f.id}" data-side="${f.side}"><span class="rm-art"></span><div><small>${head}</small><b>${CARDS[f.id].title}:</b> ${cardLine(f.id, mine ? VIEW_MINE : VIEW_THEIRS)}</div></div>`;
+      return `<div class="remind ${good ? 'fav' : 'con'}">★ En juego: <b>${CARDS[f.id].title}</b> ${mine ? '(tuya)' : '(del rival)'}</div>`;
     }).join('');
-    if (renderer && renderer.kits) $('#remind').querySelectorAll('.remind').forEach((el) => {
-      const art = cardArt(el.dataset.id, renderer.kits, +el.dataset.side, CARDS.chilena && CARDS.chilena.who === 'def');
-      if (art) el.querySelector('.rm-art').appendChild(cloneCanvas(art));
-    });
   }
 
   // Panel de quien mira: no hay cartas que elegir.
