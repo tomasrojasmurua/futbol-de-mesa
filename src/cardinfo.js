@@ -8,7 +8,7 @@ import { DIE_LABELS } from './game.js';
 import { CARDART } from './cardart.js';
 import { p4Kit } from './playerkit.js';
 
-const DIE_NAMES = { buildDef: 'Dado de la salida', attackDef: 'Dado del último tercio', dribbleWin: 'Dado de la gambeta', shotSave: 'Dado de la atajada', shotBeat: 'Dado del remate' };
+const DIE_NAMES = { buildDef: 'Dado de la salida', attackDef: 'Dado del último tercio', dribbleWin: 'Dado de la gambeta', buildWin: 'Si le ganan la salida', attackWin: 'Si le ganan el ataque', shotSave: 'Dado de la atajada', shotBeat: 'Dado del remate' };
 
 // Frase corta de cada carta, desde el lado del equipo al que le toca.
 const SHORT = {

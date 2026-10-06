@@ -172,6 +172,7 @@ const MIRROR = { L: 'R', C: 'C', R: 'L' };
 
 // De qué es el dado que se tira.
 function diceTitle(ev) {
+  if (ev.die === 'buildWin' || ev.die === 'attackWin') return 'Dado de la defensa';
   if (ev.situation === 'build') return 'Dado de la salida';
   if (ev.situation === 'attack') return ev.att === 'dribble' && !ev.match ? 'Dado de la gambeta' : 'Dado del último tercio';
   if (['shot', 'penalty', 'shootout'].includes(ev.situation)) return ev.match ? 'Dado de la atajada' : 'Dado del remate';

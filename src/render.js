@@ -654,7 +654,7 @@ export class Renderer {
   reveal(ev) {
     if (ev._revealed) return;
     ev._revealed = true;
-    this.ui.reveal(ev);
+    this.ui.reveal(ev.orig || ev);
   }
 
   async pass(side, uv, { dur = 0.8, h = 0.4, recv = null, z1 = 0 } = {}) {
@@ -913,6 +913,9 @@ export class Renderer {
     this.clearOverrides();
     if (ev.situation !== 'penalty' && ev.situation !== 'corner') this.hold = null;
     const A = ev.poss, D = 1 - A;
+    // Carta de defensa que la corta aunque el ataque ganó el duelo: se ve como
+    // una jugada cortada (el duelo se sigue mostrando como lo ganó el ataque).
+    if (ev.cut) ev = { ...ev, match: true, orig: ev };
     if (ev.situation === 'build') await this.playBuild(ev, A, D);
     else if (ev.situation === 'attack') await this.playAttack(ev, A, D);
     else if (ev.situation === 'shot' || ev.situation === 'penalty') await this.playShot(ev, A, D);

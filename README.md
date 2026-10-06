@@ -36,7 +36,7 @@ Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nun
 | Carta | Copias | A quién | Qué hace |
 |---|---|---|---|
 | Ánimo de la hinchada | 3 | va perdiendo (empate: tiene la pelota) | En su próximo remate que supere al arquero, todo es gol: ni palo ni afuera. |
-| Entran suplentes | 3 | no tiene la pelota | Piernas frescas: en su próxima defensa acertada, casi toda pelota recuperada sale de contragolpe. |
+| Entran suplentes | 3 | no tiene la pelota | Piernas frescas: en su próxima defensa, si acierta casi toda pelota recuperada sale de contra; si no acierta, 2 de 6 se la quitan igual y sale de contra. |
 | Lesión | 4 | no tiene la pelota | Con uno menos hasta el cambio: en su próxima defensa acertada, dos caras «recupera» pasan a favor del rival. |
 | Habilitación larga | 4 | tiene la pelota | Si le adivinan la próxima salida, tres caras pasan a «pase largo»: la pelota llega al último tercio. |
 | Remate de primera | 4 | tiene la pelota | Si le adivinan el próximo ataque en el último tercio, el dado queda: córner, falta, recupera y 3 remate al arco. |
@@ -51,11 +51,11 @@ Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nun
 | Arquero nervioso | 2 | tiene la pelota | Si le atajan el próximo remate, el dado queda: córner, 2 atajada y 3 gol. |
 | Desorden defensivo | 2 | tiene la pelota | En su próximo ataque que le adivinen, el rival pierde la contra y la jugada sigue con 4 caras. |
 | Instrucción del DT | 3 | tiene la pelota | En su próximo ataque que le adivinen, el rival pierde la contra: 3 caras de pase largo en la salida o de remate en el último tercio. |
-| Defensa sólida | 2 | no tiene la pelota | Si adivina el próximo ataque rival en el último tercio, el dado queda: córner y 5 contra. |
-| Barrida quirúrgica | 3 | no tiene la pelota | Si adivina el próximo ataque rival en el último tercio, la quita limpia: 1 recupera y 5 contra, sin falta ni córner. |
+| Defensa sólida | 2 | no tiene la pelota | En el próximo ataque rival en el último tercio: si lo adivina, córner y 5 contra; si no, 2 de 6 la corta igual. |
+| Barrida quirúrgica | 3 | no tiene la pelota | En el próximo ataque rival en el último tercio: si lo adivina, la quita limpia (1 recupera y 5 contra); si no, 2 de 6 llega igual con la barrida. |
 | Despeje en la línea | 3 | no tiene la pelota | En el próximo remate rival que supere al arquero (no en penales), dos caras de gol pasan a «despeje»: un defensor la saca en la línea. |
-| Presión alta | 3 | no tiene la pelota | Si adivina la próxima salida rival, lo apura sin falta: toda pelota recuperada sale de contra. |
-| Achique del arquero | 2 | no tiene la pelota | Si su arquero adivina el próximo remate rival, sale rápido: 1 atajada y 5 contra, sin córner. |
+| Presión alta | 3 | no tiene la pelota | En la próxima salida rival: si la adivina, toda pelota recuperada sale de contra; si no, 2 de 6 lo apura y se la quita igual. |
+| Achique del arquero | 2 | no tiene la pelota | En el próximo remate rival: si su arquero lo adivina, sale rápido (1 atajada y 5 contra); si no, achica y 2 caras de gol pasan a «atajada al córner». |
 
 **Mazo de disciplina** (se roba con cada falta): advertencia del árbitro (sin efecto), amarilla (la segunda al mismo jugador es roja), tiro libre directo y roja (resto del partido: al defender, 1 «recupera» pasa a falta en la salida o córner en el último tercio). Hay un mazo por duración para que salga una roja cada 5 partidos en promedio, contando las de doble amarilla:
 

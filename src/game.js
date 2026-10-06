@@ -1,7 +1,7 @@
 // Lógica pura del partido. El anfitrión (host) es la autoridad: resuelve cada
 // jugada con las dos elecciones y una tirada de dado, y envía el evento a ambos.
 
-import { newSituations, rollFaces, foul, afterPlay, halfTime, expireOneUse, BASE_DICE, POLEMICA_BEAT } from './situations.js';
+import { newSituations, rollFaces, foul, afterPlay, halfTime, expireOneUse, BASE_DICE, POLEMICA_BEAT, hasDieFx } from './situations.js';
 
 export const HALF_MINUTES = 45;
 export const TURN_SECONDS = 12;
@@ -196,7 +196,10 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         else if (f === 'shoot') { ev.outcome = 'longball'; s.situation = 'shot'; s.shotKind = 'remate'; }
         else { ev.outcome = 'steal'; stealer(); turnover(); }
       } else {
-        ev.outcome = 'advance'; s.situation = 'attack'; s.lane = att;
+        // carta de defensa: aunque no la adivinó, puede cortarla igual
+        const f = hasDieFx(s, 'buildWin', A, D) ? die('buildWin') : 'advance';
+        if (f === 'steal' || f === 'counter') { ev.outcome = f; ev.cut = true; stealer(); f === 'counter' ? turnover('attack') : turnover(); }
+        else { ev.outcome = 'advance'; s.situation = 'attack'; s.lane = att; }
       }
       break;
     }
@@ -210,6 +213,9 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         else if (f === 'shoot' || f === 'advance') { ev.outcome = 'chance'; toShot(); }
         else if (f === 'penalty') { ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal'; s.penPolemica = true; }
         else { ev.outcome = 'steal'; stealer(); turnover(); }
+      } else if (hasDieFx(s, 'attackWin', A, D) && ['steal', 'counter'].includes(die('attackWin'))) {
+        // carta de defensa: aunque no la adivinó, la corta igual
+        ev.outcome = ev.faces[ev.dice - 1]; ev.cut = true; stealer(); ev.outcome === 'counter' ? turnover('attack') : turnover();
       } else {
         toShot();
         ev.outcome = 'chance';
@@ -361,6 +367,7 @@ export function fmtMinute(minute, half) {
 export function commentary(ev, names) {
   const A = names[ev.poss], D = names[1 - ev.poss];
   const laneTxt = { L: 'por la izquierda', C: 'por el centro', R: 'por la derecha' };
+  if (ev.cut) return ev.outcome === 'counter' ? `¡${A} la ganaba, pero ${D} se la quita y sale de contra!` : `¡${A} la ganaba, pero ${D} llega igual y se la quita!`;
   switch (ev.situation) {
     case 'build':
       if (ev.outcome === 'advance' && ev.match) return `${D} leyó la jugada, pero no alcanza a cortar. Sigue ${A}.`;
@@ -428,6 +435,7 @@ export function diceFaces(ev) {
 
 // Lo que pasó con el dado, en palabras. Si la cara la puso una carta, se dice.
 const CARD_REASONS = {
+  steal: '¡Una carta: la corta igual!',
   advance: '¡Una carta: sigue la jugada!',
   shoot: '¡Una carta: remate al arco!',
   longpass: '¡Una carta: pase largo!',
