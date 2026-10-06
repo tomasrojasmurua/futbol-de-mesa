@@ -49,7 +49,7 @@ export function swatchCss(kit) {
 // Muestra de un equipo: su camiseta, o la bandera si es una selección.
 const isNation = (t) => t && t.group === 'Selecciones' && teamFlag(t.id);
 function swatchAttrs(t) {
-  return isNation(t) ? `class="kit-swatch flag" style="background:url(${flagUrl(teamFlag(t.id))}) center / 100% 100%"` : `${swatchAttrs(t)}`;
+  return isNation(t) ? `class="kit-swatch flag" style="background:url(${flagUrl(teamFlag(t.id))}) center / 100% 100%"` : `class="kit-swatch" style="background:${swatchCss(t.kit)}"`;
 }
 function paintSwatch(el, t) {
   el.classList.toggle('flag', !!isNation(t));
