@@ -1,7 +1,7 @@
 // Lógica pura del partido. El anfitrión (host) es la autoridad: resuelve cada
 // jugada con las dos elecciones y una tirada de dado, y envía el evento a ambos.
 
-import { newSituations, rollFaces, foul, afterPlay, halfTime, expireOneUse, BASE_DICE, POLEMICA_BEAT, hasDieFx } from './situations.js';
+import { newSituations, rollFaces, foul, afterPlay, halfTime, expireOneUse, BASE_DICE, hasDieFx } from './situations.js';
 
 export const HALF_MINUTES = 45;
 export const TURN_SECONDS = 12;
@@ -219,7 +219,6 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         else if (f === 'foul') { ev.outcome = 'foul'; foul(s, ev, A, D, rng); }
         else if (f === 'counter') { ev.outcome = 'counter'; stealer(); turnover('attack'); }
         else if (f === 'shoot' || f === 'advance') { ev.outcome = 'chance'; toShot(); }
-        else if (f === 'penalty') { ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal'; s.penPolemica = true; }
         else { ev.outcome = 'steal'; stealer(); turnover(); }
       } else if (hasDieFx(s, 'attackWin', A, D) && ['steal', 'counter'].includes(die('attackWin'))) {
         // carta de defensa: aunque no la adivinó, la corta igual
@@ -230,8 +229,6 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         if (att === 'dribble') {
           if (die('dribbleWin') === 'penalty') {
             ev.outcome = 'penalty'; s.situation = 'penalty'; s.shotKind = 'penal';
-            // si el penal lo puso la carta (no el 6 de siempre), es de la Polémica
-            s.penPolemica = ev.faces[ev.dice - 1] !== BASE_DICE.dribbleWin[ev.dice - 1];
           }
         }
       }
@@ -242,8 +239,6 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       s.clock += 1;
       s.stats.shots[A]++;
       const kind = s.situation === 'penalty' ? 'penal' : s.shotKind;
-      const polemica = s.situation === 'penalty' && s.penPolemica;
-      s.penPolemica = false;
       ev.shotKind = kind;
       // Quién patea (puesto en la formación), igual en los dos celulares.
       ev.shooter = kind === 'penal' ? 9 : SHOOTERS[Math.floor(rng() * SHOOTERS.length)];
@@ -258,13 +253,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
         else if (f === 'counter') { ev.outcome = 'save_counter'; turnover('attack'); s.stats.steals[D]--; }
         else { ev.outcome = 'save'; turnover(); s.stats.steals[D]--; }
       } else {
-        let f = die('shotBeat');
-        if (polemica) {
-          // penal de la Decisión polémica: más caras de gol (encima de las otras cartas)
-          ev.faces = ev.faces.map((x, i) => (BASE_DICE.shotBeat[i] !== POLEMICA_BEAT[i] && x === BASE_DICE.shotBeat[i] ? POLEMICA_BEAT[i] : x));
-          f = ev.faces[ev.dice - 1];
-          if (!ev.dieCards.some((c) => c.id === 'polemica')) ev.dieCards.push({ id: 'polemica', side: A });
-        }
+        const f = die('shotBeat');
         if (f === 'goal') goal(kind);
         else if (f === 'corner') {
           // Fortuna de arquero: la saca al córner.

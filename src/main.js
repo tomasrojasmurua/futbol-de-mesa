@@ -185,7 +185,7 @@ const HELP = `
 <h3>Situaciones de juego</h3>
 <p>Dos mazos de cartas traen lo impredecible de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras del dado, y los dos ven la carta y el dado cambiado.</p>
 <ul>
-<li><b>Mazo de partido</b> (60 cartas, 21 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Decisión polémica, Remate de primera, Defensa sólida o Despeje en la línea. Casi todas duran una jugada y, si no se usan, vencen al terminar el tiempo; la Lluvia dura el resto del partido, tanda de penales incluida. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
+<li><b>Mazo de partido</b> (57 cartas, 20 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Remate de primera, Defensa sólida o Despeje en la línea. Casi todas duran una jugada y, si no se usan, vencen al terminar el tiempo; la Lluvia dura el resto del partido, tanda de penales incluida. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
 <li><b>Mazo de disciplina</b>: sale con cada falta. Advertencia del árbitro (sigue el partido), amarilla (la segunda es roja), tiro libre directo (solo con faltas en el último tercio; en la salida el árbitro solo advierte) o roja (con uno menos, al defender una cara «recupera» pasa a falta o córner). Hay un mazo para cada duración, así que en cualquier partido sale más o menos una roja cada 5 partidos.</li>
 </ul>
 <h3>Duración</h3>

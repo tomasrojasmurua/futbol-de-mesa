@@ -1,6 +1,6 @@
 // Situaciones de juego: dos mazos de cartas que le pasan cosas al partido.
 //
-// - Mazo de PARTIDO (60 cartas, 21 situaciones): se roba en cuatro momentos
+// - Mazo de PARTIDO (57 cartas, 20 situaciones): se roba en cuatro momentos
 //   fijos (al 40% y al 80% de cada tiempo, en una salida). A quién le toca lo
 //   decide la jugada: el que tiene la pelota, el que defiende, el que va
 //   perdiendo o ganando, o los dos.
@@ -72,9 +72,6 @@ export const CARDS = {
   crack: { deck: 'partido', copies: 3, who: 'poss', title: 'Genialidad del crack',
     text: 'En su próximo ataque que le adivinen, tres caras pasan a favor de su equipo.',
     fx: [fx('att', S, F('foul steal advance:3 counter')), fx('att', U, F('corner foul shoot:3 counter'))] },
-  polemica: { deck: 'partido', copies: 3, who: 'poss', title: 'Decisión polémica',
-    text: 'En su próximo ataque en el último tercio: si se lo adivinan, el dado queda córner, recupera, 3 penal y contra; si gana la gambeta, 3 de 6 son penal (y la carta sigue). Ese penal, si supera al arquero, tiene 5 caras de gol.',
-    fx: [fx('att', U, F('corner steal penalty:3 counter')), { ...fx('att', 'dribbleWin', F('shoot:3 penalty:3')), free: true }] },
   lluvia: { deck: 'partido', copies: 2, who: 'both', title: 'Lluvia',
     text: 'Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera».',
     fx: [fx('att', 'shotBeat', F('post wide:2 goal:3'), Infinity)] },
@@ -116,9 +113,6 @@ export const CARDS = {
     text: 'Con uno menos todo el partido: cuando defiende y adivina, una cara «recupera» pasa a falta en la salida o a córner en el último tercio.' },
 };
 
-// Penal cobrado por la Decisión polémica: si le gana al arquero, el dado del
-// remate queda así (la cara «afuera» también es gol).
-export const POLEMICA_BEAT = F('post goal:5');
 export const RED_FX = [fx('def', S, F('foul:2 steal:3 counter'), Infinity), fx('def', U, F('corner:2 foul steal:2 counter'), Infinity)];
 
 const DECKS = {};
