@@ -22,7 +22,6 @@ const SHORT = {
   arquero: 'Menos chances de recibir un gol',
   capitan: 'Más chances de seguir con la pelota',
   crack: 'Más chances de seguir con la pelota',
-  polemica: 'Chances de penal en el último tercio',
   lluvia: 'Menos chances de anotar',
   errordt: 'Menos chances de contragolpear',
   iluminacion: 'Más chances de anotar',

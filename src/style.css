@@ -479,7 +479,6 @@ body.watching .cards .duel-card { pointer-events: none; }
 .sitcard.k-arquero .sc-art i::before { content: '✋'; }
 .sitcard.k-capitan .sc-art i::before { content: 'C'; font-family: var(--px); font-size: 28px; }
 .sitcard.k-crack .sc-art i::before { content: '★'; color: #ffd23f; }
-.sitcard.k-polemica .sc-art i::before { content: '?'; font-family: var(--px); font-size: 28px; }
 .sitcard.k-lluvia .sc-art i::before { content: '☂'; color: #9fd3ff; }
 .sitcard.k-errordt .sc-art i::before { content: '✗'; }
 .sitcard.k-iluminacion .sc-art i::before { content: '✦'; color: #fff6a8; }

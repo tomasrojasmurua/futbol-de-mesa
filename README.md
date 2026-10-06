@@ -31,7 +31,7 @@ Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una
 
 Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los cuatro dados (salida defendida, ataque defendido, atajada y remate). Caras nuevas que pueden aparecer: «sigue la jugada», «remate directo» y «penal».
 
-**Mazo de partido** (60 cartas, 21 situaciones): se roba cuatro veces por partido, dos por tiempo, siempre en una salida. Casi todas duran una jugada y vencen al terminar el tiempo; la Lluvia dura el resto del partido.
+**Mazo de partido** (57 cartas, 20 situaciones): se roba cuatro veces por partido, dos por tiempo, siempre en una salida. Casi todas duran una jugada y vencen al terminar el tiempo; la Lluvia dura el resto del partido.
 
 | Carta | Copias | A quién | Qué hace |
 |---|---|---|---|
@@ -44,7 +44,6 @@ Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nun
 | Fortuna de arquero | 3 | no tiene la pelota | En el próximo remate rival que lo supere, tres caras de gol pasan a «atajada al córner». |
 | Capitán inspirado | 3 | tiene la pelota | Tiki-taka: en su próximo ataque que le adivinen, tres caras pasan a favor de su equipo. |
 | Genialidad del crack | 3 | tiene la pelota | En su próximo ataque que le adivinen, tres caras pasan a favor de su equipo. |
-| Decisión polémica | 3 | tiene la pelota | En su próximo ataque en el último tercio: si se lo adivinan, el dado queda córner, recupera, 3 penal y contra; si gana la gambeta, 3 de 6 son penal (y la carta sigue). Ese penal, si supera al arquero, tiene 5 caras de gol. |
 | Lluvia | 2 | los dos | Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera». |
 | Error del DT | 2 | va ganando (empate: tiene la pelota) | En su próxima defensa acertada pierde la contra y el rival sigue la jugada con 3 caras. |
 | Tiro colocado | 2 | tiene la pelota | En su próximo remate que supere al arquero, todo es gol: ni palo ni afuera. |
