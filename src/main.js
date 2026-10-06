@@ -15,6 +15,7 @@ import { playerName } from './squads.js';
 import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
 import { paintFlag, GROUP_FLAG, teamFlag, flagUrl } from './flags.js';
+import { paintMap } from './maps.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1562,76 +1563,63 @@ function cupMenu() {
   show('screen-cups');
 }
 
-// Selecciones por confederación, en el orden en que se muestran.
+// Selecciones por confederación, en el orden en que se muestran, con el mapa de su región.
 const CONFED = [
-  ['Sudamérica', ['arg', 'bra', 'uru', 'col', 'chi', 'per', 'ecu', 'par', 'ven', 'bol']],
-  ['Norte y Centroamérica', ['mex', 'usa', 'can']],
-  ['Europa', ['esp', 'fra', 'ger', 'eng', 'ita', 'por', 'ned', 'cro', 'bel', 'sui', 'den']],
-  ['África', ['mar', 'sen']],
-  ['Asia', ['jpn', 'kor']],
+  ['Sudamérica', 'sa', ['arg', 'bra', 'uru', 'col', 'chi', 'per', 'ecu', 'par', 'ven', 'bol']],
+  ['Norte y Centroamérica', 'na', ['mex', 'usa', 'can']],
+  ['Europa', 'eu', ['esp', 'fra', 'ger', 'eng', 'ita', 'por', 'ned', 'cro', 'bel', 'sui', 'den']],
+  ['África', 'af', ['mar', 'sen']],
+  ['Asia', 'as', ['jpn', 'kor']],
 ];
 
-// Equipos de esa copa como en la selección de equipo: los clubes en dos pasos
-// (liga con su bandera y después el equipo); las selecciones en una sola lista
-// por confederación, cada una con su bandera.
+// Equipos de esa copa como en la selección de equipo, en dos pasos: los clubes
+// por liga con su bandera y las selecciones por confederación con el mapa de su
+// región. Si la copa es de un solo grupo (la Eurocopa), va directo a los equipos.
 function pickCupTeam(comp) {
   const pool = new Set(comp.pool);
   const teams = TEAMS.filter((t) => pool.has(t.id));
-  const back = () => (groups.length > 1 ? cupGroups() : cupMenu());
-  const groups = [...new Set(teams.map((t) => t.group))];
+  const groups = teams.every((t) => t.group === 'Selecciones')
+    ? CONFED.map(([name, map, ids]) => ({ name, ids: ids.filter((id) => pool.has(id)), paint: (cv) => paintMap(cv, map) })).filter((g) => g.ids.length)
+    : [...new Set(teams.map((t) => t.group))].map((name) => ({ name, ids: teams.filter((t) => t.group === name).map((t) => t.id), paint: (cv) => paintFlag(cv, GROUP_FLAG[name]) }));
   const grid = $('#cup-team-grid');
   const list = $('#cup-team-groups');
-  const teamBtn = (t) => {
-    const b = document.createElement('button');
-    b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
-    b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
-    paintSwatch(b.querySelector('.kit-swatch'), t);
-    b.onclick = () => confirmCup(comp, t.id);
-    return b;
-  };
-  const showGrid = (title, fill) => {
-    $('#cup-team-title').textContent = title;
+  const groupTeams = (g) => {
+    $('#cup-team-title').textContent = g.name;
+    $('#cup-team-back').onclick = groups.length > 1 ? cupGroups : cupMenu;
     list.hidden = true;
     grid.hidden = false;
     grid.innerHTML = '';
-    fill();
+    for (const id of g.ids) {
+      const t = teamById(id);
+      const b = document.createElement('button');
+      b.className = 'team-btn' + (id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
+      b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
+      paintSwatch(b.querySelector('.kit-swatch'), t);
+      b.onclick = () => confirmCup(comp, id);
+      grid.appendChild(b);
+    }
     grid.scrollTop = 0;
   };
-  const nations = () => showGrid(comp.name, () => {
-    const listed = new Set(CONFED.flatMap(([, ids]) => ids));
-    const sections = [...CONFED, ['Otras', comp.pool.filter((id) => !listed.has(id))]]
-      .map(([name, ids]) => [name, ids.filter((id) => pool.has(id))]).filter(([, ids]) => ids.length);
-    for (const [name, ids] of sections) {
-      if (sections.length > 1) grid.insertAdjacentHTML('beforeend', `<h3>${name}</h3>`);
-      for (const id of ids) grid.appendChild(teamBtn(teamById(id)));
-    }
-  });
-  const groupTeams = (g) => {
-    showGrid(g, () => { for (const t of teams.filter((x) => x.group === g)) grid.appendChild(teamBtn(t)); });
-    $('#cup-team-back').onclick = back;
-  };
-  const cupGroups = () => {
+  function cupGroups() {
     $('#cup-team-title').textContent = comp.name;
-    $('#cup-team-back').onclick = () => cupMenu();
+    $('#cup-team-back').onclick = cupMenu;
     grid.hidden = true;
     list.hidden = false;
     list.innerHTML = '';
     const mine = teams.find((t) => t.id === myTeamId);
     for (const g of groups) {
-      const n = teams.filter((t) => t.group === g).length;
+      const has = mine && g.ids.includes(mine.id);
       const b = document.createElement('button');
-      b.className = 'league-btn flag-btn' + (mine?.group === g ? ' saved' : '');
-      b.append(paintFlag(document.createElement('canvas'), GROUP_FLAG[g]));
-      b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${n} ${n === 1 ? 'equipo' : 'equipos'}</small>${mine?.group === g ? `<em>Último equipo: ${mine.name}</em>` : ''}`);
+      b.className = 'league-btn flag-btn' + (has ? ' saved' : '');
+      b.append(g.paint(document.createElement('canvas')));
+      b.insertAdjacentHTML('beforeend', `<b>${g.name}</b><small>${g.ids.length} ${g.ids.length === 1 ? 'equipo' : 'equipos'}</small>${has ? `<em>Último equipo: ${mine.name}</em>` : ''}`);
       b.onclick = () => groupTeams(g);
       list.appendChild(b);
     }
     list.scrollTop = 0;
-  };
-  $('#cup-team-back').onclick = () => cupMenu();
-  if (groups.length === 1 && groups[0] === 'Selecciones') nations();
-  else if (groups.length === 1) groupTeams(groups[0]);
-  else cupGroups();
+  }
+  if (groups.length > 1) cupGroups();
+  else groupTeams({ ...groups[0], name: comp.name });
   show('screen-cup-teams');
 }
 
