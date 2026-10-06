@@ -74,6 +74,8 @@ function paintHome(force = true) {
 }
 let homeTimer = 0;
 addEventListener('resize', () => { clearTimeout(homeTimer); homeTimer = setTimeout(() => paintHome(false), 200); });
+let trophyTimer = 0;
+addEventListener('resize', () => { if ($('#screen-trophies')?.classList.contains('active')) { clearTimeout(trophyTimer); trophyTimer = setTimeout(() => showTrophies(), 200); } });
 
 // Elegir equipo en dos pasos: primero la liga (o grupo), después el equipo.
 const teamGroups = () => [...new Set(TEAMS.map((t) => t.group))];
@@ -1602,7 +1604,9 @@ function showTrophies() {
   const won = loadTrophies();
   const cv = $('#trophy-canvas');
   const room = paintRoom(cv, won, teamById(myTeamId).kit);
-  const k = Math.max(1, Math.floor(Math.min(innerWidth, 640) / room.W));
+  // En el celular la vitrina ocupa todo el ancho; en pantallas grandes, todo el alto.
+  const fitW = innerWidth / room.W, fitH = (innerHeight - 96) / room.H;
+  const k = innerWidth <= 700 ? fitW : Math.min(fitW, fitH);
   cv.style.width = `${room.W * k}px`; cv.style.height = `${room.H * k}px`;
   const wrap = $('#trophy-room');
   wrap.querySelectorAll('button').forEach((b) => b.remove());
@@ -1618,7 +1622,7 @@ function showTrophies() {
   }
   const kinds = TROPHY_LIST.filter((t) => (won[t.id] || []).length).length;
   const total = Object.values(won).reduce((a, l) => a + l.length, 0);
-  $('#trophy-sum').innerHTML = total ? `Tienes <b>${kinds} de ${TROPHY_LIST.length}</b> copas distintas y <b>${total}</b> ${total === 1 ? 'título' : 'títulos'}. Toca una copa para ver cuándo la ganaste.` : 'La vitrina está esperando. Gana torneos y ligas para llenarla. Toca una copa para ver cómo se consigue.';
+  $('#trophy-sum').innerHTML = total ? `<b>${kinds} de ${TROPHY_LIST.length}</b> copas distintas · <b>${total}</b> ${total === 1 ? 'título' : 'títulos'}. Toca una para ver el detalle.` : 'Gana torneos y ligas para llenar la vitrina. Toca una copa para ver cómo se consigue.';
   show('screen-trophies');
 }
 function trophyDetail(id) {
