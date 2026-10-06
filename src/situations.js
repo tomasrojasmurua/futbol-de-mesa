@@ -214,7 +214,7 @@ export function foul(s, ev, A, D, rng) {
   let id = draw(s, 'disciplina', rng);
   // el tiro libre directo solo sale de faltas en el último tercio; en la salida,
   // lejos del arco, el árbitro solo advierte y sigue el juego
-  if (id === 'freekick' && s.situation !== 'attack') id = 'warning';
+  if (id === 'freekick' && (s.situation !== 'attack' || ev.boxFoul)) id = 'warning';
   const player = FOULERS[Math.floor(rng() * FOULERS.length)];
   const card = { deck: 'disciplina', id, side: D, player };
   if (id === 'yellow') {

@@ -142,6 +142,9 @@ export function randomChoice(state, role, rng = Math.random) {
 }
 
 // Resuelve una jugada. att = elección del que ataca, def = del que defiende.
+// Ataques que terminan dentro del área: si ahí hay falta, es penal.
+export const BOX_FOUL = ['cross', 'dribble'];
+
 export function resolvePlay(state, att, def, rng = Math.random) {
   const s = clone(state);
   const A = s.poss, D = 1 - A;
@@ -208,6 +211,11 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       if (ev.match) {
         const f = die('attackDef');
         if (f === 'corner') { ev.outcome = 'corner'; s.situation = 'corner'; s.stats.corners[A]++; s.lane = rng() < 0.5 ? 'L' : 'R'; }
+        else if (f === 'foul' && BOX_FOUL.includes(att)) {
+          // la falta fue dentro del área: penal (y la tarjeta que corresponda)
+          ev.outcome = 'penalty'; ev.boxFoul = true; foul(s, ev, A, D, rng);
+          s.situation = 'penalty'; s.shotKind = 'penal';
+        }
         else if (f === 'foul') { ev.outcome = 'foul'; foul(s, ev, A, D, rng); }
         else if (f === 'counter') { ev.outcome = 'counter'; stealer(); turnover('attack'); }
         else if (f === 'shoot' || f === 'advance') { ev.outcome = 'chance'; toShot(); }
@@ -378,6 +386,7 @@ export function commentary(ev, names) {
       if (ev.outcome === 'counter') return `¡Robo de ${D} y sale el contragolpe!`;
       return `${D} cerró bien ${laneTxt[ev.att]} y recupera la pelota.`;
     case 'attack':
+      if (ev.boxFoul) return `¡Falta de ${D} dentro del área! ¡Penal para ${A}!`;
       if (ev.outcome === 'penalty' && ev.match) return `¡Cobran penal en una jugada dudosa! Protesta ${D}.`;
       if (ev.outcome === 'penalty') return `¡Gambeta en el área y lo derriban! ¡Penal para ${A}!`;
       if (ev.outcome === 'chance' && ev.match) return `${D} la tenía, pero ${A} se la gana igual y queda para rematar.`;
@@ -449,6 +458,7 @@ const CARD_REASONS = {
 };
 export function diceReason(ev) {
   if (ev.dice == null) return '';
+  if (ev.boxFoul) return 'Falta en el área: ¡penal!';
   const d = ev.dice;
   if (ev.die) {
     const f = ev.faces[d - 1];

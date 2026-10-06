@@ -1024,6 +1024,13 @@ export class Renderer {
       return true;
     }
     if (o === 'penalty') {
+      if (ev.boxFoul) {
+        // falta dentro del área: lo bajan y el árbitro cobra penal
+        const victim = this.nearest(A, this.ball.x, this.ball.y, true);
+        victim.fallen = 1.4;
+        this.ball.owner = null;
+        await this.wait(0.5);
+      }
       this.ui.sound('whistle');
       await this.ui.banner('¡PENAL!', {});
       await this.setPenalty(A);
@@ -1172,7 +1179,7 @@ export class Renderer {
         await this.wait(0.2);
       }
       this.cam.tzoom = 1.6;
-      await this.duelPass(ev, A, [runU, 89], { h: 0.25, dur: 1.0, defWins: ev.match, style: 'slide', recv: runner });
+      await this.duelPass(ev, A, [runU, ev.match ? 87.5 : 89], { h: 0.25, dur: 1.0, defWins: ev.match, style: 'slide', recv: runner });
       if (!ev.match) {
         this.players[D][0].ov = this.W(A, 34, 99.5);
         await this.dribble(A, [runU * 0.7 + 34 * 0.3, 92], 0.5);
@@ -1197,7 +1204,7 @@ export class Renderer {
     await this.dribble(A, [lerp(cu, endU, 0.4), Math.max(cv + 3, 76)], 0.7, 1);
     this.cam.tzoom = 1.65;
     const look = ev.match ? null : ev.outcome === 'penalty' ? 'pen' : pickR(['afuera', 'afuera', 'adentro', 'adentro', 'mano']);
-    await this.duelDribble(ev, A, [endU, look === 'afuera' ? 83 : 86], { defWins: ev.match });
+    await this.duelDribble(ev, A, [endU, ev.boxFoul ? 102 : look === 'afuera' ? 83 : 86], { defWins: ev.match });
     if (!ev.match) {
       await this.diceMoment(ev);
       if (look === 'adentro') {
