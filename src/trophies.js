@@ -315,12 +315,12 @@ const SA_TOP = ['river', 'boca', 'rac', 'ind', 'slo', 'est', 'vel', 'ar_tal', 'a
 const byGroup = (g) => TEAMS.filter((t) => t.group === g).map((t) => t.id);
 const SA_ALL = [...byGroup('Primera de Chile'), ...byGroup('Liga Profesional'), ...byGroup('Brasileirão'), 'pen', 'nac', 'atn', 'ali', 'uni'];
 
-// Copas con cuadro de 16 (o de 8 si no hay equipos para más).
+// Copas con cuadro de 16 u 8 equipos (la Europa League y la Sudamericana son de 8).
 export const COMPS = [
   { id: 'ucl', name: 'Champions League', sub: 'Los grandes de Europa', art: 'ucl', pool: CLUB_EU_TOP, size: 16 },
-  { id: 'uel', name: 'Europa League', sub: 'Clubes de Europa', art: 'uel', pool: CLUB_EU_2, size: 16 },
+  { id: 'uel', name: 'Europa League', sub: 'Clubes de Europa', art: 'uel', pool: CLUB_EU_2, size: 8 },
   { id: 'lib', name: 'Copa Libertadores', sub: 'Los grandes de Sudamérica', art: 'lib', pool: SA_TOP, size: 16 },
-  { id: 'sud', name: 'Copa Sudamericana', sub: 'Clubes de Sudamérica', art: 'sud', pool: SA_ALL.filter((id) => !SA_TOP.slice(0, 10).includes(id)), size: 16 },
+  { id: 'sud', name: 'Copa Sudamericana', sub: 'Clubes de Sudamérica', art: 'sud', pool: SA_ALL.filter((id) => !SA_TOP.slice(0, 10).includes(id)), size: 8 },
   { id: 'wc', name: 'Copa del Mundo', sub: 'Selecciones de todo el mundo', art: 'world', pool: byGroup('Selecciones'), size: 16 },
   { id: 'ca', name: 'Copa América', sub: 'Selecciones de América', art: 'ca', pool: ['arg', 'chi', 'bra', 'uru', 'col', 'per', 'ecu', 'par', 'ven', 'bol', 'mex', 'usa', 'can'], size: 8 },
   { id: 'euro', name: 'Eurocopa', sub: 'Selecciones de Europa', art: 'euro', pool: ['esp', 'fra', 'ger', 'eng', 'ita', 'por', 'ned', 'cro', 'bel', 'sui', 'den'], size: 8 },
