@@ -40,6 +40,8 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const PEN_ATT = { 0: [34, 4], 1: [13, 64], 2: [27, 56], 3: [41, 56], 4: [55, 64], 5: [16, 87.3], 6: [31, 77], 7: [39, 74.5], 8: [52, 87.3], 9: [28, 85.3], 10: [40, 85.3] };
 const PEN_DEF = { 0: [34, 104.4], 1: [18.5, 88], 2: [24, 86.2], 3: [44, 86.2], 4: [49.5, 88], 5: [12.5, 86.4], 6: [30.5, 79], 7: [37.5, 79.5], 8: [55.5, 86.4], 9: [33, 55], 10: [47, 70] };
 const pickR = (a) => a[Math.floor(Math.random() * a.length)];
+// Puntos alrededor de un jugador donde puede recibir (u, v; v positivo = hacia el arco rival).
+const SPOT_OFFSETS = [[0, 0], [0, 4], [3, 3], [-3, 3], [5, 0], [-5, 0], [0, 7], [4, 6], [-4, 6], [7, 3], [-7, 3], [0, 10], [5, 9], [-5, 9], [0, -3], [4, -2], [-4, -2]];
 
 function seeded(n) {
   const x = Math.sin(n * 9301 + 49297) * 233280;
@@ -676,10 +678,16 @@ export class Renderer {
     this.launch(to, { dur, h, z1 });
     this.ui.sound('kick');
     await this.wait(dur);
-    const d = Math.hypot(r.x - to[0], r.y - to[1]);
-    if (d > 1.2) await this.wait(Math.min(0.6, d / 9));
+    // si el que recibe todavía no llega, la pelota rueda un poco más hacia él
+    // (nunca queda quieta esperando); solo en el peor caso se acomoda de golpe
+    let d = Math.hypot(r.x - to[0], r.y - to[1]);
+    for (let t = 0; d > 1.2 && t < 0.8; t += 0.05) {
+      this.ball.x = lerp(this.ball.x, r.x, 0.12); this.ball.y = lerp(this.ball.y, r.y, 0.12);
+      await this.wait(0.05);
+      d = Math.hypot(r.x - this.ball.x, r.y - this.ball.y);
+    }
     r.ov = null; r.boost = 1;
-    r.x = lerp(r.x, to[0], 0.7); r.y = lerp(r.y, to[1], 0.7);
+    if (d > 1.2) { r.x = lerp(r.x, this.ball.x, 0.7); r.y = lerp(r.y, this.ball.y, 0.7); }
     this.give(r);
     return r;
   }
@@ -699,6 +707,86 @@ export class Renderer {
   // Desmarques: compañeros que pican al espacio mientras se arma la jugada.
   runs(side, list, boost = 1.3) {
     for (const [p, u, v] of list) if (p && p !== this.ball.owner) { p.ov = this.W(side, u, v); p.boost = boost; }
+  }
+
+  // Qué tan cerca está el rival más cercano de un punto (en metros).
+  oppDist(A, pt) {
+    let m = Infinity;
+    for (const o of this.players[1 - A]) m = Math.min(m, Math.hypot(o.x - pt[0], o.y - pt[1]));
+    return m;
+  }
+
+  // Qué tan cerca pasa un rival de la línea de pase de `a` a `b`.
+  laneDist(A, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy || 1;
+    let m = Infinity;
+    for (const o of this.players[1 - A]) {
+      const t = clamp(((o.x - a[0]) * dx + (o.y - a[1]) * dy) / L2, 0.12, 1);
+      m = Math.min(m, Math.hypot(o.x - (a[0] + dx * t), o.y - (a[1] + dy * t)));
+    }
+    return m;
+  }
+
+  // Un espacio libre al alcance de `p` (en coordenadas del equipo A), cerca de
+  // `want`: el punto más lejos de los rivales sin irse demasiado del plan.
+  openSpot(A, p, want, reach = 6) {
+    let best = null;
+    for (const [du, dv] of SPOT_OFFSETS) {
+      const uv = [clamp(want[0] + du, 4, 64), clamp(want[1] + dv, 4, 92)];
+      const to = this.W(A, uv[0], uv[1]);
+      if (Math.hypot(to[0] - p.x, to[1] - p.y) > reach) continue;
+      const s = Math.min(9, this.oppDist(A, to)) - Math.hypot(du, dv) * 0.25;
+      if (!best || s > best.s) best = { s, uv };
+    }
+    return best ? best.uv : want;
+  }
+
+  // Los compañeros que no tienen la pelota se ofrecen: cada uno se corre a
+  // un espacio libre cerca de su puesto (lejos de las marcas).
+  offerSupport(A) {
+    const owner = this.ball.owner;
+    for (const p of this.players[A]) {
+      if (p === owner || p.i === 0 || p.lock) continue;
+      const [tu, tv] = this.U(A, p.tx, p.ty);
+      p.ov = this.W(A, ...this.openSpot(A, p, [tu, tv], 9));
+      p.boost = 1.1;
+    }
+  }
+
+  // Pase con sentido: entre los compañeros `cands` elige al que está mejor
+  // ubicado (línea de pase limpia, espacio para recibir, que avance hacia
+  // `toward`) y le juega a un espacio libre al que llega a tiempo, así la
+  // pelota nunca queda quieta esperando cerca de un rival.
+  async smartPass(A, cands, { adv = 9, toward = null, h = 0.25, minGain = -20, len = 15 } = {}) {
+    const owner = this.ball.owner;
+    const from = [this.ball.x, this.ball.y];
+    const [, fv] = this.U(A, from[0], from[1]);
+    let best = null;
+    // no se la devuelve al que se la acaba de dar (salvo en una pared)
+    const prev = this.prevPasser;
+    for (const p of cands) {
+      if (!p || p === owner || p.i === 0 || (p === prev && cands.length > 2)) continue;
+      const [pu, pv] = this.U(A, p.x, p.y);
+      const dur = clamp(Math.hypot(p.x - from[0], p.y - from[1]) / 17, 0.5, 1.05);
+      const reach = 7.2 * 1.4 * Math.max(0.25, dur - 0.3);
+      for (const [du, dv] of SPOT_OFFSETS) {
+        if (Math.hypot(du, dv) > reach) continue;
+        const uv = [clamp(pu + du, 4, 64), clamp(pv + dv, 4, 90)];
+        const gain = uv[1] - fv;
+        if (gain < minGain) continue;
+        const to = this.W(A, uv[0], uv[1]);
+        const plen = Math.hypot(to[0] - from[0], to[1] - from[1]);
+        if (plen < 6) continue;
+        let sc = Math.min(9, this.oppDist(A, to)) + Math.min(6, this.laneDist(A, from, to)) * 1.5
+          + clamp(gain, -8, adv) * 0.7 - Math.abs(plen - len) * 0.08;
+        if (toward != null) sc -= Math.abs(uv[0] - toward) * 0.05;
+        sc += Math.random() * 1.5;
+        if (!best || sc > best.sc) best = { sc, p, uv, dur };
+      }
+    }
+    if (!best) return null;
+    this.prevPasser = owner;
+    return this.passTo(A, best.p, best.uv, { dur: best.dur, h });
   }
 
   async dribble(side, uv, dur = 1, zig = 0) {
@@ -1072,29 +1160,36 @@ export class Renderer {
     const target = [clamp(lane + rnd(-2, 2), 5, 63), 66];
     const recvFor = (passer) => ev.att === 'L' ? this.mate(A, [5, 9, 1], [passer]) : ev.att === 'R' ? this.mate(A, [8, 10, 4], [passer]) : this.mate(A, pickR([[9, 10, 6], [10, 9, 7]]), [passer]);
     let [u, v] = this.ballUV(A);
+    this.prevPasser = null;
+    const back = [1, 2, 3, 4].map((n) => this.byNum(A, n));
+    const mids = [5, 6, 7, 8].map((n) => this.byNum(A, n));
+    // los que no participan se ofrecen: se abren a un espacio libre cerca de su lugar
+    this.offerSupport(A);
     if (kind === 'corto') {
-      // dos o tres pases cortos, avanzando y cargando hacia el carril
-      const n = v > 40 ? 1 : v > 25 ? 2 : 3;
+      // dos o tres toques cortos al compañero mejor ubicado, avanzando hacia el carril
+      const n = v > 25 ? 2 : 3;
       for (let k = 0; k < n; k++) {
-        [u, v] = this.ballUV(A);
-        const to = [clamp(lerp(u, lane, 0.3) + rnd(-7, 7), 6, 62), Math.min(v + rnd(7, 11), 56)];
-        await this.pass(A, to, { dur: 0.6, h: 0.25 });
-        await this.wait(0.1);
+        await this.smartPass(A, k === n - 1 ? mids : [...back, ...mids], { adv: 10, toward: lane, len: 13 });
+        await this.wait(0.12);
+        this.offerSupport(A);
       }
     } else if (kind === 'cambio') {
-      // un pase corto para cargar del otro lado y después el cambio de frente
-      const away = lane < 34 ? 46 : lane > 34 ? 22 : (Math.random() < 0.5 ? 22 : 46);
-      await this.pass(A, [away + rnd(-3, 3), Math.min(v + 7, 50)], { dur: 0.65, h: 0.25 });
+      // carga de un lado para atraer al rival y después cambia de frente
+      const away = lane < 34 ? 1 : lane > 34 ? -1 : (Math.random() < 0.5 ? 1 : -1);
+      const far = [...back, ...mids].filter((p) => (this.U(A, p.x, p.y)[0] - 34) * away > 4);
+      await this.smartPass(A, far.length ? far : mids, { adv: 6, toward: 34 + away * 20, len: 14 });
     } else if (kind === 'pared') {
-      // pasa, pica y se la devuelven
+      // toca con un volante, pica al espacio y se la devuelven adelante
       const first = this.ball.owner;
-      const wall = this.mate(A, u < 34 ? [6, 7, 5] : [7, 6, 8], [first]);
-      const wallAt = [clamp(u + (u < 34 ? 7 : -7), 8, 60), Math.min(v + 5, 50)];
-      const run = [clamp(lerp(u, lane, 0.3), 8, 60), Math.min(v + 13, 56)];
-      const p1 = this.passTo(A, wall, wallAt, { dur: 0.55, h: 0.2 });
-      this.moveTo(first, this.W(A, ...run), 1.0);
+      const wallCands = mids.filter((p) => p !== first);
+      const run = this.openSpot(A, first, [clamp(lerp(u, lane, 0.35), 8, 60), Math.min(v + 13, 58)], 16);
+      const p1 = this.smartPass(A, wallCands, { adv: 5, toward: u, len: 10 });
+      this.moveTo(first, this.W(A, ...run), 1.15);
       await p1;
       await this.passTo(A, first, run, { dur: 0.5, h: 0.2 });
+    } else {
+      // pelotazo: antes un toque para perfilarse si está muy atrás
+      if (v < 25) await this.smartPass(A, back, { adv: 6, len: 12 });
     }
     // el pase decisivo: largo y por arriba a la banda (o el pelotazo), raso por el medio
     const passer = this.ball.owner;
