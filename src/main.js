@@ -93,10 +93,13 @@ const longName = (t) => Math.max(...t.name.split(' ').map((w) => w.length)) > 10
 // sigue al elegirlo (empezar el partido, crear la sala…).
 let teamNext = () => {};
 let teamFrom = 'screen-play';
+let teamTaken = new Set();
 
-function pickTeam(next, from = 'screen-play') {
+// `taken`: equipos que ya eligieron otros jugadores de la liga.
+function pickTeam(next, from = 'screen-play', taken = []) {
   teamNext = next;
   teamFrom = from;
+  teamTaken = new Set(taken);
   buildTeamGrid();
   show('screen-teams');
 }
@@ -133,6 +136,7 @@ function buildGroupTeams(g) {
     b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
     paintSwatch(b.querySelector('.kit-swatch'), t);
+    b.disabled = teamTaken.has(t.id);
     b.onclick = () => {
       myTeamId = t.id;
       try { localStorage.setItem('fdm-team', t.id); } catch { /* sin storage */ }
@@ -1004,7 +1008,7 @@ function startTutorial() {
   host.start();
 }
 
-function startHostGame(conn, guestTeam) {
+function startHostGame(conn, guestTeam, homeTeam = myTeamId) {
   let host, n = 0, lastMsg = null;
   const deliver = (m) => {
     lastMsg = { ...m, n: ++n };
@@ -1012,7 +1016,7 @@ function startHostGame(conn, guestTeam) {
     setTimeout(() => view && view.onMessage(m), 0);
   };
   const begin = () => {
-    host = new Host({ home: myTeamId, away: guestTeam, callerSide: 1, broadcast: deliver, length: myLength });
+    host = new Host({ home: homeTeam, away: guestTeam, callerSide: 1, broadcast: deliver, length: myLength });
     host.start();
   };
   const rematch = () => {
@@ -1065,17 +1069,52 @@ function onRivalQuit() {
 }
 
 function onDisconnect() {
-  if (!view) return;
+  if (!view) {
+    if (sala) { sala.closed = true; renderSala(); }
+    return;
+  }
   view.destroy();
   modal('<h2>Conexión perdida</h2><p>Se cortó la conexión con tu rival. Pueden crear una sala nueva.</p>', [['Volver al menú', 'primary', () => leaveMatch()]]);
 }
 
+// Sala 1 vs 1: los dos entran, eligen su equipo en la sala y el anfitrión
+// empieza el partido cuando ambos eligieron.
+let sala = null;
+
+const playerRow = (team, tags) => {
+  const tg = tags ? `<small>${tags}</small>` : '';
+  if (!team) return `<li class="choosing"><span class="kit-swatch"></span><b>Eligiendo equipo…</b>${tg}</li>`;
+  const t = teamById(team);
+  return `<li><span ${swatchAttrs(t)}></span><b>${t.name}</b>${tg}</li>`;
+};
+
+function renderSala() {
+  const s = sala;
+  if (!s) return;
+  const mine = s.isHost ? s.home : s.away;
+  $('#lobby-title').textContent = s.isHost ? 'Sala creada' : 'Sala 1 vs 1';
+  $('#lobby-code-box').hidden = !s.isHost || s.joined;
+  $('#lobby-players').innerHTML = playerRow(s.home, s.isHost ? 'tú, anfitrión' : 'anfitrión')
+    + (s.joined ? playerRow(s.away, s.isHost ? 'rival' : 'tú') : '<li class="empty">Esperando al rival…</li>');
+  const ready = s.joined && s.home && s.away && !s.closed;
+  $('#lobby-team').hidden = !!s.closed;
+  $('#lobby-team').textContent = mine ? 'Cambiar equipo' : 'Elegir tu equipo';
+  $('#lobby-start').hidden = !(s.isHost && ready);
+  let wait = '';
+  if (s.closed) wait = '';
+  else if (!s.joined) wait = 'Esperando al rival…';
+  else if (!ready) wait = 'Esperando que ambos elijan equipo…';
+  else if (!s.isHost) wait = 'Esperando que el anfitrión empiece el partido…';
+  $('#lobby-wait').innerHTML = wait ? `<span class="ball-spin"></span> ${wait}` : '';
+  $('#lobby-msg').textContent = s.closed ? (s.isHost ? 'Tu rival salió de la sala. Crea una sala nueva.' : 'Se cerró la sala.') : '';
+}
+
 function createOnline() {
   audio.unlock();
-  show('screen-lobby');
   $('#room-code').textContent = '·····';
-  $('#lobby-msg').textContent = '';
   let conn = null;
+  const s = sala = { isHost: true, home: null, away: null, joined: false };
+  const sync = () => conn && conn.send({ t: 'sala', home: s.home, away: s.away });
   const room = createRoom({
     onReady: (code, broker) => {
       $('#room-code').textContent = code;
@@ -1088,15 +1127,29 @@ function createOnline() {
         } catch { /* cancelado */ }
       };
     },
-    onGuest: (c, hello) => {
+    onGuest: (c) => {
       conn = c;
+      s.joined = true;
       c.on('close', onDisconnect);
-      if (!view) startHostGame(c, teamById(hello.team).id);
+      c.on('message', (m) => {
+        if (view || sala !== s) return;
+        if (m.t === 'team' && teamById(m.team)?.id === m.team) { s.away = m.team; renderSala(); sync(); }
+        if (m.t === 'sync' || m.t === 'reconnected') sync();
+      });
+      sync();
+      renderSala();
     },
     onError: (e) => { $('#lobby-msg').textContent = errorText(e); },
   });
-  session = { cleanup: () => { if (conn) conn.close(); room.destroy(); }, send: (m) => conn && conn.send(m) };
+  session = { cleanup: () => { if (conn) conn.close(); room.destroy(); if (sala === s) sala = null; }, send: (m) => conn && conn.send(m) };
+  $('#lobby-team').onclick = () => pickTeam(() => { s.home = myTeamId; renderSala(); sync(); }, 'screen-lobby');
+  $('#lobby-start').onclick = () => {
+    if (view || !conn || !s.home || !s.away) return;
+    startHostGame(conn, s.away, s.home);
+  };
   $('#btn-cancel').onclick = () => leaveMatch();
+  renderSala();
+  show('screen-lobby');
 }
 
 function errorText(e) {
@@ -1119,17 +1172,30 @@ function joinOnline(code) {
   let lastN = 0;
   const hint = Number(new URLSearchParams(location.search).get('b')) || 0;
   const j = joinRoom(code, {
-    team: myTeamId,
+    team: null,
     brokerHint: hint,
     onOpen: (c, welcome) => {
       conn = c;
       $('#menu-msg').textContent = '';
       $('#btn-join').disabled = false;
       if (welcome && welcome.mode === 'league') { joinLeague(c, welcome, j); return; }
+      const s = sala = { isHost: false, home: null, away: null, joined: true };
+      $('#lobby-team').onclick = () => pickTeam(() => { s.away = myTeamId; renderSala(); c.send({ t: 'team', team: myTeamId }); }, 'screen-lobby');
+      $('#btn-cancel').onclick = () => leaveMatch();
+      renderSala();
+      show('screen-lobby');
       c.on('close', onDisconnect);
       c.on('message', (m) => {
         if (m.t === 'quit') { onRivalQuit(); return; }
         if (m.t === 'reconnected') { c.send({ t: 'sync', n: lastN }); return; }
+        if (m.t === 'sala') {
+          if (view || sala !== s) return;
+          s.home = m.home;
+          // Si el aviso llega antes que mi elección, no borra el equipo que acabo de elegir.
+          if (m.away || !s.away) s.away = m.away;
+          renderSala();
+          return;
+        }
         if (m.t !== 'state') return;
         if (m.n && m.n <= lastN) return; // repetido
         if (m.n) lastN = m.n;
@@ -1147,7 +1213,7 @@ function joinOnline(code) {
       j.destroy();
     },
   });
-  session = { cleanup: () => { if (conn) conn.close(); j.destroy(); }, send: (m) => conn && conn.send(m) };
+  session = { cleanup: () => { if (conn) conn.close(); j.destroy(); sala = null; }, send: (m) => conn && conn.send(m) };
 }
 
 // ---------- liga ----------
@@ -1163,7 +1229,7 @@ const teamOfPlayer = (id) => {
 function createLeague() {
   audio.unlock();
   const guests = new Map();
-  league = { isHost: true, me: 'h', players: [{ id: 'h', team: myTeamId }], length: 'short', live: [], lastByMid: {}, table: null, partial: null, lh: null, guests };
+  league = { isHost: true, me: 'h', players: [{ id: 'h', team: null }], length: 'short', live: [], lastByMid: {}, table: null, partial: null, lh: null, guests };
   const lg = league;
   // Entrega a un jugador: al anfitrión en el mismo celular, al resto por la sala.
   const sendTo = (id, msg) => {
@@ -1179,6 +1245,13 @@ function createLeague() {
   lg.up = (m) => lg.lh && lg.lh.receive('h', m);
   const lobby = () => lg.players.forEach((p) => sendTo(p.id, { t: 'lg', kind: 'lobby', players: lg.players, length: lg.length }));
   lg.lobby = lobby;
+  // Cada jugador con un equipo distinto: si otro ya lo tomó, no cambia.
+  const setLeagueTeam = (id, team) => {
+    const p = lg.players.find((x) => x.id === id);
+    if (p && teamById(team)?.id === team && !lg.players.some((x) => x.id !== id && x.team === team)) p.team = team;
+    lobby();
+  };
+  lg.setTeam = setLeagueTeam;
   const gone = (id) => {
     if (!guests.has(id)) return;
     if (lg.lh) { lg.lh.leave(id); return; }
@@ -1200,18 +1273,13 @@ function createLeague() {
         } catch { /* cancelado */ }
       };
     },
-    onGuest: (conn, hello) => {
+    onGuest: (conn) => {
       const id = conn.guestId;
-      // Cada jugador con un equipo distinto: si ya está tomado, se le asigna otro.
-      let team = teamById(hello.team).id;
-      const used = new Set(lg.players.map((p) => p.team));
-      if (used.has(team)) {
-        const free = TEAMS.filter((t) => !used.has(t.id));
-        team = free[Math.floor(Math.random() * free.length)].id;
-      }
+      // Cada uno elige su equipo ya dentro de la sala.
       guests.set(id, { conn, n: 0, hist: [] });
-      lg.players.push({ id, team });
+      lg.players.push({ id, team: null });
       conn.on('message', (m) => {
+        if (m.t === 'team' && !lg.lh) { setLeagueTeam(id, m.team); return; }
         if (m.t === 'sync') { guests.get(id)?.hist.filter((x) => x.n > (m.n || 0)).forEach((x) => conn.send(x)); return; }
         if (m.t === 'reconnected') { guests.get(id)?.hist.slice(-10).forEach((x) => conn.send(x)); return; }
         if (m.t === 'quit') { gone(id); return; }
@@ -1237,7 +1305,7 @@ function createLeague() {
 
 function startLeague() {
   const lg = league;
-  if (!lg || !lg.isHost || lg.lh || lg.players.length < 2) return;
+  if (!lg || !lg.isHost || lg.lh || lg.players.length < 2 || lg.players.some((p) => !p.team)) return;
   lg.room.lock();
   lg.lh = new LeagueHost({ players: lg.players, length: lg.length, send: lg.sendTo });
   lg.lh.start();
@@ -1349,19 +1417,40 @@ function renderLobby() {
   $('#lg-code-box').hidden = !lg.isHost;
   $('#lg-title').textContent = lg.isHost ? 'Liga creada' : 'Liga';
   $('#lg-players').innerHTML = lg.players.map((p, k) => {
-    const t = teamById(p.team);
     const tags = [p.id === lg.me ? 'tú' : '', k === 0 ? 'anfitrión' : ''].filter(Boolean).join(', ');
-    return `<li><span ${swatchAttrs(t)}></span><b>${t.name}</b>${tags ? `<small>${tags}</small>` : ''}</li>`;
+    return playerRow(p.team, tags);
   }).join('') + Array.from({ length: 4 - lg.players.length }, () => '<li class="empty">Lugar libre</li>').join('');
   document.querySelectorAll('#lg-len [data-len]').forEach((b) => {
     b.classList.toggle('on', b.dataset.len === lg.length);
     b.disabled = !lg.isHost;
   });
+  const me = lg.players.find((p) => p.id === lg.me);
+  $('#lg-team').textContent = me && me.team ? 'Cambiar equipo' : 'Elegir tu equipo';
   const n = lg.players.length;
-  $('#lg-start').hidden = !lg.isHost;
-  $('#lg-start').disabled = n < 2;
-  $('#lg-start').textContent = n < 2 ? 'Empezar liga' : `Empezar liga (${n} jugadores)`;
-  $('#lg-wait').innerHTML = `<span class="ball-spin"></span> ${lg.isHost ? (n < 4 ? 'Esperando jugadores…' : 'Liga completa.') : 'Esperando que el anfitrión empiece la liga…'}`;
+  const ready = n >= 2 && lg.players.every((p) => p.team);
+  $('#lg-start').hidden = !lg.isHost || !ready;
+  $('#lg-start').textContent = `Empezar liga (${n} jugadores)`;
+  const wait = n < 2 ? 'Esperando jugadores…'
+    : !ready ? 'Esperando que todos elijan equipo…'
+      : lg.isHost ? (n < 4 ? 'Pueden entrar más jugadores.' : 'Liga completa.') : 'Esperando que el anfitrión empiece la liga…';
+  $('#lg-wait').innerHTML = `${ready && lg.isHost ? '' : '<span class="ball-spin"></span> '}${wait}`;
+}
+
+// Elegir (o cambiar) el equipo propio dentro de la liga.
+function pickLeagueTeam() {
+  const lg = league;
+  if (!lg || lg.lh || lg.round != null) return;
+  const taken = lg.players.filter((p) => p.id !== lg.me && p.team).map((p) => p.team);
+  pickTeam(() => {
+    if (league !== lg) return;
+    if (lg.isHost) lg.setTeam('h', myTeamId);
+    else {
+      const me = lg.players.find((p) => p.id === lg.me);
+      if (me) me.team = myTeamId;
+      renderLobby();
+      lg.up({ t: 'team', team: myTeamId });
+    }
+  }, 'screen-league', taken);
 }
 
 function renderTable() {
@@ -1841,8 +1930,8 @@ document.querySelectorAll('#len-row [data-len]').forEach((b) => (b.onclick = () 
 }));
 paintLength();
 $('#btn-quit').onclick = () => confirmQuit();
-$('#btn-create').onclick = () => pickTeam(() => createOnline());
-$('#btn-league').onclick = () => pickTeam(() => createLeague());
+$('#btn-create').onclick = () => createOnline();
+$('#btn-league').onclick = () => createLeague();
 $('#btn-cup').onclick = () => cupMenu();
 $('#btn-career').onclick = () => showCareerPick();
 $('#career-team-back').onclick = () => showCareerPick();
@@ -1851,19 +1940,15 @@ $('#btn-trophies').onclick = () => showTrophies();
 { const ic = $('#trophy-icon'), t = trophyCanvas('wc'); ic.width = t.width; ic.height = t.height; ic.getContext('2d').drawImage(t, 0, 0); }
 paintCupButton();
 $('#lg-start').onclick = () => startLeague();
+$('#lg-team').onclick = () => pickLeagueTeam();
 $('#lg-leave').onclick = () => leaveLeague();
 document.querySelectorAll('#lg-len [data-len]').forEach((b) => (b.onclick = () => {
   if (!league || !league.isHost || league.lh) return;
   league.length = b.dataset.len;
   league.lobby();
 }));
-const joinWithTeam = () => {
-  const code = $('#join-code').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (code.length !== 5) { $('#menu-msg').textContent = 'El código tiene 5 letras.'; return; }
-  pickTeam(() => joinOnline(code));
-};
-$('#btn-join').onclick = () => joinWithTeam();
-$('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinWithTeam(); });
+$('#btn-join').onclick = () => joinOnline($('#join-code').value);
+$('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
 $('#btn-help').onclick = () => modal(HELP, [['Jugar el tutorial', 'primary', () => startTutorial()], ['Entendido', 'ghost', () => {}]]);
 $('#btn-tutorial').onclick = () => startTutorial();
 // Fichas de efectos activos: al tocarlas se abre un recuadro con su efecto.
@@ -1886,7 +1971,7 @@ homeMute.onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); pai
 const params = new URLSearchParams(location.search);
 if (params.get('sala')) {
   $('#join-code').value = params.get('sala').toUpperCase();
-  $('#menu-msg').textContent = 'Toca «Unirse» y elige tu equipo.';
+  $('#menu-msg').textContent = 'Toca «Unirse» para entrar a la sala.';
   $('#room-opts').hidden = false; $('#btn-room').classList.add('open');
   show('screen-play');
 }

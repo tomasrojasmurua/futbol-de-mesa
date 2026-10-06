@@ -66,12 +66,17 @@
   <!-- SALA -->
   <section id="screen-lobby" class="screen">
     <div class="menu-inner">
-      <h2 class="h2">Sala creada</h2>
-      <p>Comparte este código con tu rival:</p>
-      <div id="room-code" class="room-code">·····</div>
-      <button id="btn-share" class="btn primary">Compartir enlace</button>
-      <p class="waiting"><span class="ball-spin"></span> Esperando al rival…</p>
-      <button id="btn-cancel" class="btn ghost">Cancelar</button>
+      <h2 class="h2" id="lobby-title">Sala creada</h2>
+      <div id="lobby-code-box" class="lg-code-box">
+        <p>Comparte este código con tu rival:</p>
+        <div id="room-code" class="room-code">·····</div>
+        <button id="btn-share" class="btn primary">Compartir enlace</button>
+      </div>
+      <ul id="lobby-players" class="lg-players"></ul>
+      <button id="lobby-team" class="btn">Elegir tu equipo</button>
+      <button id="lobby-start" class="btn primary" hidden>Empezar partido</button>
+      <p id="lobby-wait" class="waiting"></p>
+      <button id="btn-cancel" class="btn ghost">Salir</button>
       <p id="lobby-msg" class="msg"></p>
     </div>
   </section>
@@ -86,6 +91,7 @@
         <button id="lg-share" class="btn primary">Compartir enlace</button>
       </div>
       <ul id="lg-players" class="lg-players"></ul>
+      <button id="lg-team" class="btn">Elegir tu equipo</button>
       <div class="len-row" id="lg-len">
         <small>Duración</small>
         <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
