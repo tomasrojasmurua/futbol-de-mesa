@@ -2,7 +2,8 @@
 // perjudica y el dado que cambia (caras nuevas en verde o rojo, con la cara de
 // antes tachada en la esquina). Y la ilustración de la carta con los colores
 // de los equipos del partido.
-import { BASE_DICE, RED_FX } from './situations.js';
+import { BASE_DICE, RED_FX, CARDS } from './situations.js';
+import { CARD_TEXT } from './cardtext.js';
 import { faceSvg } from './dice.js';
 import { DIE_LABELS } from './game.js';
 import { CARDART } from './cardart.js';
@@ -92,6 +93,43 @@ export function fxTipHtml(state, info, id, side, teamLabel) {
   const title = id === 'red' ? 'Con uno menos' : info.title;
   const dur = fx[0] ? `<small class="fdur">Dura: ${duration(fx[0])}</small>` : '';
   return `<b>${title}</b><em class="${good ? 'g' : 'r'}">${good ? '▲ A favor de' : '▼ En contra de'} ${teamLabel}</em><p class="fshort">${short}</p>${dice}${dur}`;
+}
+
+// ---------- la carta contada desde un lado ----------
+// Cuánto le sirve a quien tiene la carta el cambio de un dado.
+function helpsHolder(e) {
+  const base = BASE_DICE[e.dice[0]];
+  const delta = e.to.reduce((s, f, i) => s + FOR_ATTACK[f] - FOR_ATTACK[base[i]], 0);
+  return e.role === 'att' ? delta > 0 : delta < 0;
+}
+
+// Desde dónde se mira: 0 = le salió a quien mira, 1 = al rival, 2 = solo mira.
+export const VIEW_MINE = 0, VIEW_THEIRS = 1, VIEW_NEUTRAL = 2;
+
+// La frase, el cuándo y los dados de la carta, contados desde ese lado.
+// both: la carta es para los dos equipos (la Lluvia).
+export function cardBodyHtml(id, view, both) {
+  const tx = CARD_TEXT[id];
+  if (!tx) return '';
+  const [head, when] = [tx.mine, tx.theirs, tx.neutral][view];
+  const fxs = id === 'red' ? [] : (CARDS[id] && CARDS[id].fx) || [];
+  const rows = (tx.rows || []).map((rw) => {
+    const e = fxs.find((x) => x.dice[0] === rw.die);
+    if (!e) return '';
+    const base = BASE_DICE[rw.die];
+    const helps = helpsHolder(e);
+    const tone = view === VIEW_NEUTRAL ? 'card' : both ? 'bad' : (helps === (view === VIEW_MINE)) ? 'good' : 'bad';
+    const tiles = changedFaces(rw.die, e.to).map((x) => `<span class="fc${x.was ? ` ${tone}` : x.face === rw.key ? ' key' : ''}" title="${DIE_LABELS[x.face]}">${faceSvg(x.face)}</span>`).join('');
+    const n0 = base.filter((f) => f === rw.key).length, n1 = e.to.filter((f) => f === rw.key).length;
+    return `<div class="sc-row"><small>${rw.t[view]}</small><div class="sc-faces">${tiles}</div><div class="sc-odds">${rw.l[view]}: <s>${n0} de 6</s> → <b class="${tone}">${n1} de 6</b></div></div>`;
+  }).join('');
+  return `<p class="sc-head">${head}</p>${when ? `<div class="sc-when"><i>CUÁNDO</i><span>${when}</span></div>` : ''}${rows}`;
+}
+
+// Una línea corta para avisar que la carta se juega en esta jugada.
+export function cardLine(id, view) {
+  const tx = CARD_TEXT[id];
+  return tx ? [tx.mine, tx.theirs, tx.neutral][view][0] : '';
 }
 
 // ---------- ilustraciones ----------

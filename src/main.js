@@ -7,12 +7,12 @@ import { LEAGUES } from './leagues/index.js';
 import { newCareer, myFixture, playRound, seasonOver, totalRounds, table, topScorers, nextSeason, resultFrom } from './career.js';
 import { newCup, myMatch, teamsLeft, champion, finishRound, resultOf, levelFor, ROUND_NAMES } from './cup.js';
 import { Renderer } from './render.js';
-import { CARDS, activeEffects } from './situations.js';
+import { CARDS, activeEffects, fxInPlay, BASE_DICE } from './situations.js';
 import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
 import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
-import { fxTipHtml, cardArt } from './cardinfo.js';
+import { fxTipHtml, cardArt, cardBodyHtml, cardLine, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
 
 const $ = (s) => document.querySelector(s);
@@ -183,6 +183,14 @@ function diceTitle(ev) {
 function cardInfo(sit, role, id, iAttack) {
   const screen = iAttack || SHOT_SITS.includes(sit) ? id : MIRROR[id];
   return { label: describe(sit, role, id, iAttack), img: iconFor(sit, role, id, screen) };
+}
+
+// Copia de una ilustración (la original queda en caché y puede estar en la carta).
+function cloneCanvas(c) {
+  const d = document.createElement('canvas');
+  d.width = c.width; d.height = c.height;
+  d.getContext('2d').drawImage(c, 0, 0);
+  return d;
 }
 
 function cardHtml({ label, img, hint }, role, tag) {
@@ -439,9 +447,17 @@ class MatchView {
     const bad = card.deck === 'disciplina' ? card.id !== 'freekick' : ['lesion', 'errordt'].includes(card.id);
     const good = bad ? card.side !== this.mySide : card.side === this.mySide;
     const title = card.second ? 'Segunda amarilla: ¡roja!' : info.title;
+    // La carta se cuenta desde el lado de quien juega: si le salió a él o al
+    // rival, y si lo ayuda o lo perjudica. Quien solo mira ve la versión neutra.
+    const view = this.spectator ? VIEW_NEUTRAL : both || card.side === this.mySide ? VIEW_MINE : VIEW_THEIRS;
+    const tone = this.spectator || both || card.id === 'warning' ? 'amb' : good ? 'fav' : 'con';
+    const deckName = card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA';
+    const ribbon = tone === 'fav' ? 'A TU FAVOR' : tone === 'con' ? 'EN TU CONTRA' : both ? 'PARA LOS DOS' : deckName;
+    const sub = this.spectator ? (both ? 'Afecta a los dos equipos' : '') : both ? 'Afecta a los dos equipos' : card.side === this.mySide ? 'Te salió a ti' : 'Le salió al rival';
+    if (both) who = `${teams[0].name} y ${teams[1].name}`;
     const el = $('#sitcard');
-    el.className = `sitcard ${card.deck} k-${card.id}${this.spectator || both ? '' : good ? ' good' : ' bad'}`;
-    el.innerHTML = `<div class="sc-box"><small>${card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA'}</small><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em><p>${info.text}</p><u class="sc-tap">${this.spectator ? '' : 'Toca para seguir'}</u></div>`;
+    el.className = `sitcard ${card.deck} k-${card.id} ${tone}`;
+    el.innerHTML = `<div class="sc-box"><div class="sc-ribbon">${ribbon}${sub ? `<span>${sub}</span>` : ''}</div><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em>${cardBodyHtml(card.second ? 'red' : card.id, view, both)}<u class="sc-tap">${this.spectator ? '' : 'Toca para seguir'}</u></div>`;
     // La ilustración con las camisetas del partido (si no se pudo pintar, queda el símbolo).
     const art = renderer && renderer.kits ? cardArt(card.id, renderer.kits, card.side, CARDS.chilena && CARDS.chilena.who === 'def') : null;
     if (art) { const box = el.querySelector('.sc-art'); box.textContent = ''; box.classList.add('pic'); box.appendChild(art); }
@@ -495,7 +511,15 @@ class MatchView {
     const team = teamById(this.state.teams[side]);
     const mine = this.spectator ? '' : side === this.mySide ? ' (tú)' : ' (rival)';
     const tip = $('#fxtip');
-    tip.innerHTML = fxTipHtml(this.state, info, id, side, `${team.name}${mine}`);
+    if (id === 'red') tip.innerHTML = fxTipHtml(this.state, info, id, side, `${team.name}${mine}`);
+    else {
+      // La misma lectura que la carta: desde tu lado y con a quién ayuda.
+      const both = id === 'lluvia';
+      const view = this.spectator ? VIEW_NEUTRAL : both || side === this.mySide ? VIEW_MINE : VIEW_THEIRS;
+      const helps = ['lesion', 'errordt'].includes(id) ? side !== this.mySide : side === this.mySide;
+      const tag = this.spectator ? `<em>${team.name}</em>` : both ? '<em>Para los dos equipos</em>' : `<em class="${helps ? 'g' : 'r'}">${helps ? '▲ A tu favor' : '▼ En tu contra'} · ${side === this.mySide ? 'te salió a ti' : 'le salió al rival'}</em>`;
+      tip.innerHTML = `<b>${info.title}</b>${tag}<div class="sc-tip">${cardBodyHtml(id, view, both)}</div>`;
+    }
     const wrap = document.querySelector('.pitch-wrap').getBoundingClientRect();
     const r = chip.getBoundingClientRect();
     tip.style.top = `${r.bottom - wrap.top + 6}px`;
@@ -621,6 +645,8 @@ class MatchView {
   }
 
   clearCards(waitText) {
+    if ($('#remind')) $('#remind').innerHTML = '';
+    document.querySelectorAll('.fx-chip.live').forEach((c) => c.classList.remove('live'));
     $('#cards').innerHTML = waitText ? `<div class="wait"><span class="ball-spin"></span>${waitText}</div>` : '';
     $('#cards').classList.remove('locked', 'reveal');
     $('#panel').classList.remove('tense');
@@ -741,6 +767,50 @@ class MatchView {
     opts = opts.map((o) => ({ ...o, img: iconFor(sit, role, o.id, att || shotSit ? o.id : MIRROR[o.id]) }));
     const seq = state.seq;
     this.renderCards(title, att ? 'ATACAS' : 'DEFIENDES', role, opts, (choice) => this.send({ t: 'choice', seq, choice }));
+    this.remindFx(state);
+  }
+
+  // En la tirada: qué cartas cambiaron este dado (franja arriba) y qué caras puso cada una.
+  diceCards(ev, faces) {
+    const cards = (ev.dieCards || []).filter((c) => CARDS[c.id]);
+    const base = BASE_DICE[ev.die];
+    if (!cards.length || !base) return {};
+    const count = (l, k) => l.filter((x) => x === k).length;
+    const marked = [...new Set(faces)].filter((k) => count(faces, k) > count(base, k));
+    const band = document.createElement('div');
+    band.className = 'cardbands';
+    for (const c of cards) {
+      const both = c.id === 'lluvia';
+      const mine = c.side === this.mySide;
+      const bad = c.id === 'red' || ['lesion', 'errordt'].includes(c.id);
+      const tone = this.spectator || both ? 'amb' : (bad ? !mine : mine) ? 'fav' : 'con';
+      const team = teamById(this.state.teams[c.side]);
+      const who = both ? 'los dos' : this.spectator ? team.short : mine ? 'tuya' : 'del rival';
+      const title = c.id === 'red' ? 'Con uno menos' : CARDS[c.id].title;
+      const el = document.createElement('div');
+      el.className = `cardband ${tone}`;
+      el.innerHTML = `<span class="rm-art"></span><div><small>CARTA EN JUEGO (${who})</small><b>${title}</b> cambió ${marked.length ? 'las caras con ★' : 'este dado'}</div>`;
+      const art = c.id !== 'red' && renderer && renderer.kits ? cardArt(c.id, renderer.kits, both ? -1 : c.side, CARDS.chilena && CARDS.chilena.who === 'def') : null;
+      if (art) el.querySelector('.rm-art').appendChild(cloneCanvas(art));
+      band.appendChild(el);
+    }
+    return { band, marked };
+  }
+
+  // Antes de decidir: qué cartas se juegan en esta jugada, contadas desde tu lado.
+  remindFx(state) {
+    const live = fxInPlay(state);
+    document.querySelectorAll('.fx-chip').forEach((c) => c.classList.toggle('live', live.some((f) => f.id === c.dataset.id && f.side === +c.dataset.side)));
+    $('#remind').innerHTML = live.map((f) => {
+      const mine = f.side === this.mySide;
+      const good = ['lesion', 'errordt'].includes(f.id) ? !mine : mine;
+      const head = mine ? 'TU CARTA SE JUEGA AHORA' : 'CARTA DEL RIVAL EN JUEGO';
+      return `<div class="remind ${good ? 'fav' : 'con'}" data-id="${f.id}" data-side="${f.side}"><span class="rm-art"></span><div><small>${head}</small><b>${CARDS[f.id].title}:</b> ${cardLine(f.id, mine ? VIEW_MINE : VIEW_THEIRS)}</div></div>`;
+    }).join('');
+    if (renderer && renderer.kits) $('#remind').querySelectorAll('.remind').forEach((el) => {
+      const art = cardArt(el.dataset.id, renderer.kits, +el.dataset.side, CARDS.chilena && CARDS.chilena.who === 'def');
+      if (art) el.querySelector('.rm-art').appendChild(cloneCanvas(art));
+    });
   }
 
   // Panel de quien mira: no hay cartas que elegir.
@@ -825,9 +895,10 @@ const ui = {
     this._bt = setTimeout(() => el.classList.remove('show'), hold);
     return wait(Math.min(hold, 1300));
   },
-  async dice(value, reason, faces, title) {
+  async dice(value, reason, faces, title, ev) {
     if (view) await view.coach('dice');
-    await rollDice($('#dice'), { value, faces, labels: DIE_LABELS, title, reason, sound: (n) => audio.sound(n) });
+    const extra = view && ev ? view.diceCards(ev, faces) : {};
+    await rollDice($('#dice'), { value, faces, labels: DIE_LABELS, title, reason, sound: (n) => audio.sound(n), ...extra });
   },
   async coin(result, text) {
     await tossCoin($('#coin'), { result, text, sound: (n) => audio.sound(n) });

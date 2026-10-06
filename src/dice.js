@@ -93,15 +93,17 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Muestra la tirada. value: 1..6, faces: lo que dice cada cara, labels: nombres,
 // title: de qué es el dado, reason: qué significa el resultado. sound(nombre).
-export async function rollDice(wrap, { value, faces, labels, title, reason, sound }) {
+// band: franja con las cartas que cambiaron el dado; marked: las caras que pusieron.
+export async function rollDice(wrap, { value, faces, labels, title, reason, sound, band, marked = [] }) {
   const kinds = [...new Set(faces)];
   const k = faces[value - 1];
   wrap.innerHTML = `<div class="tbox">
     <div class="thead"><small>Tirada de dado</small><h2>${title || 'El dado decide'}</h2>
-      <div class="tleg">${kinds.map((f) => `<span data-k="${f}"><i>${faceSvg(f)}</i>${labels[f]}<em>${'●'.repeat(faces.filter((x) => x === f).length)}</em></span>`).join('')}</div></div>
+      <div class="tband"></div><div class="tleg">${kinds.map((f) => `<span data-k="${f}"${marked.includes(f) ? ' class="byc"' : ''}><i>${faceSvg(f)}</i>${labels[f]}<em>${'●'.repeat(faces.filter((x) => x === f).length)}</em></span>`).join('')}</div></div>
     <div class="tray" style="background-image:url(${grass()})"><div class="tdie"></div></div>
     <div class="tres"></div></div>`;
   const tray = wrap.querySelector('.tray'), die = wrap.querySelector('.tdie'), res = wrap.querySelector('.tres');
+  if (band) wrap.querySelector('.tband').appendChild(band);
   const setFace = (f) => { die.dataset.f = f; die.innerHTML = faceSvg(f); };
   const randFace = () => {
     let f;
