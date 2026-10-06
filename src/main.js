@@ -57,9 +57,6 @@ function paintSwatch(el, t) {
 }
 
 function paintMyTeam() {
-  const t = teamById(myTeamId);
-  $('#my-team-name').textContent = t.name;
-  paintSwatch($('#my-swatch'), t);
   paintHome();
 }
 
@@ -92,9 +89,21 @@ addEventListener('resize', () => { if ($('#screen-trophies')?.classList.contains
 const teamGroups = () => [...new Set(TEAMS.map((t) => t.group))];
 const longName = (t) => Math.max(...t.name.split(' ').map((w) => w.length)) > 10;
 
+// Cada modo lleva a elegir el equipo antes de jugar; `teamNext` es lo que
+// sigue al elegirlo (empezar el partido, crear la sala…).
+let teamNext = () => {};
+let teamFrom = 'screen-play';
+
+function pickTeam(next, from = 'screen-play') {
+  teamNext = next;
+  teamFrom = from;
+  buildTeamGrid();
+  show('screen-teams');
+}
+
 function buildTeamGrid() {
   $('#teams-title').textContent = 'Elige la liga';
-  $('#teams-back').onclick = () => show('screen-play');
+  $('#teams-back').onclick = () => show(teamFrom);
   $('#team-grid').hidden = true;
   const list = $('#team-groups');
   list.hidden = false;
@@ -105,7 +114,7 @@ function buildTeamGrid() {
     const b = document.createElement('button');
     b.className = 'league-btn flag-btn' + (mine?.group === g ? ' saved' : '');
     b.append(paintFlag(document.createElement('canvas'), GROUP_FLAG[g]));
-    b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${teams.length} equipos</small>${mine?.group === g ? `<em>Tu equipo: ${mine.name}</em>` : ''}`);
+    b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${teams.length} equipos</small>${mine?.group === g ? `<em>Último equipo: ${mine.name}</em>` : ''}`);
     b.onclick = () => buildGroupTeams(g);
     list.appendChild(b);
   }
@@ -128,7 +137,8 @@ function buildGroupTeams(g) {
       myTeamId = t.id;
       try { localStorage.setItem('fdm-team', t.id); } catch { /* sin storage */ }
       paintMyTeam();
-      show('screen-play');
+      show(teamFrom);
+      teamNext();
     };
     grid.appendChild(b);
   }
@@ -1458,7 +1468,7 @@ function cupMenu() {
   const won = loadTrophies();
   const times = (id) => (won[id] || []).length;
   for (const comp of COMPS) add(comp, `${comp.size} equipos`, `${comp.sub}${times(comp.id) ? ` · ganada ${times(comp.id)} ${times(comp.id) === 1 ? 'vez' : 'veces'}` : ''}`, '', () => pickCupTeam(comp));
-  add(FREE_CUP, '8 o 16', `${FREE_CUP.sub}${times('calc') ? ` · ganada ${times('calc')} ${times('calc') === 1 ? 'vez' : 'veces'}` : ''}`, '', () => freeCupMenu());
+  add(FREE_CUP, '8 o 16', `${FREE_CUP.sub}${times('calc') ? ` · ganada ${times('calc')} ${times('calc') === 1 ? 'vez' : 'veces'}` : ''}`, '', () => pickTeam(() => freeCupMenu(), 'screen-cups'));
   list.scrollTop = 0;
   show('screen-cups');
 }
@@ -1814,17 +1824,15 @@ function confirmQuitCareer() {
 
 // ---------- arranque ----------
 paintMyTeam();
-buildTeamGrid();
-$('#btn-team').onclick = () => { buildTeamGrid(); show('screen-teams'); };
 document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show(b.dataset.back || 'screen-menu')));
 $('#btn-play').onclick = () => show('screen-play');
 $('#btn-room').onclick = () => { const o = $('#room-opts'); o.hidden = !o.hidden; $('#btn-room').classList.toggle('open', !o.hidden); };
 document.querySelectorAll('canvas[data-icon]').forEach((c) => paintIcon(c, c.dataset.icon));
-$('#btn-cpu').onclick = () => modal(`<h2>Contra la IA</h2>
+$('#btn-cpu').onclick = () => pickTeam(() => modal(`<h2>Contra la IA</h2>
   <p><b>Fácil:</b> tiene mañas y repite jugadas; si lo lees, le ganas.</p>
   <p><b>Normal:</b> juega suelto y de vez en cuando se anticipa.</p>
   <p><b>Difícil:</b> estudia tus patrones y te los castiga. No repitas jugadas.</p>`,
-  [...Object.entries(LEVELS).map(([id, l]) => [l.label, id === 'normal' ? 'primary' : '', () => startCpu(id)]), ['Volver', 'ghost', () => {}]]);
+  [...Object.entries(LEVELS).map(([id, l]) => [l.label, id === 'normal' ? 'primary' : '', () => startCpu(id)]), ['Volver', 'ghost', () => {}]]));
 const paintLength = () => document.querySelectorAll('#len-row [data-len]').forEach((b) => b.classList.toggle('on', b.dataset.len === myLength));
 document.querySelectorAll('#len-row [data-len]').forEach((b) => (b.onclick = () => {
   myLength = b.dataset.len;
@@ -1833,8 +1841,8 @@ document.querySelectorAll('#len-row [data-len]').forEach((b) => (b.onclick = () 
 }));
 paintLength();
 $('#btn-quit').onclick = () => confirmQuit();
-$('#btn-create').onclick = () => createOnline();
-$('#btn-league').onclick = () => createLeague();
+$('#btn-create').onclick = () => pickTeam(() => createOnline());
+$('#btn-league').onclick = () => pickTeam(() => createLeague());
 $('#btn-cup').onclick = () => cupMenu();
 $('#btn-career').onclick = () => showCareerPick();
 $('#career-team-back').onclick = () => showCareerPick();
@@ -1849,8 +1857,13 @@ document.querySelectorAll('#lg-len [data-len]').forEach((b) => (b.onclick = () =
   league.length = b.dataset.len;
   league.lobby();
 }));
-$('#btn-join').onclick = () => joinOnline($('#join-code').value);
-$('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinOnline(e.target.value); });
+const joinWithTeam = () => {
+  const code = $('#join-code').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 5) { $('#menu-msg').textContent = 'El código tiene 5 letras.'; return; }
+  pickTeam(() => joinOnline(code));
+};
+$('#btn-join').onclick = () => joinWithTeam();
+$('#join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinWithTeam(); });
 $('#btn-help').onclick = () => modal(HELP, [['Jugar el tutorial', 'primary', () => startTutorial()], ['Entendido', 'ghost', () => {}]]);
 $('#btn-tutorial').onclick = () => startTutorial();
 // Fichas de efectos activos: al tocarlas se abre un recuadro con su efecto.
@@ -1873,7 +1886,7 @@ homeMute.onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); pai
 const params = new URLSearchParams(location.search);
 if (params.get('sala')) {
   $('#join-code').value = params.get('sala').toUpperCase();
-  $('#menu-msg').textContent = 'Elige tu equipo y toca «Unirse».';
+  $('#menu-msg').textContent = 'Toca «Unirse» y elige tu equipo.';
   $('#room-opts').hidden = false; $('#btn-room').classList.add('open');
   show('screen-play');
 }
