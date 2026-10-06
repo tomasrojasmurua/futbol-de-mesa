@@ -14,7 +14,7 @@ import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
-import { paintFlag, GROUP_FLAG } from './flags.js';
+import { paintFlag, GROUP_FLAG, teamFlag, flagUrl } from './flags.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
@@ -46,10 +46,20 @@ export function swatchCss(kit) {
   return `linear-gradient(transparent 70%, ${shorts} 70%), ${top}`;
 }
 
+// Muestra de un equipo: su camiseta, o la bandera si es una selección.
+const isNation = (t) => t && t.group === 'Selecciones' && teamFlag(t.id);
+function swatchAttrs(t) {
+  return isNation(t) ? `class="kit-swatch flag" style="background:url(${flagUrl(teamFlag(t.id))}) center / 100% 100%"` : `${swatchAttrs(t)}`;
+}
+function paintSwatch(el, t) {
+  el.classList.toggle('flag', !!isNation(t));
+  el.style.background = isNation(t) ? `url(${flagUrl(teamFlag(t.id))}) center / 100% 100%` : swatchCss(t.kit);
+}
+
 function paintMyTeam() {
   const t = teamById(myTeamId);
   $('#my-team-name').textContent = t.name;
-  $('#my-swatch').style.background = swatchCss(t.kit);
+  paintSwatch($('#my-swatch'), t);
   paintHome();
 }
 
@@ -113,7 +123,7 @@ function buildGroupTeams(g) {
     const b = document.createElement('button');
     b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
-    b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
+    paintSwatch(b.querySelector('.kit-swatch'), t);
     b.onclick = () => {
       myTeamId = t.id;
       try { localStorage.setItem('fdm-team', t.id); } catch { /* sin storage */ }
@@ -1331,7 +1341,7 @@ function renderLobby() {
   $('#lg-players').innerHTML = lg.players.map((p, k) => {
     const t = teamById(p.team);
     const tags = [p.id === lg.me ? 'tú' : '', k === 0 ? 'anfitrión' : ''].filter(Boolean).join(', ');
-    return `<li><span class="kit-swatch" style="background:${swatchCss(t.kit)}"></span><b>${t.name}</b>${tags ? `<small>${tags}</small>` : ''}</li>`;
+    return `<li><span ${swatchAttrs(t)}></span><b>${t.name}</b>${tags ? `<small>${tags}</small>` : ''}</li>`;
   }).join('') + Array.from({ length: 4 - lg.players.length }, () => '<li class="empty">Lugar libre</li>').join('');
   document.querySelectorAll('#lg-len [data-len]').forEach((b) => {
     b.classList.toggle('on', b.dataset.len === lg.length);
@@ -1357,14 +1367,14 @@ function renderTable() {
     const same = (r) => r.pts === rows[0].pts && r.gf - r.gc === rows[0].gf - rows[0].gc && r.gf === rows[0].gf;
     const top = rows.filter(same);
     const mine = top.some((r) => r.id === lg.me);
-    const sw = (r) => `<span class="kit-swatch" style="background:${swatchCss(teamOfPlayer(r.id).kit)}"></span>`;
+    const sw = (r) => `<span ${swatchAttrs(teamOfPlayer(r.id))}></span>`;
     $('#tb-champ').innerHTML = `<div class="champ"><small>${top.length > 1 ? 'CAMPEONES' : 'CAMPEÓN'}</small><div class="champ-sw">${top.map(sw).join('')}</div><b>${top.map((r) => teamOfPlayer(r.id).name).join(' y ')}</b><em>${top.length > 1 ? `Empate en la cima con ${rows[0].pts} puntos` : mine ? '¡Eres el campeón!' : `${rows[0].pts} puntos`}</em></div>`;
     if (mine && !lg.cheered) { lg.cheered = true; audio.sound('win'); }
   } else $('#tb-champ').innerHTML = '';
   const dg = (r) => (r.gf - r.gc > 0 ? '+' : '') + (r.gf - r.gc);
   $('#tb-table').innerHTML = '<tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr>' + rows.map((r, k) => {
     const tm = teamOfPlayer(r.id);
-    return `<tr class="${r.id === lg.me ? 'me' : ''}${gone(r.id) ? ' gone' : ''}"><td>${k + 1}</td><td><span class="kit-swatch" style="background:${swatchCss(tm.kit)}"></span>${tm.short}${gone(r.id) ? ' <small>se fue</small>' : ''}</td><td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td><td>${dg(r)}</td><td><b>${r.pts}</b></td></tr>`;
+    return `<tr class="${r.id === lg.me ? 'me' : ''}${gone(r.id) ? ' gone' : ''}"><td>${k + 1}</td><td><span ${swatchAttrs(tm)}></span>${tm.short}${gone(r.id) ? ' <small>se fue</small>' : ''}</td><td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td><td>${dg(r)}</td><td><b>${r.pts}</b></td></tr>`;
   }).join('');
   const line = (h, a, mid) => `<span>${teamOfPlayer(h).short}</span>${mid}<span>${teamOfPlayer(a).short}</span>`;
   const results = (t ? t.results : []);
@@ -1465,7 +1475,7 @@ function pickCupTeam(comp) {
     const b = document.createElement('button');
     b.className = 'team-btn' + (id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
-    b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
+    paintSwatch(b.querySelector('.kit-swatch'), t);
     b.onclick = () => confirmCup(comp, id);
     grid.appendChild(b);
   }
@@ -1521,12 +1531,12 @@ function showCup() {
   let head;
   if (champ) {
     const c = teamById(champ);
-    head = `<div class="champ"><small>CAMPEÓN · ${compOf(cup).name.toUpperCase()}</small><span class="kit-swatch" style="background:${swatchCss(c.kit)}"></span><b>${c.name}</b><em>${champ === cup.me ? `¡Ganaste la ${compOf(cup).name}! Ya está en tu sala de trofeos.` : cup.out ? `Quedaste fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.` : ''}</em></div>`;
+    head = `<div class="champ"><small>CAMPEÓN · ${compOf(cup).name.toUpperCase()}</small><span ${swatchAttrs(c)}></span><b>${c.name}</b><em>${champ === cup.me ? `¡Ganaste la ${compOf(cup).name}! Ya está en tu sala de trofeos.` : cup.out ? `Quedaste fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.` : ''}</em></div>`;
     if (champ === cup.me && !cup.cheered) { cup.cheered = true; addTrophy(cup.comp || 'calc', cup.me); saveCup(); audio.sound('win'); }
   } else if (playing) {
     const rival = teamById(m.a === cup.me ? m.b : m.a);
     head = `<div class="next-match"><small>${ROUND_NAMES[left].toUpperCase()}</small>
-      <div class="vsrow"><span><i class="kit-swatch" style="background:${swatchCss(me.kit)}"></i>${me.short}</span><b>vs</b><span><i class="kit-swatch" style="background:${swatchCss(rival.kit)}"></i>${rival.short}</span></div>
+      <div class="vsrow"><span><i ${swatchAttrs(me)}></i>${me.short}</span><b>vs</b><span><i ${swatchAttrs(rival)}></i>${rival.short}</span></div>
       <em>${rival.name} · IA ${LEVELS[levelFor(left)].label.toLowerCase()}</em></div>`;
   } else {
     head = `<div class="next-match out"><small>ELIMINADO</small><b>${me.name} quedó fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.</b></div>`;
@@ -1683,7 +1693,7 @@ function pickCareerTeam(l) {
     const b = document.createElement('button');
     b.className = 'team-btn' + (Math.max(...t.name.split(' ').map((w) => w.length)) > 10 ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
-    b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
+    paintSwatch(b.querySelector('.kit-swatch'), t);
     b.onclick = () => careerOptions(l, id);
     grid.appendChild(b);
   }
@@ -1729,12 +1739,12 @@ function showCareer() {
   if (over) {
     const champ = teamById(t[0].id);
     const mine = t[0].id === c.me;
-    head = `<div class="champ"><small>CAMPEÓN</small><span class="kit-swatch" style="background:${swatchCss(champ.kit)}"></span><b>${champ.name}</b><em>${mine ? '¡Campeón con tu equipo! La copa ya está en tu sala de trofeos.' : `${me.short} terminó ${pos}° con ${t[pos - 1].pts} puntos.`}</em></div>`;
+    head = `<div class="champ"><small>CAMPEÓN</small><span ${swatchAttrs(champ)}></span><b>${champ.name}</b><em>${mine ? '¡Campeón con tu equipo! La copa ya está en tu sala de trofeos.' : `${me.short} terminó ${pos}° con ${t[pos - 1].pts} puntos.`}</em></div>`;
     if (mine && c.cheered !== c.season) { c.cheered = c.season; addTrophy(`lg_${c.league}`, c.me); audio.sound('win'); saveCareer(); }
   } else {
     const m = myFixture(c);
     const home = teamById(m.h), away = teamById(m.a);
-    const sw = (tm) => `<i class="kit-swatch" style="background:${swatchCss(tm.kit)}"></i>`;
+    const sw = (tm) => `<i ${swatchAttrs(tm)}></i>`;
     head = `<div class="next-match"><small>FECHA ${c.round + 1} DE ${totalRounds(c)}</small>
       <div class="vsrow"><span>${sw(home)}${home.short}</span><b>vs</b><span>${sw(away)}${away.short}</span></div>
       <em>${m.h === c.me ? `De local ante ${away.name}` : `De visita ante ${home.name}`}${c.round ? ` · vas ${pos}°` : ''}</em></div>`;
@@ -1753,7 +1763,7 @@ function showCareer() {
   const dg = (r) => (r.gf - r.gc > 0 ? '+' : '') + (r.gf - r.gc);
   $('#career-table').innerHTML = '<tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr>' + t.map((r, k) => {
     const tm = teamById(r.id);
-    return `<tr class="${r.id === c.me ? 'me' : ''}"><td>${k + 1}</td><td><span class="kit-swatch" style="background:${swatchCss(tm.kit)}"></span>${tm.short}</td><td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td><td>${dg(r)}</td><td><b>${r.pts}</b></td></tr>`;
+    return `<tr class="${r.id === c.me ? 'me' : ''}"><td>${k + 1}</td><td><span ${swatchAttrs(tm)}></span>${tm.short}</td><td>${r.pj}</td><td>${r.pg}</td><td>${r.pe}</td><td>${r.pp}</td><td>${dg(r)}</td><td><b>${r.pts}</b></td></tr>`;
   }).join('');
   const last = c.round > 0 ? c.rounds[c.round - 1] : null;
   const line = (m) => `<p class="fx${m.h === c.me || m.a === c.me ? ' mine' : ''}"><span>${teamById(m.h).short}</span><b>${m.res ? `${m.res.hs} - ${m.res.as}` : 'vs'}</b><span>${teamById(m.a).short}</span></p>`;
