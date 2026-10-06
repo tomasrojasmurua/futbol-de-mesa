@@ -37,7 +37,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => t * t * (3 - 2 * t);
 const rnd = (a, b) => a + Math.random() * (b - a);
 // Penal en el partido, en coordenadas del que patea (por número de camiseta).
-const PEN_ATT = { 0: [34, 24], 1: [13, 64], 2: [27, 56], 3: [41, 56], 4: [55, 64], 5: [16, 87.3], 6: [31, 77], 7: [39, 74.5], 8: [52, 87.3], 9: [28, 85.3], 10: [40, 85.3] };
+const PEN_ATT = { 0: [34, 9], 1: [13, 64], 2: [27, 56], 3: [41, 56], 4: [55, 64], 5: [16, 87.3], 6: [31, 77], 7: [39, 74.5], 8: [52, 87.3], 9: [28, 85.3], 10: [40, 85.3] };
 const PEN_DEF = { 0: [34, 104.4], 1: [18.5, 88], 2: [24, 86.2], 3: [44, 86.2], 4: [49.5, 88], 5: [12.5, 86.4], 6: [30.5, 79], 7: [37.5, 79.5], 8: [55.5, 86.4], 9: [33, 55], 10: [47, 70] };
 const pickR = (a) => a[Math.floor(Math.random() * a.length)];
 
@@ -368,7 +368,7 @@ export class Renderer {
 
     this.updateBall(dt);
     this.computeTargets();
-    for (const team of this.players) for (const p of team) this.movePlayer(p, dt);
+    for (const team of this.players) for (const p of team) { this.movePlayer(p, dt); if (p.i === 0 && !this.freeKeepers) this.keepInBox(p); }
     this.moveRef(dt);
     this.updateParticles(dt);
     this.netShake = this.netShake.map((n) => Math.max(0, n - real));
@@ -498,6 +498,17 @@ export class Renderer {
     }
     const o = b.owner;
     if (o && !o.lock && !o.ov) { o.tx = o.x; o.ty = o.y; }
+  }
+
+  // El arquero no sale del área: a lo más hasta el punto penal (11 m) y sin
+  // abrirse más allá del ancho del área chica.
+  keepInBox(p) {
+    const [u, v] = this.U(p.side, p.x, p.y);
+    const cu = clamp(u, 34 - 10, 34 + 10), cv = Math.min(v, 11);
+    if (cu !== u || cv !== v) {
+      [p.x, p.y] = this.W(p.side, cu, cv);
+      if (p.lock) p.lock = null;
+    }
   }
 
   movePlayer(p, dt) {
@@ -691,8 +702,16 @@ export class Renderer {
   }
 
   async dribble(side, uv, dur = 1, zig = 0) {
-    const p = this.ball.owner;
+    let p = this.ball.owner;
     if (!p) return;
+    if (p.i === 0 && !this.freeKeepers) {
+      // el arquero no sale jugando: se la da a un central y sigue él
+      const cb = this.nearest(p.side, p.x, p.y, true);
+      const [cu, cv] = this.U(side, cb.x, cb.y);
+      await this.passTo(side, cb, [cu, cv], { dur: 0.6, h: 0.3 });
+      p = this.ball.owner;
+      if (!p || p.i === 0) return;
+    }
     // si la había ganado de cabeza, la baja con el pecho y sigue con los pies
     this.ball.head = false;
     this.moveTo(p, this.W(side, uv[0], uv[1]), dur, { zig });
@@ -839,7 +858,7 @@ export class Renderer {
     this.cam.tzoom = 1.2; this.cam.follow = null;
   }
 
-  async kickoff(side) { await this.fade(() => this.kickoffNow(side)); }
+  async kickoff(side) { this.freeKeepers = false; await this.fade(() => this.kickoffNow(side)); }
 
   async setCorner(A, laneSide) {
     await this.fade(() => {
@@ -1370,6 +1389,8 @@ export class Renderer {
   // arquero que no ataja espera al costado del área.
   async playShootout(ev, A, D) {
     const F = 0;
+    // en la tanda los arqueros esperan al costado del área y al final corren a festejar
+    this.freeKeepers = true;
     const shooter = this.players[A].find((p) => p.i === ev.shooter) || this.players[A][9];
     const keeper = this.players[D][0];
     const lineU = (side, k) => (side === 0 ? 32.6 - k * 1.5 : 35.4 + k * 1.5);
