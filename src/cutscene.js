@@ -630,7 +630,8 @@ export class Cutscene {
     const arc = this.manoOpen ? 24 : 18;
     let x, y;
     if (o.match || p <= k) {
-      const goal = o.match ? end : aim;
+      // si ataja, la pelota va justo a los guantes (sin saltar al final)
+      const goal = o.match && !this.manoSave ? this.keeperHands(T.hit) : o.match ? end : aim;
       const q = easeOut(p);
       x = lerp(start[0], goal[0], q); y = lerp(start[1], goal[1], q) - Math.sin(p * Math.PI) * arc;
     } else {
@@ -692,20 +693,21 @@ export class Cutscene {
   keeper(s) {
     const o = this.o, T = this.T;
     const x0 = 90, y0 = this.gy - 1;
-    const start = T.kick + T.F * 0.22;
+    // sale antes y llega estirado justo cuando llega la pelota
+    const start = T.kick + T.F * 0.1;
     if (s < start) {
       const bounce = Math.abs(Math.sin(s * 7)) * 2;
       const sway = Math.sin(s * 2.3) * 4;
       return { x: x0 + sway, y: y0 - (s > T.intro ? bounce : 0), pose: 'ready' };
     }
-    const p = clamp((s - start) / (T.F * 0.7), 0, 1);
+    const p = clamp((s - start) / (T.F * 0.82), 0, 1);
     if (o.def === 'C') {
       return { x: x0, y: y0 - Math.sin(Math.min(p, 1) * Math.PI * 0.5) * 6, pose: 'up' };
     }
     const dir = o.def === 'L' ? -1 : 1;
-    // El centro del cuerpo termina de modo que las manos lleguen al rincón.
+    // El centro del cuerpo termina de modo que los guantes lleguen al rincón.
     const aim = this.target(o.def);
-    const tx = aim[0] - dir * 24;
+    const tx = aim[0] - dir * 17;
     if (p < 0.18) return { x: x0 + dir * 3, y: y0 + 1, pose: 'load', dir, p };
     const q = easeOut((p - 0.18) / 0.82);
     const peak = this.gy - 10 - aim[1];
