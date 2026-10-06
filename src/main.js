@@ -14,6 +14,7 @@ import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
+import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -74,17 +75,45 @@ function paintHome(force = true) {
 let homeTimer = 0;
 addEventListener('resize', () => { clearTimeout(homeTimer); homeTimer = setTimeout(() => paintHome(false), 200); });
 
+// Elegir equipo en dos pasos: primero la liga (o grupo), después el equipo.
+const teamGroups = () => [...new Set(TEAMS.map((t) => t.group))];
+const longName = (t) => Math.max(...t.name.split(' ').map((w) => w.length)) > 10;
+
 function buildTeamGrid() {
-  const grid = $('#team-grid');
-  grid.innerHTML = '';
-  let group = '';
-  for (const t of TEAMS) {
-    if (t.group !== group) {
-      group = t.group;
-      const h = document.createElement('h3'); h.textContent = group; grid.appendChild(h);
-    }
+  $('#teams-title').textContent = 'Elige la liga';
+  $('#teams-back').onclick = () => show('screen-play');
+  $('#team-grid').hidden = true;
+  const list = $('#team-groups');
+  list.hidden = false;
+  list.innerHTML = '';
+  const mine = teamById(myTeamId);
+  for (const g of teamGroups()) {
+    const teams = TEAMS.filter((t) => t.group === g);
     const b = document.createElement('button');
-    b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (Math.max(...t.name.split(' ').map((w) => w.length)) > 10 ? ' long' : '');
+    b.className = 'league-btn' + (mine?.group === g ? ' saved' : '');
+    b.innerHTML = `<b>${g}</b><small>${teams.length} equipos</small><span class="kits"></span>${mine?.group === g ? `<em>Tu equipo: ${mine.name}</em>` : ''}`;
+    for (const t of teams.slice(0, 12)) {
+      const k = document.createElement('i');
+      k.className = 'kit-swatch';
+      k.style.background = swatchCss(t.kit);
+      b.querySelector('.kits').appendChild(k);
+    }
+    b.onclick = () => buildGroupTeams(g);
+    list.appendChild(b);
+  }
+  list.scrollTop = 0;
+}
+
+function buildGroupTeams(g) {
+  $('#teams-title').textContent = g;
+  $('#teams-back').onclick = () => buildTeamGrid();
+  $('#team-groups').hidden = true;
+  const grid = $('#team-grid');
+  grid.hidden = false;
+  grid.innerHTML = '';
+  for (const t of TEAMS.filter((x) => x.group === g)) {
+    const b = document.createElement('button');
+    b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
     b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
     b.onclick = () => {
@@ -95,6 +124,7 @@ function buildTeamGrid() {
     };
     grid.appendChild(b);
   }
+  grid.scrollTop = 0;
 }
 
 // ---------- modal ----------
@@ -1387,33 +1417,89 @@ let cupPlaying = false;
 
 function saveCup() { try { if (cup) localStorage.setItem('fdm-cup', JSON.stringify(cup)); else localStorage.removeItem('fdm-cup'); } catch { /* sin storage */ } }
 function loadCup() { try { const c = JSON.parse(localStorage.getItem('fdm-cup')); return c && c.v === 1 && c.rounds ? c : null; } catch { return null; } }
+// En el menú de modos: cuántas copas llevas en la sala de trofeos.
 function paintCupButton() {
-  const saved = loadCup();
-  const b = $('#btn-cup-continue');
-  b.hidden = !saved || !!champion(saved);
-  if (saved) b.textContent = `Continuar torneo con ${teamById(saved.me).short}`;
-  // Carrera guardada sin terminar: un toque para volver a ella.
-  const c = Object.values(loadCareers()).find((x) => x && !seasonOver(x));
-  const cb = $('#btn-career-continue');
-  cb.hidden = !c;
-  if (c) cb.textContent = `Seguir carrera con ${teamById(c.me).short} · fecha ${c.round + 1}`;
+  const won = loadTrophies();
+  const n = TROPHY_LIST.filter((t) => (won[t.id] || []).length).length;
+  const total = Object.values(won).reduce((k, l) => k + l.length, 0);
+  $('#trophy-count').textContent = total ? `${n} de ${TROPHY_LIST.length} copas distintas · ${total} títulos` : 'Aún no ganas copas';
 }
 
+const compOf = (c) => COMPS.find((x) => x.id === c.comp) || FREE_CUP;
+
+// Lista de torneos. Si tienes uno a medias, aparece primero para retomarlo.
 function cupMenu() {
+  const list = $('#cup-list');
+  list.innerHTML = '';
+  const saved = loadCup();
+  const add = (comp, sub, em, cls, fn) => {
+    const b = document.createElement('button');
+    b.className = 'league-btn cup-btn' + (cls ? ' ' + cls : '');
+    const cv = trophyCanvas(comp.id === 'calc' ? 'calc' : comp.id);
+    const img = document.createElement('canvas');
+    img.width = cv.width; img.height = cv.height; img.getContext('2d').drawImage(cv, 0, 0);
+    b.append(img);
+    b.insertAdjacentHTML('beforeend', `<b>${comp.name}</b><small>${sub}</small>${em ? `<em>${em}</em>` : ''}`);
+    b.onclick = fn;
+    list.appendChild(b);
+  };
+  if (saved && !champion(saved)) {
+    const comp = compOf(saved);
+    add(comp, '▸', `Continuar con ${teamById(saved.me).name} · ${ROUND_NAMES[teamsLeft(saved)]}`, 'resume', () => { cup = saved; showCup(); });
+  }
+  const won = loadTrophies();
+  const times = (id) => (won[id] || []).length;
+  for (const comp of COMPS) add(comp, `${comp.size} equipos`, `${comp.sub}${times(comp.id) ? ` · ganada ${times(comp.id)} ${times(comp.id) === 1 ? 'vez' : 'veces'}` : ''}`, '', () => pickCupTeam(comp));
+  add(FREE_CUP, '8 o 16', `${FREE_CUP.sub}${times('calc') ? ` · ganada ${times('calc')} ${times('calc') === 1 ? 'vez' : 'veces'}` : ''}`, '', () => freeCupMenu());
+  list.scrollTop = 0;
+  show('screen-cups');
+}
+
+// Los equipos que juegan esa copa; el tuyo aparece marcado si está.
+function pickCupTeam(comp) {
+  $('#cup-team-title').textContent = comp.name;
+  const grid = $('#cup-team-grid');
+  grid.innerHTML = '';
+  const ids = [...comp.pool].sort((a, b) => teamById(a).name.localeCompare(teamById(b).name, 'es'));
+  if (ids.includes(myTeamId)) { ids.splice(ids.indexOf(myTeamId), 1); ids.unshift(myTeamId); }
+  for (const id of ids) {
+    const t = teamById(id);
+    const b = document.createElement('button');
+    b.className = 'team-btn' + (id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
+    b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
+    b.querySelector('.kit-swatch').style.background = swatchCss(t.kit);
+    b.onclick = () => confirmCup(comp, id);
+    grid.appendChild(b);
+  }
+  grid.scrollTop = 0;
+  show('screen-cup-teams');
+}
+
+function confirmCup(comp, me) {
+  const saved = loadCup();
+  const warn = saved && !champion(saved) ? '<p class="note">Empezar uno nuevo borra el torneo que tienes guardado.</p>' : '';
+  const size = Math.min(comp.size, comp.pool.length - (comp.pool.length % 2));
+  modal(`<h2>${comp.name}</h2>
+    <p>${teamById(me).name} contra la IA, eliminación directa desde ${ROUND_NAMES[size].toLowerCase()}. Si empatas, se define por penales. La IA se pone más difícil en cada ronda.</p>${warn}`,
+  [['Empezar', 'primary', () => startCup({ comp: comp.id, me, pool: comp.pool, size })], ['Volver', 'ghost', () => {}]]);
+}
+
+// Torneo libre con tu equipo: clubes o selecciones, de 8 o 16.
+function freeCupMenu() {
   const mine = teamById(myTeamId);
   const national = mine.group === 'Selecciones';
   const saved = loadCup();
   const warn = saved && !champion(saved) ? '<p class="note">Empezar uno nuevo borra el torneo que tienes guardado.</p>' : '';
-  modal(`<h2>Torneo</h2>
+  const pool = TEAMS.filter((t) => (t.group === 'Selecciones') === national).map((t) => t.id);
+  modal(`<h2>${FREE_CUP.name}</h2>
     <p>Eliminación directa contra la IA con ${mine.name}, entre ${national ? 'selecciones' : 'clubes'}. Si empatas, se define por penales. La IA se pone más difícil en cada ronda.</p>${warn}`,
-  [['8 equipos', 'primary', () => startCup(8)], ['16 equipos', '', () => startCup(16)], ['Volver', 'ghost', () => {}]]);
+  [['8 equipos', 'primary', () => startCup({ comp: 'calc', me: myTeamId, pool, size: 8 })], ['16 equipos', '', () => startCup({ comp: 'calc', me: myTeamId, pool, size: 16 })], ['Volver', 'ghost', () => {}]]);
 }
 
-function startCup(size) {
+function startCup({ comp, me, pool, size }) {
   audio.unlock();
-  const national = teamById(myTeamId).group === 'Selecciones';
-  const pool = TEAMS.filter((t) => (t.group === 'Selecciones') === national).map((t) => t.id);
-  cup = newCup({ me: myTeamId, pool, size: Math.min(size, pool.length - (pool.length % 2)), length: myLength });
+  cup = newCup({ me, pool, size: Math.min(size, pool.length - (pool.length % 2)), length: myLength });
+  cup.comp = comp;
   saveCup();
   showCup();
 }
@@ -1437,8 +1523,8 @@ function showCup() {
   let head;
   if (champ) {
     const c = teamById(champ);
-    head = `<div class="champ"><small>CAMPEÓN</small><span class="kit-swatch" style="background:${swatchCss(c.kit)}"></span><b>${c.name}</b><em>${champ === cup.me ? '¡Ganaste el torneo!' : cup.out ? `Quedaste fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.` : ''}</em></div>`;
-    if (champ === cup.me && !cup.cheered) { cup.cheered = true; audio.sound('win'); }
+    head = `<div class="champ"><small>CAMPEÓN · ${compOf(cup).name.toUpperCase()}</small><span class="kit-swatch" style="background:${swatchCss(c.kit)}"></span><b>${c.name}</b><em>${champ === cup.me ? `¡Ganaste la ${compOf(cup).name}! Ya está en tu sala de trofeos.` : cup.out ? `Quedaste fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.` : ''}</em></div>`;
+    if (champ === cup.me && !cup.cheered) { cup.cheered = true; addTrophy(cup.comp || 'calc', cup.me); saveCup(); audio.sound('win'); }
   } else if (playing) {
     const rival = teamById(m.a === cup.me ? m.b : m.a);
     head = `<div class="next-match"><small>${ROUND_NAMES[left].toUpperCase()}</small>
@@ -1447,7 +1533,7 @@ function showCup() {
   } else {
     head = `<div class="next-match out"><small>ELIMINADO</small><b>${me.name} quedó fuera en ${ROUND_NAMES[cup.out].toLowerCase()}.</b></div>`;
   }
-  $('#cup-title').textContent = champ ? 'Torneo terminado' : `${ROUND_NAMES[left]}`;
+  $('#cup-title').textContent = champ ? compOf(cup).name : `${compOf(cup).name} · ${ROUND_NAMES[left]}`;
   $('#cup-head').innerHTML = head;
   // El cuadro, de la ronda actual hacia atrás.
   $('#cup-rounds').innerHTML = cup.rounds.map((r) => `<h3>${ROUND_NAMES[r.length * 2]}</h3>${r.map(cupResultLine).join('')}`).reverse().join('');
@@ -1456,8 +1542,9 @@ function showCup() {
   const btn = (txt, cls, fn) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = txt; b.onclick = fn; act.appendChild(b); };
   if (playing) btn('Jugar partido', 'primary', () => playCupMatch());
   else if (!champ) btn('Simular hasta el final', 'primary', () => { while (!champion(cup)) finishRound(cup, null); saveCup(); showCup(); });
-  if (champ) btn('Nuevo torneo', 'primary', () => cupMenu());
-  btn(champ || !playing ? 'Volver al menú' : 'Salir (queda guardado)', 'ghost', () => { if (champion(cup)) { cup = null; saveCup(); } show('screen-menu'); paintCupButton(); });
+  if (champ) btn('Nuevo torneo', 'primary', () => { cup = null; saveCup(); cupMenu(); });
+  if (champ && champ === cup.me) btn('Ver la sala de trofeos', '', () => { cup = null; saveCup(); showTrophies(); });
+  btn(champ || !playing ? 'Volver al menú' : 'Salir (queda guardado)', 'ghost', () => { if (champion(cup)) { cup = null; saveCup(); } show('screen-play'); paintCupButton(); });
   show('screen-cup');
 }
 
@@ -1500,6 +1587,52 @@ function confirmQuitCup() {
     }],
     ['Seguir jugando', 'ghost', () => {}],
   ]);
+}
+
+// ---------- sala de trofeos ----------
+const HOW_TO = { calc: 'Gana un torneo libre (Copa Calcciopoli) en Torneo.' };
+function trophyHint(id) {
+  if (HOW_TO[id]) return HOW_TO[id];
+  const comp = COMPS.find((c) => c.id === id);
+  if (comp) return `Gana la ${comp.name} en Torneo.`;
+  const l = LEAGUES.find((x) => `lg_${x.id}` === id);
+  return l ? `Sale campeón de ${l.name} en el modo Carrera.` : '';
+}
+function showTrophies() {
+  const won = loadTrophies();
+  const cv = $('#trophy-canvas');
+  const room = paintRoom(cv, won, teamById(myTeamId).kit);
+  const k = Math.max(1, Math.floor(Math.min(innerWidth, 640) / room.W));
+  cv.style.width = `${room.W * k}px`; cv.style.height = `${room.H * k}px`;
+  const wrap = $('#trophy-room');
+  wrap.querySelectorAll('button').forEach((b) => b.remove());
+  for (const s of room.slots) {
+    const t = TROPHY_LIST.find((x) => x.id === s.id);
+    const n = (won[s.id] || []).length;
+    const b = document.createElement('button');
+    b.style.cssText = `left:${s.x * k}px;top:${s.y * k}px;width:${s.w * k}px;height:${s.h * k}px`;
+    b.setAttribute('aria-label', t.name + (n ? `, ganada ${n}` : ', sin ganar'));
+    if (n > 1) b.innerHTML = `<i>×${n}</i>`;
+    b.onclick = () => trophyDetail(s.id);
+    wrap.appendChild(b);
+  }
+  const kinds = TROPHY_LIST.filter((t) => (won[t.id] || []).length).length;
+  const total = Object.values(won).reduce((a, l) => a + l.length, 0);
+  $('#trophy-sum').innerHTML = total ? `Tienes <b>${kinds} de ${TROPHY_LIST.length}</b> copas distintas y <b>${total}</b> ${total === 1 ? 'título' : 'títulos'}. Toca una copa para ver cuándo la ganaste.` : 'La vitrina está esperando. Gana torneos y ligas para llenarla. Toca una copa para ver cómo se consigue.';
+  show('screen-trophies');
+}
+function trophyDetail(id) {
+  const t = TROPHY_LIST.find((x) => x.id === id);
+  const list = loadTrophies()[id] || [];
+  const big = document.createElement('canvas');
+  const src = trophyCanvas(id, { sil: !list.length });
+  big.width = src.width; big.height = src.height; big.getContext('2d').drawImage(src, 0, 0);
+  const fmt = (ts) => new Date(ts).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' });
+  const body = list.length
+    ? `<p>Ganada ${list.length} ${list.length === 1 ? 'vez' : 'veces'}.</p><ul>${list.slice().reverse().map((w) => `<li>${teamById(w.team)?.name || w.team} · ${fmt(w.at)}</li>`).join('')}</ul>`
+    : `<p>Aún no la ganas. ${trophyHint(id)}</p>`;
+  modal(`<div class="trophy-detail"><div id="td-art"></div><h2>${t.name}</h2>${body}</div>`, [['Cerrar', 'primary', () => {}]]);
+  $('#td-art').appendChild(big);
 }
 
 // ---------- modo carrera ----------
@@ -1596,8 +1729,8 @@ function showCareer() {
   if (over) {
     const champ = teamById(t[0].id);
     const mine = t[0].id === c.me;
-    head = `<div class="champ"><small>CAMPEÓN</small><span class="kit-swatch" style="background:${swatchCss(champ.kit)}"></span><b>${champ.name}</b><em>${mine ? '¡Campeón con tu equipo!' : `${me.short} terminó ${pos}° con ${t[pos - 1].pts} puntos.`}</em></div>`;
-    if (mine && c.cheered !== c.season) { c.cheered = c.season; audio.sound('win'); saveCareer(); }
+    head = `<div class="champ"><small>CAMPEÓN</small><span class="kit-swatch" style="background:${swatchCss(champ.kit)}"></span><b>${champ.name}</b><em>${mine ? '¡Campeón con tu equipo! La copa ya está en tu sala de trofeos.' : `${me.short} terminó ${pos}° con ${t[pos - 1].pts} puntos.`}</em></div>`;
+    if (mine && c.cheered !== c.season) { c.cheered = c.season; addTrophy(`lg_${c.league}`, c.me); audio.sound('win'); saveCareer(); }
   } else {
     const m = myFixture(c);
     const home = teamById(m.h), away = teamById(m.a);
@@ -1615,7 +1748,7 @@ function showCareer() {
     btn('Jugar partido', 'primary', () => playCareerMatch());
     btn('Simular mi partido', '', () => { playRound(c, null); saveCareer(); showCareer(); });
   }
-  btn('Salir (queda guardado)', 'ghost', () => { career = null; show('screen-menu'); paintCupButton(); });
+  btn('Salir (queda guardado)', 'ghost', () => { career = null; show('screen-play'); paintCupButton(); });
   // Tabla completa.
   const dg = (r) => (r.gf - r.gc > 0 ? '+' : '') + (r.gf - r.gc);
   $('#career-table').innerHTML = '<tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr>' + t.map((r, k) => {
@@ -1676,7 +1809,6 @@ $('#btn-team').onclick = () => { buildTeamGrid(); show('screen-teams'); };
 document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show(b.dataset.back || 'screen-menu')));
 $('#btn-play').onclick = () => show('screen-play');
 $('#btn-room').onclick = () => { const o = $('#room-opts'); o.hidden = !o.hidden; $('#btn-room').classList.toggle('open', !o.hidden); };
-$('#btn-career-continue').onclick = () => showCareerPick();
 document.querySelectorAll('canvas[data-icon]').forEach((c) => paintIcon(c, c.dataset.icon));
 $('#btn-cpu').onclick = () => modal(`<h2>Contra la IA</h2>
   <p><b>Fácil:</b> tiene mañas y repite jugadas; si lo lees, le ganas.</p>
@@ -1696,7 +1828,9 @@ $('#btn-league').onclick = () => createLeague();
 $('#btn-cup').onclick = () => cupMenu();
 $('#btn-career').onclick = () => showCareerPick();
 $('#career-team-back').onclick = () => showCareerPick();
-$('#btn-cup-continue').onclick = () => { cup = loadCup(); if (cup) showCup(); };
+$('#cup-team-back').onclick = () => cupMenu();
+$('#btn-trophies').onclick = () => showTrophies();
+{ const ic = $('#trophy-icon'), t = trophyCanvas('wc'); ic.width = t.width; ic.height = t.height; ic.getContext('2d').drawImage(t, 0, 0); }
 paintCupButton();
 $('#lg-start').onclick = () => startLeague();
 $('#lg-leave').onclick = () => leaveLeague();
@@ -1737,4 +1871,4 @@ if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 
 // Para pruebas automáticas.
-window.__fdm = { get career() { return career; }, get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon };
+window.__fdm = { get career() { return career; }, get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon, cupResult: (r) => cupAfterMatch(r) };

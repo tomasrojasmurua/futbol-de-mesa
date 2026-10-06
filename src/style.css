@@ -51,6 +51,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .mode i { margin-left: auto; font-style: normal; color: var(--mute); }
 .mode:hover, .mode:focus-visible, .mode.open { box-shadow: 0 0 0 3px #0c0f15, inset 4px 0 0 var(--gold); background: var(--panel2); }
 .mode:active { transform: translateY(1px); }
+.room-opts[hidden] { display: none; }
 .room-opts { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 6px 18px; }
 #screen-lobby::before, #screen-league::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(20,23,31,.25), rgba(20,23,31,.85)); }
 .menu-inner { position: relative; width: min(360px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 12px; text-align: center; }
@@ -250,14 +251,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .tdie.land, .tres .rk { animation: none; } }
 /* Moneda del sorteo: disco de oro con canto, en 3D sobre el mismo paño. */
 .tleg i.mc { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff1a8, #f2c230 45%, #c58f0a 80%); }
-.tleg i.mc svg { width: 24px; height: 24px; }
+.tleg i.mc img { width: 26px; height: 26px; display: block; }
 .tray .tcoin { --cs: 76px; position: absolute; width: var(--cs); height: var(--cs); perspective: 420px; z-index: 1; will-change: transform; }
 .tcoin .c3 { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
 .tcoin .ce { position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(#8a6200 0 4deg, #b8860b 4deg 8deg); }
 .tcoin .cf { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; backface-visibility: hidden;
   background: radial-gradient(circle at 35% 30%, #fff1a8, #f2c230 42%, #d19a10 72%, #9a6c00);
   box-shadow: inset 0 0 0 3px #8a6200, inset 0 0 0 5px #f7d75a, inset 0 0 0 6px #a87a08, inset -4px -6px 10px rgba(90,50,0,.35); }
-.tcoin .cf svg { width: 92%; height: 92%; }
+.tcoin .cf img { width: 100%; height: 100%; display: block; }
 .tcoin .cf.f { transform: translateZ(3px); }
 .tcoin .cf.b { transform: rotateX(180deg) translateZ(3px); }
 .tcoin.land { filter: drop-shadow(0 0 3px #000) drop-shadow(0 0 10px rgba(255,210,63,.7)); animation: tland .4s ease-out; }
@@ -389,6 +390,9 @@ body.watching .cards .duel-card { pointer-events: none; }
 .league-btn b { font-family: var(--px); font-size: 11px; font-weight: normal; }
 .league-btn small { color: var(--mute); font-size: 17px; text-align: right; }
 .league-btn em { grid-column: 1 / -1; font-style: normal; color: var(--mute); font-size: 17px; }
+.league-btn .kits { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
+.league-btn .kits .kit-swatch { width: 16px; height: 16px; flex: none; }
+.league-list[hidden], .team-grid[hidden] { display: none; }
 .league-btn.saved { box-shadow: 0 0 0 3px var(--gold); }
 .league-btn.saved em { color: var(--gold); }
 .opt-row { margin: 8px 0; flex-wrap: wrap; }
@@ -574,3 +578,22 @@ body.watching .cards .duel-card { pointer-events: none; }
 .sc-tip .sc-row small { display: block; font-size: 10px; font-weight: 800; color: #2b3325; }
 .sc-tip .sc-odds b { display: inline; font-family: inherit; font-size: 11px; }
 .sc-tip .sc-when { justify-content: flex-start; }
+
+/* Torneos y sala de trofeos */
+#screen-cups, #screen-cup-teams, #screen-trophies { background: var(--bg); }
+.league-btn.cup-btn { grid-template-columns: auto 1fr auto; align-items: center; }
+.league-btn.cup-btn canvas { grid-row: 1 / span 2; width: 30px; height: 46px; image-rendering: pixelated; }
+.league-btn.cup-btn em { grid-column: 2 / -1; }
+.league-btn.resume { box-shadow: 0 0 0 3px var(--gold); background: var(--panel2); }
+.league-btn.resume em { color: var(--gold); }
+.trophy-scroll { overflow-y: auto; padding: 10px 0 24px; display: flex; flex-direction: column; align-items: center; }
+.trophy-sum { margin: 0 16px 10px; color: var(--mute); font-size: 19px; text-align: center; }
+.trophy-sum b { color: var(--gold); font-weight: normal; }
+.trophy-room { position: relative; line-height: 0; box-shadow: 0 0 0 3px #0c0f15; }
+.trophy-room canvas { image-rendering: pixelated; display: block; }
+.trophy-room button { position: absolute; background: none; border: 0; padding: 0; cursor: pointer; }
+.trophy-room button:focus-visible { outline: 2px solid var(--gold); }
+.trophy-room button i { position: absolute; right: -4px; top: -2px; font-style: normal; font-family: var(--px); font-size: 9px; line-height: 1; color: #1a1206; background: var(--gold); padding: 3px 4px; box-shadow: 0 0 0 2px #0c0f15; }
+.trophy-detail { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.trophy-detail canvas { width: 120px; height: 184px; image-rendering: pixelated; }
+.trophy-detail ul { list-style: none; margin: 0; padding: 0; color: var(--ink); font-size: 19px; }

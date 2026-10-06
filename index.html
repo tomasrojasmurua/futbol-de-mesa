@@ -26,8 +26,6 @@
       </div>
       <div class="home-actions">
         <button id="btn-play" class="btn primary play">JUGAR</button>
-        <button id="btn-career-continue" class="btn ghost" hidden>Seguir carrera</button>
-        <button id="btn-cup-continue" class="btn ghost" hidden>Continuar torneo</button>
         <nav class="home-foot"><button id="btn-tutorial" class="link">Tutorial</button><button id="btn-help" class="link">Reglas</button><button id="btn-home-mute" class="link sound" title="Sonido">♪</button></nav>
       </div>
     </div>
@@ -48,7 +46,7 @@
       </div>
       <button id="btn-cpu" class="mode"><canvas data-icon="ball"></canvas><span><b>Partido rápido</b><small>Contra la IA</small></span><i>▸</i></button>
       <button id="btn-career" class="mode"><canvas data-icon="cup"></canvas><span><b>Carrera</b><small>10 ligas reales</small></span><i>▸</i></button>
-      <button id="btn-cup" class="mode"><canvas data-icon="bracket"></canvas><span><b>Torneo</b><small>Eliminación directa contra la IA</small></span><i>▸</i></button>
+      <button id="btn-cup" class="mode"><canvas data-icon="bracket"></canvas><span><b>Torneo</b><small>Mundial, Champions, Libertadores y más</small></span><i>▸</i></button>
       <button id="btn-room" class="mode"><canvas data-icon="duo"></canvas><span><b>Sala 1 vs 1</b><small>Con un amigo, en otro teléfono</small></span><i>▾</i></button>
       <div id="room-opts" class="room-opts" hidden>
         <button id="btn-create" class="btn primary">Crear sala</button>
@@ -58,14 +56,16 @@
         </div>
       </div>
       <button id="btn-league" class="mode"><canvas data-icon="table"></canvas><span><b>Liga de amigos</b><small>De 2 a 4 jugadores</small></span><i>▸</i></button>
+      <button id="btn-trophies" class="mode"><canvas id="trophy-icon"></canvas><span><b>Sala de trofeos</b><small id="trophy-count">Tus copas ganadas</small></span><i>▸</i></button>
       <p id="menu-msg" class="msg"></p>
     </div>
   </section>
 
   <!-- SELECCIÓN DE EQUIPO -->
   <section id="screen-teams" class="screen">
-    <header class="bar"><button class="back" data-back="screen-play">◂</button><h2>Elige tu equipo</h2></header>
-    <div id="team-grid" class="team-grid"></div>
+    <header class="bar"><button class="back" id="teams-back">◂</button><h2 id="teams-title">Elige la liga</h2></header>
+    <div id="team-groups" class="league-list"></div>
+    <div id="team-grid" class="team-grid" hidden></div>
   </section>
 
   <!-- SALA -->
@@ -123,6 +123,22 @@
       <div id="cup-actions" class="tb-actions"></div>
       <div id="cup-rounds" class="cup-rounds"></div>
     </div>
+  </section>
+
+  <!-- TORNEOS -->
+  <section id="screen-cups" class="screen">
+    <header class="bar"><button class="back" data-back="screen-play">◂</button><h2>Torneo</h2></header>
+    <div id="cup-list" class="league-list"></div>
+  </section>
+  <section id="screen-cup-teams" class="screen">
+    <header class="bar"><button class="back" id="cup-team-back">◂</button><h2 id="cup-team-title">Elige tu equipo</h2></header>
+    <div id="cup-team-grid" class="team-grid"></div>
+  </section>
+
+  <!-- SALA DE TROFEOS -->
+  <section id="screen-trophies" class="screen">
+    <header class="bar"><button class="back" data-back="screen-play">◂</button><h2>Sala de trofeos</h2></header>
+    <div class="trophy-scroll"><p id="trophy-sum" class="trophy-sum"></p><div id="trophy-room" class="trophy-room"><canvas id="trophy-canvas"></canvas></div></div>
   </section>
 
   <!-- CARRERA -->

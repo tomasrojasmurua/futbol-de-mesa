@@ -175,29 +175,83 @@ export async function rollDice(wrap, { value, faces, labels, title, reason, soun
 }
 
 // ---------- moneda del sorteo ----------
-// Relieve: el dibujo va dos veces, una línea clara corrida y encima el oro oscuro.
-const emboss = (d) => `<g fill="#fff3b0" opacity=".75" transform="translate(-.7 -.7)">${d}</g><g fill="#7a5300">${d}</g>`;
-const rim = () => Array.from({ length: 36 }, (_, i) => {
-  const a = (i / 36) * Math.PI * 2;
-  return `<rect x="${(24 + Math.cos(a) * 20.6 - 0.7).toFixed(2)}" y="${(24 + Math.sin(a) * 20.6 - 0.7).toFixed(2)}" width="1.4" height="1.4"/>`;
-}).join('');
-const leaves = (s) => Array.from({ length: 6 }, (_, i) => {
-  const a = Math.PI * (0.62 + i * 0.075), x = 24 + Math.cos(a) * 14 * s, y = 26 + Math.sin(a) * 14;
-  return `<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="1.3" ry="2.6" transform="rotate(${((a * 180) / Math.PI + 90) * s} ${x.toFixed(2)} ${y.toFixed(2)})"/>`;
-}).join('');
-const COIN_ART = {
-  // Cara: el perfil de un jugador con la cinta de capitán en el pelo, y estrellas.
-  cara: rim() +
-    '<path d="M17 37c-1.4-5-3.2-7.6-2.6-12.8C15.2 16.6 20.6 12 27 12.4c5 .3 8.2 3.6 8.6 7.4l2.2 3.8-2 .9.5 2-1 .9.4 2.2c-.7 2-3.4 2.4-5.8 2.1l.2 5.3z"/>' +
-    '<path d="M14.6 20.4c3-4.6 8.4-6.6 14-5.4l-.5 1.8c-5-1-9.6.6-12.4 4.6z"/>' +
-    '<rect x="10" y="12" width="2" height="2"/><rect x="36" y="11" width="2" height="2"/><rect x="38" y="33" width="2" height="2"/>',
-  // Sello: una pelota entre dos ramas de laurel.
-  sello: rim() + leaves(1) + `<g transform="translate(48 0) scale(-1 1)">${leaves(1)}</g>` +
-    '<circle cx="24" cy="23" r="8.6" fill="none" stroke="currentColor" stroke-width="1.8"/>' +
-    '<path d="M24 18.8l3.6 2.6-1.4 4.2h-4.4l-1.4-4.2z"/><path d="M24 14.4v4.4M27.6 21.4l4.2-1.6M26.2 25.6l2.6 3.6M21.8 25.6l-2.6 3.6M20.4 21.4l-4.2-1.6" fill="none" stroke="currentColor" stroke-width="1.4"/>' +
-    '<rect x="18" y="35" width="12" height="2"/>',
+// Cada cara es un relieve: las figuras se dibujan en grises (blanco = más alto)
+// y una luz desde arriba a la izquierda las ilumina como oro acuñado.
+// Rama de laurel: un tallo en arco con hojas en punta a los dos lados.
+const leaves = () => {
+  let out = '<path d="M44 80C33 77 25.6 69 23.6 58 22.6 52 23 46 24.6 40" fill="none" stroke="#c4c4c4" stroke-width="1.3" stroke-linecap="round"/>';
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI * (0.64 + i * 0.075), x = 50 + Math.cos(a) * 27.6, y = 52 + Math.sin(a) * 27.6;
+    const deg = (a * 180) / Math.PI;
+    for (const side of [-1, 1]) {
+      out += `<path d="M0 0C1.8-1.6 2.2-4 0-7.6-2.2-4-1.8-1.6 0 0Z" fill="${side < 0 ? '#d8d8d8' : '#cacaca'}" transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(deg + 180 + side * 55).toFixed(1)})"/>`;
+    }
+  }
+  return out;
 };
-const coinSvg = (k) => `<svg viewBox="0 0 48 48" aria-hidden="true" style="color:#7a5300">${emboss(COIN_ART[k])}</svg>`;
+const star = (x, y, r) => `<path d="M${x} ${y - r}L${x + r * 0.3} ${y - r * 0.3}L${x + r} ${y}L${x + r * 0.3} ${y + r * 0.3}L${x} ${y + r}L${x - r * 0.3} ${y + r * 0.3}L${x - r} ${y}L${x - r * 0.3} ${y - r * 0.3}Z" fill="#d8d8d8"/>`;
+const groove = (d, w = 0.75, c = '#a6a6a6') => `<path d="${d}" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
+const COIN_ART = {
+  // Cara: el busto de perfil de un jugador, peinado hacia atrás, con camiseta de cuello en V, y tres estrellas.
+  cara: star(21, 48, 2.6) + star(24, 36, 2.2) + star(24, 60, 2.2) +
+    '<g transform="translate(-2.5 -3.5) scale(1.04)">' +
+    // camiseta y cuello
+    '<path d="M12 99C14 88 24 81.6 41 79.6L50 85 60 79.6C76 81.6 86 88 88 99Z" fill="#b0b0b0"/>' +
+    '<path d="M40.6 78.6L50 86 59.6 78.6 63.4 81.4 56 88.6 50 86.4 44 88.6 36.8 81.4Z" fill="#c4c4c4"/>' +
+    groove('M50 86.4V99', 0.8, '#8c8c8c') + '<circle cx="50" cy="91" r=".9" fill="#d0d0d0"/>' +
+    groove('M26 86C28 91 29 95 29 99M74 86C72 91 71 95 71 99', 0.7, '#8c8c8c') +
+    // cara y cuello
+    '<path d="M66 29C69 33 70 37 70 40 70 42 68.5 43 68.6 45 69.8 47.5 72.8 50.5 74.2 52.8 74.4 53.8 73.2 54.6 71.6 54.8L69.4 55.4C69 56.4 69.6 57.6 69.4 58.6 69.2 59.6 67.8 60.4 68.2 61.2 68.8 62 69 62.8 68.2 63.8 67.6 64.4 66.4 64.6 66.4 65.6 66.6 67 68 68.6 67.8 70.4 67.4 72.6 65 74 62 74.6 60 75 58.6 75.6 58.8 77.6L59.6 84H42L43 70C40 66 38 62 37 58Z" fill="#dcdcdc"/>' +
+    '<path d="M63.4 45.6C64.6 44.8 66.4 44.9 67.2 45.8 66 46.8 64.6 46.9 63.4 45.6Z" fill="#8a8a8a"/>' + // ojo
+    groove('M61.6 42.6C63.6 41.2 66.6 41.2 68.8 42.2', 1.3, '#c0c0c0') + // ceja
+    groove('M69.6 55C68.6 54 67.6 53.6 66.8 54.4', 0.8, '#9a9a9a') + // nariz
+    groove('M67.8 61.2L65.6 61.4', 0.8, '#909090') + // boca
+    groove('M50.6 58C53 65 57 71.6 63 73.8', 0.8, '#c8c8c8') + // mandíbula
+    groove('M61 59C59 61.6 59.6 65 61.4 67', 0.9, '#c4c4c4') + // pómulo
+    // pelo
+    '<path d="M37 61C31 56 28.6 49 29.2 41 29.8 30 36 20.6 47 17.6 55 15.6 63 17.4 67.4 22.4 69.4 24.8 69 27.6 66.6 29.6 64.6 31 62 31.2 60.6 33.6 59.4 35.8 60.4 39 59.6 42 59 44.6 57.2 45.4 56.6 47.6 55.6 52 53.6 57 49.6 60.6 46 63.6 41 64 37 61Z" fill="#d0d0d0"/>' +
+    ['M31 47C30.6 37 35 27 44 22', 'M34 53C33 42 37 31 47 24.6', 'M38 57C36.6 46 40 35 50 27.4', 'M42.4 59.6C41 50 44 39 53 30.4', 'M47 59.6C46.4 51 48.6 42 56 34.4',
+      'M51 57C50.6 51 52.4 45 57.4 40', 'M33 36C35 28 40 22.6 47.6 20', 'M46 19C53 17.6 60 18.6 65 22.4', 'M50 22.6C56 21.4 62 22.6 66.6 25.6', 'M55 27C59 25.6 63.4 26.4 67 28',
+      'M40 38C42 32 46 28 51 25.6', 'M44 45C45.6 39 49 34.4 54.4 31.6', 'M36 45C36.4 39 38.6 34 42 30', 'M58 33C60.6 31 63.6 30.4 66 30.6'].map((d) => groove(d)).join('') +
+    // oreja
+    '<path d="M50.5 46C52.5 43.4 56.4 44 57 47.6 57.6 51.6 55.4 55.4 52.4 56.2 50.6 56.6 50 55 51 53.6" fill="#e4e4e4"/>' +
+    groove('M52.6 48C54.4 47 55.6 48.4 55 50.8 54.6 52.6 53.4 53.2 52.6 52.6', 1, '#9c9c9c') +
+    '</g>',
+  // Sello: una pelota entre dos ramas de laurel.
+  sello: leaves() + `<g transform="translate(100 0) scale(-1 1)">${leaves()}</g>` +
+    '<path d="M44 80C47 78.6 53 78.6 56 80 53 81.6 47 81.6 44 80Z" fill="#cfcfcf"/><circle cx="50" cy="80" r="1.8" fill="#dedede"/>' + // lazo
+    '<circle cx="50" cy="47" r="17" fill="#d6d6d6"/>' +
+    '<path d="M50 39.4L57.2 44.6 54.4 53H45.6L42.8 44.6Z" fill="#8e8e8e"/>' +
+    groove('M50 39.4V30.4M57.2 44.6L65.6 41.6M54.4 53L59.6 60.4M45.6 53L40.4 60.4M42.8 44.6L34.4 41.6', 1.4, '#9a9a9a'),
+};
+
+// El disco completo de una cara, como imagen (moneda que gira, leyenda y cartas de Cara o sello).
+const faceCache = {};
+export function coinFaceUrl(k) {
+  if (faceCache[k]) return faceCache[k];
+  const rim = Array.from({ length: 40 }, (_, i) => {
+    const a = (i / 40) * Math.PI * 2;
+    return `<rect x="${(50 + Math.cos(a) * 43 - 1.5).toFixed(2)}" y="${(50 + Math.sin(a) * 43 - 1.5).toFixed(2)}" width="3" height="3"/>`;
+  }).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>
+    <radialGradient id="g" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#fff1a8"/><stop offset=".42" stop-color="#f2c230"/><stop offset=".72" stop-color="#d19a10"/><stop offset="1" stop-color="#9a6c00"/></radialGradient>
+    <clipPath id="in"><circle cx="50" cy="50" r="41.2"/></clipPath>
+    <filter id="r" x="0" y="0" width="100" height="100" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feColorMatrix in="SourceGraphic" type="luminanceToAlpha" result="h"/>
+      <feGaussianBlur in="h" stdDeviation=".8" result="hb"/>
+      <feDiffuseLighting in="hb" surfaceScale="4" diffuseConstant="1.12" lighting-color="#efbb2c" result="d"><feDistantLight azimuth="225" elevation="55"/></feDiffuseLighting>
+      <feSpecularLighting in="hb" surfaceScale="4" specularConstant=".4" specularExponent="18" lighting-color="#fff6c8" result="s"><feDistantLight azimuth="225" elevation="55"/></feSpecularLighting>
+      <feComposite in="s" in2="d" operator="arithmetic" k2="1" k3=".9" k4=".1" result="lit"/>
+      <feMorphology in="h" operator="dilate" radius=".6" result="m"/>
+      <feComposite in="lit" in2="m" operator="in"/>
+    </filter></defs>
+    <circle cx="50" cy="50" r="49" fill="#8a6200"/><circle cx="50" cy="50" r="46" fill="url(#g)"/>
+    <circle cx="50" cy="50" r="44.6" fill="none" stroke="#f7d75a" stroke-width="1.8"/>
+    <g fill="#fff3b0" opacity=".75" transform="translate(-1.4 -1.4)">${rim}</g><g fill="#7a5300">${rim}</g>
+    <g clip-path="url(#in)"><g filter="url(#r)"><rect width="100" height="100" fill="#000"/>${COIN_ART[k]}</g></g></svg>`;
+  return (faceCache[k] = `data:image/svg+xml,${encodeURIComponent(svg)}`);
+}
+const coinImg = (k) => `<img src="${coinFaceUrl(k)}" alt="">`;
 
 export async function tossCoin(wrap, { result, text, sound }) {
   const k = result === 'sello' ? 'sello' : 'cara';
@@ -205,9 +259,9 @@ export async function tossCoin(wrap, { result, text, sound }) {
   const edge = [-2, -1, 0, 1, 2].map((z) => `<i class="ce" style="transform:translateZ(${z}px)"></i>`).join('');
   wrap.innerHTML = `<div class="tbox">
     <div class="thead"><small>Sorteo inicial</small><h2>¿Cara o sello?</h2>
-      <div class="tleg">${['cara', 'sello'].map((f) => `<span data-k="${f}"><i class="mc">${coinSvg(f)}</i>${label[f]}</span>`).join('')}</div></div>
+      <div class="tleg">${['cara', 'sello'].map((f) => `<span data-k="${f}"><i class="mc">${coinImg(f)}</i>${label[f]}</span>`).join('')}</div></div>
     <div class="tray" style="background-image:url(${grass()})"><div class="tshade"></div>
-      <div class="tcoin"><div class="c3">${edge}<div class="cf f">${coinSvg('cara')}</div><div class="cf b">${coinSvg('sello')}</div></div></div></div>
+      <div class="tcoin"><div class="c3">${edge}<div class="cf f">${coinImg('cara')}</div><div class="cf b">${coinImg('sello')}</div></div></div></div>
     <div class="tres"><span class="rd">La moneda está en el aire…</span></div></div>`;
   const tray = wrap.querySelector('.tray'), coin = wrap.querySelector('.tcoin'), c3 = wrap.querySelector('.c3');
   const shade = wrap.querySelector('.tshade'), res = wrap.querySelector('.tres');
@@ -258,12 +312,4 @@ export async function tossCoin(wrap, { result, text, sound }) {
   await wait(1900);
   wrap.classList.remove('show');
   wrap.innerHTML = '';
-}
-
-// La cara completa de la moneda como imagen (para las cartas de Cara o sello).
-export function coinFaceUrl(k) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><defs><radialGradient id="g" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#fff1a8"/><stop offset=".42" stop-color="#f2c230"/><stop offset=".72" stop-color="#d19a10"/><stop offset="1" stop-color="#9a6c00"/></radialGradient></defs>
-    <circle cx="24" cy="24" r="23.5" fill="#8a6200"/><circle cx="24" cy="24" r="22" fill="url(#g)"/>
-    <circle cx="24" cy="24" r="21.4" fill="none" stroke="#f7d75a" stroke-width=".9"/>${emboss(COIN_ART[k])}</svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg.replace(/currentColor/g, '#7a5300'))}`;
 }
