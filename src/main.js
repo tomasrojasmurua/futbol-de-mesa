@@ -14,6 +14,7 @@ import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
+import { paintFlag, GROUP_FLAG } from './flags.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
@@ -92,14 +93,9 @@ function buildTeamGrid() {
   for (const g of teamGroups()) {
     const teams = TEAMS.filter((t) => t.group === g);
     const b = document.createElement('button');
-    b.className = 'league-btn' + (mine?.group === g ? ' saved' : '');
-    b.innerHTML = `<b>${g}</b><small>${teams.length} equipos</small><span class="kits"></span>${mine?.group === g ? `<em>Tu equipo: ${mine.name}</em>` : ''}`;
-    for (const t of teams.slice(0, 12)) {
-      const k = document.createElement('i');
-      k.className = 'kit-swatch';
-      k.style.background = swatchCss(t.kit);
-      b.querySelector('.kits').appendChild(k);
-    }
+    b.className = 'league-btn flag-btn' + (mine?.group === g ? ' saved' : '');
+    b.append(paintFlag(document.createElement('canvas'), GROUP_FLAG[g]));
+    b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${teams.length} equipos</small>${mine?.group === g ? `<em>Tu equipo: ${mine.name}</em>` : ''}`);
     b.onclick = () => buildGroupTeams(g);
     list.appendChild(b);
   }
