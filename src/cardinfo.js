@@ -108,12 +108,14 @@ export const VIEW_MINE = 0, VIEW_THEIRS = 1, VIEW_NEUTRAL = 2;
 
 // La frase, el cuándo y los dados de la carta, contados desde ese lado.
 // both: la carta es para los dos equipos (la Lluvia).
-export function cardBodyHtml(id, view, both) {
+// dice = false: solo la frase y el cuándo (la carta grande); los dados quedan
+// para la ficha y para la tirada.
+export function cardBodyHtml(id, view, both, dice = true) {
   const tx = CARD_TEXT[id];
   if (!tx) return '';
   const [head, when] = [tx.mine, tx.theirs, tx.neutral][view];
   const fxs = id === 'red' ? [] : (CARDS[id] && CARDS[id].fx) || [];
-  const rows = (tx.rows || []).map((rw) => {
+  const rows = (dice ? tx.rows || [] : []).map((rw) => {
     const e = fxs.find((x) => x.dice[0] === rw.die);
     if (!e) return '';
     const base = BASE_DICE[rw.die];
@@ -124,12 +126,6 @@ export function cardBodyHtml(id, view, both) {
     return `<div class="sc-row"><small>${rw.t[view]}</small><div class="sc-faces">${tiles}</div><div class="sc-odds">${rw.l[view]}: <s>${n0} de 6</s> → <b class="${tone}">${n1} de 6</b></div></div>`;
   }).join('');
   return `<p class="sc-head">${head}</p>${when ? `<div class="sc-when"><i>CUÁNDO</i><span>${when}</span></div>` : ''}${rows}`;
-}
-
-// Una línea corta para avisar que la carta se juega en esta jugada.
-export function cardLine(id, view) {
-  const tx = CARD_TEXT[id];
-  return tx ? [tx.mine, tx.theirs, tx.neutral][view][0] : '';
 }
 
 // ---------- ilustraciones ----------
