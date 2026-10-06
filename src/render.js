@@ -6,6 +6,9 @@ import { hexRgb } from './teams.js';
 import { playerName } from './squads.js';
 import { Cutscene, text as pxText, textW as pxTextW } from './cutscene.js';
 import { stadiumFor } from './stadiums.js';
+import { P4 } from './players.js';
+const FAR_BALLS = new Map();
+import { p4Kit, HAIR_STYLES } from './playerkit.js';
 
 const PW = 68, PL = 105;           // cancha en metros
 const S = 4;                        // píxeles por metro (resolución interna)
@@ -33,6 +36,10 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = (t) => t * t * (3 - 2 * t);
 const rnd = (a, b) => a + Math.random() * (b - a);
+// Penal en el partido, en coordenadas del que patea (por número de camiseta).
+const PEN_ATT = { 0: [34, 24], 1: [13, 64], 2: [27, 56], 3: [41, 56], 4: [55, 64], 5: [16, 87.3], 6: [31, 77], 7: [39, 74.5], 8: [52, 87.3], 9: [28, 85.3], 10: [40, 85.3] };
+const PEN_DEF = { 0: [34, 104.4], 1: [18.5, 88], 2: [24, 86.2], 3: [44, 86.2], 4: [49.5, 88], 5: [12.5, 86.4], 6: [30.5, 79], 7: [37.5, 79.5], 8: [55.5, 86.4], 9: [33, 55], 10: [47, 70] };
+const pickR = (a) => a[Math.floor(Math.random() * a.length)];
 
 function seeded(n) {
   const x = Math.sin(n * 9301 + 49297) * 233280;
@@ -51,6 +58,14 @@ function tone(c, k) {
   return `rgb(${f(r)},${f(g)},${f(b)})`;
 }
 function lum(hex) { const [r, g, b] = hexRgb(hex); return 0.299 * r + 0.587 * g + 0.114 * b; }
+// ---------- jugadores ilustrados de la vista de lejos ----------
+// La misma ilustración de la escena del tiro, reducida a unos 16 px de alto:
+// proporciones reales y sin ojos ni números, como se ven desde la cámara de TV.
+// Se pintan de a poco entre cuadros; mientras tanto se usa el sprite simple.
+const HD_SCALE = 56;
+const RUN_FRAMES = 16;
+// Festejo en el lugar: rodilla arriba y brazos en alto (8 cuadros).
+const cheerPose = (u) => ({ lift: Math.max(0, Math.sin(u * 6.28)) * 20, legs: [{ a: 0.12, f: 0, k: 0.1 }, { a: 0.12, f: 0.9, k: 1.6 }], arms: [{ a: 2.6 + Math.sin(u * 6.28) * 0.15, e: 0.2 }, { a: 2.75, e: 0.1 }] });
 
 // ---------- sprites (7x13) ----------
 // h pelo · s piel · S piel sombra · e ojos · t camiseta · T camiseta sombra
@@ -168,6 +183,8 @@ export class Renderer {
     this.world.width = WW; this.world.height = WH;
     this.wctx = this.world.getContext('2d');
     this.spriteCache = new Map();
+    this.hd = new Map(); this.hdKits = new Map();
+    this.hdNow = []; this.hdLater = []; this.hdQueued = new Set();
     this.mySide = 0;
     this.kits = null;
     this.players = [[], []];
@@ -225,12 +242,93 @@ export class Renderer {
           side: s, i, x, y, vx: 0, vy: 0, tx: x, ty: y, anim: 0, facing: s === 0 ? -1 : 1, fx: 0, z: 0,
           skin: SKINS[Math.floor(seeded(seed) * SKINS.length)],
           hair: HAIRS[Math.floor(seeded(seed + 3) * HAIRS.length)],
-          ov: null, lock: null, boost: 1, fallen: 0, dive: null, pose: null, jump: null, cheer: 0,
+          style: HAIR_STYLES[Math.floor(seeded(seed + 5) * HAIR_STYLES.length)],
+          ov: null, lock: null, boost: 1, fallen: 0, dive: null, pose: null, jump: null, cheer: 0, stance: null,
         };
       });
     }
     this.ball.owner = null;
     this.ball.x = 34; this.ball.y = 52.5; this.ball.z = 0;
+    this.prewarmPlayers();
+  }
+
+  // ---------- jugadores ilustrados ----------
+  hdKit(p, kit, isGK) {
+    const key = `${kit.shirt}${kit.alt2}${kit.pattern}${kit.shorts}${isGK ? kit.gk : ''}|${p.skin}${p.hair}${p.style || ''}`;
+    let k = this.hdKits.get(key);
+    if (!k) { k = p4Kit(kit, isGK, p); this.hdKits.set(key, k); }
+    return k;
+  }
+
+  // Devuelve el cuadro si ya está pintado; si no, lo encarga (now: lo antes posible).
+  hdGet(kk, view, key, pose, now) {
+    const k = `${kk.id}|${view}|${key}`;
+    const s = this.hd.get(k);
+    if (s !== undefined) return s;
+    const tag = now ? k + '!' : k;
+    if (!this.hdQueued.has(tag)) {
+      (now ? this.hdNow : this.hdLater).push({ k, kk, view, pose });
+      this.hdQueued.add(tag);
+    }
+    return null;
+  }
+
+  hdWork(ms) {
+    const t0 = performance.now();
+    while ((this.hdNow.length || this.hdLater.length) && performance.now() - t0 < ms) {
+      const j = this.hdNow.length ? this.hdNow.shift() : this.hdLater.shift();
+      if (this.hd.has(j.k)) continue;
+      let s = false;
+      try { s = P4.sprite(j.pose(), j.kk, j.view, HD_SCALE, null, true); } catch (e) { console.warn('sprite', e); }
+      this.hd.set(j.k, s);
+      this.hdQueued.delete(j.k); this.hdQueued.delete(j.k + '!');
+    }
+  }
+
+  // Encarga de antemano la carrera y la postura quieta de los 22.
+  prewarmPlayers() {
+    if (this.hd.size > 6000) this.hd.clear();
+    this.hdNow.length = 0; this.hdLater.length = 0; this.hdQueued.clear();
+    const all = this.players.flat();
+    for (const p of all) {
+      const kk = this.hdKit(p, this.kits[p.side], p.i === 0);
+      if (p.i === 0) for (const v of ['front', 'back']) for (let i = 0; i < 8; i++) this.hdGet(kk, v, 'ready' + i, () => P4.POSES.keeperReady(i / 8));
+      else { this.hdGet(kk, 'side', 'idle', () => P4.POSES.idle()); for (const v of ['front', 'back']) this.hdGet(kk, v, 'idle', () => P4.POSES.idleFront()); }
+    }
+    for (let i = 0; i < RUN_FRAMES; i++) for (const p of all) {
+      const kk = this.hdKit(p, this.kits[p.side], p.i === 0), u = i / RUN_FRAMES;
+      this.hdGet(kk, 'side', 'r' + i, () => P4.POSES.run(u, 0.9));
+      for (const v of ['front', 'back']) this.hdGet(kk, v, 'r' + i, () => P4.POSES.runFront(u, 0.9));
+    }
+  }
+
+  // Elige vista, cuadro y postura del jugador ilustrado. dir < 0 = espejado.
+  hdPick(p, isGK, fx, facing, flipDir, now) {
+    const fb = facing < -0.2 ? 'back' : 'front';
+    if (p.dive && p.dive.dir !== 0) {
+      const i = Math.round(clamp(p.dive.t / p.dive.dur, 0, 1) * 16), dir = flipDir(p.dive.dir);
+      return { view: fb, key: `dive${dir}_${i}`, pose: () => P4.POSES.keeperDive(dir, i / 16), dir: 1, dive: i / 16 };
+    }
+    if (p.pose && p.pose.kind === 'slide') return { view: 'side', key: 'slide', pose: () => P4.POSES.slide(), dir: flipDir(p.pose.dir) };
+    if (p.fallen > 0) return { view: 'side', key: 'fallen', pose: () => P4.POSES.fallen(), dir: fx >= 0 ? 1 : -1 };
+    if (p.dive) return { view: fb, key: 'catch', pose: () => P4.POSES.armsUp(0.25), dir: 1 };
+    if (p.jump) return { view: fb, key: 'header', pose: () => P4.POSES.header(), dir: 1 };
+    if (p.stance && p.stance !== 'linked') return { view: 'side', key: p.stance, pose: () => P4.POSES[p.stance](), dir: p.stanceDir || 1 };
+    if (p.stance === 'linked' && !(p.cheer > 0)) return { view: fb, key: 'linked', pose: () => P4.POSES.linked(), dir: 1 };
+    if (p.cheer > 0) {
+      const i = Math.floor((((now / 1000) * 1.4 + p.i * 0.37) % 1) * 8);
+      return { view: fb, key: 'cheer' + i, pose: () => cheerPose(i / 8), dir: 1 };
+    }
+    const side = Math.abs(fx) > 0.75, dir = fx > 0 ? 1 : -1;
+    if (Math.hypot(p.vx, p.vy) > 0.5) {
+      const i = Math.floor((((p.anim * 1.7) / 4) % 1) * RUN_FRAMES) % RUN_FRAMES, u = i / RUN_FRAMES;
+      return side ? { view: 'side', key: 'r' + i, pose: () => P4.POSES.run(u, 0.9), dir } : { view: fb, key: 'r' + i, pose: () => P4.POSES.runFront(u, 0.9), dir: 1 };
+    }
+    if (isGK) {
+      const i = Math.floor((((now / 1000) * 1.6) % 1) * 8);
+      return { view: fb, key: 'ready' + i, pose: () => P4.POSES.keeperReady(i / 8), dir: 1 };
+    }
+    return side ? { view: 'side', key: 'idle', pose: () => P4.POSES.idle(), dir } : { view: fb, key: 'idle', pose: () => P4.POSES.idleFront(), dir: 1 };
   }
 
   resize() {
@@ -255,6 +353,7 @@ export class Renderer {
     this.update(real * this.ts, real);
     if (this.cv.clientWidth) this.resize();
     this.draw(now);
+    this.hdWork(7);
     requestAnimationFrame((t) => this.loop(t));
   }
 
@@ -304,8 +403,13 @@ export class Renderer {
       else {
         const sp = Math.hypot(p.vx, p.vy);
         const dx = sp > 0.3 ? p.vx / sp : p.fx, dy = sp > 0.3 ? p.vy / sp : p.facing;
-        b.x = lerp(b.x, p.x + dx * 0.75, Math.min(1, dt * 18));
-        b.y = lerp(b.y, p.y + dy * 0.75, Math.min(1, dt * 18));
+        // en los pies: un poco adelante y al costado del pie que la lleva, con toquecitos
+        // al correr; hacia arriba/abajo de la pantalla el adelanto se acorta para que
+        // la pelota quede a la altura de los botines y no de las rodillas
+        b.touch = (b.touch || 0) + sp * dt * 1.4;
+        const lead = 0.8 + (sp > 0.3 ? Math.abs(Math.sin(b.touch)) * 0.35 : 0);
+        b.x = lerp(b.x, p.x + dx * lead - dy * 0.3, Math.min(1, dt * 18));
+        b.y = lerp(b.y, p.y + dy * lead * 0.45 + dx * 0.3, Math.min(1, dt * 18));
         b.z = Math.max(0, b.z - dt * 8);
         b.spin += sp * dt * 3;
       }
@@ -408,6 +512,7 @@ export class Renderer {
       if (p.pose.t > p.pose.dur) { const k = p.pose.kind; p.pose = null; if (k === 'slide') p.fallen = Math.max(p.fallen, 0.35); }
     }
     if (p.cheer > 0) p.cheer -= dt;
+    if (p.stance && p.stance !== 'linked' && !p.lock) { p.vx = p.vy = 0; return; }
     if (p.fallen > 0 && !p.lock) { p.fallen -= dt; p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx * dt; p.y += p.vy * dt; return; }
     if (p.dive) {
       const d = p.dive;
@@ -549,7 +654,7 @@ export class Renderer {
   reveal(ev) {
     if (ev._revealed) return;
     ev._revealed = true;
-    this.ui.reveal(ev);
+    this.ui.reveal(ev.orig || ev);
   }
 
   async pass(side, uv, { dur = 0.8, h = 0.4, recv = null, z1 = 0 } = {}) {
@@ -568,9 +673,28 @@ export class Renderer {
     return r;
   }
 
+  // Pase a un compañero elegido (si ya la tiene él, no hace nada).
+  async passTo(side, p, uv, opts = {}) {
+    if (!p || p === this.ball.owner) return p;
+    return this.pass(side, uv, { ...opts, recv: p });
+  }
+
+  // Compañero por número de puesto que no sea ninguno de `not`.
+  mate(side, nums, not = []) {
+    for (const n of nums) { const p = this.byNum(side, n); if (p && !not.includes(p)) return p; }
+    return null;
+  }
+
+  // Desmarques: compañeros que pican al espacio mientras se arma la jugada.
+  runs(side, list, boost = 1.3) {
+    for (const [p, u, v] of list) if (p && p !== this.ball.owner) { p.ov = this.W(side, u, v); p.boost = boost; }
+  }
+
   async dribble(side, uv, dur = 1, zig = 0) {
     const p = this.ball.owner;
     if (!p) return;
+    // si la había ganado de cabeza, la baja con el pecho y sigue con los pies
+    this.ball.head = false;
     this.moveTo(p, this.W(side, uv[0], uv[1]), dur, { zig });
     await this.wait(dur);
   }
@@ -587,7 +711,8 @@ export class Renderer {
     const D = 1 - A;
     const to = this.W(A, uv[0], uv[1]);
     const passer = this.ball.owner;
-    const r = recv || this.nearest(A, to[0], to[1], true, passer ? [passer] : []);
+    // nunca se la pasa a sí mismo: si el elegido es el que la tiene, va el compañero más cercano
+    const r = recv && recv !== passer ? recv : this.nearest(A, to[0], to[1], true, passer ? [passer] : []);
     const d = def || this.nearest(D, to[0], to[1], true);
     const header = style === 'header';
     const rEnd = defWins ? this.short(r, to, header ? 1.1 : 1.8) : to;
@@ -684,11 +809,12 @@ export class Renderer {
     await this.ui.fadeIn();
   }
 
-  placeTeam(side, fn) {
+  // frame: en qué sentido se leen las coordenadas (por defecto, el del propio equipo).
+  placeTeam(side, fn, frame = side) {
     for (const p of this.players[side]) {
       const [u, v] = fn(p);
-      [p.x, p.y] = this.W(side, u, v);
-      p.tx = p.x; p.ty = p.y; p.vx = p.vy = 0; p.ov = null; p.lock = null; p.dive = null; p.fallen = 0; p.pose = null; p.jump = null; p.z = 0; p.cheer = 0;
+      [p.x, p.y] = this.W(frame, u, v);
+      p.tx = p.x; p.ty = p.y; p.vx = p.vy = 0; p.ov = null; p.lock = null; p.dive = null; p.fallen = 0; p.pose = null; p.jump = null; p.z = 0; p.cheer = 0; p.stance = null;
     }
   }
 
@@ -745,11 +871,11 @@ export class Renderer {
   async setPenalty(A) {
     const shooter = this.ball.owner && this.ball.owner.side === A && this.ball.owner.i !== 0 ? this.ball.owner : this.byNum(A, 9);
     await this.fade(() => {
-      // Todos fuera del área y de la medialuna (a más de 9,15 m del punto penal).
-      let k = 0;
-      this.placeTeam(A, (p) => (p === shooter ? [34, 90.5] : p.i === 0 ? [34, 30] : [10 + ((k++) * 5.2), 82 + (p.i % 2) * 1.5]));
-      let j = 0;
-      this.placeTeam(1 - A, (p) => (p.i === 0 ? [34, 0.6] : [13 + ((j++) * 4.6), 21.5 + (p.i % 2) * 1.5]));
+      // Todos fuera del área y de la medialuna. Los dos equipos se mezclan en el borde
+      // del área para el rebote; el que patea deja a sus centrales atrás y el que
+      // defiende deja al 9 en la mitad de la cancha para la contra.
+      this.placeTeam(A, (p) => (p === shooter ? [34, 90.5] : PEN_ATT[p.i]));
+      this.placeTeam(1 - A, (p) => PEN_DEF[p.i], A);
       this.give(shooter);
       [this.ball.x, this.ball.y] = this.W(A, 34, 94);
       this.ball.z = 0; this.ball.flight = null; this.ball.head = false;
@@ -787,6 +913,9 @@ export class Renderer {
     this.clearOverrides();
     if (ev.situation !== 'penalty' && ev.situation !== 'corner') this.hold = null;
     const A = ev.poss, D = 1 - A;
+    // Carta de defensa que la corta aunque el ataque ganó el duelo: se ve como
+    // una jugada cortada (el duelo se sigue mostrando como lo ganó el ataque).
+    if (ev.cut) ev = { ...ev, match: true, orig: ev };
     if (ev.situation === 'build') await this.playBuild(ev, A, D);
     else if (ev.situation === 'attack') await this.playAttack(ev, A, D);
     else if (ev.situation === 'shot' || ev.situation === 'penalty') await this.playShot(ev, A, D);
@@ -803,14 +932,52 @@ export class Renderer {
     await this.ui.dice(ev.dice, ev.diceText, ev.diceFaces, ev.diceTitle);
   }
 
+  // Contragolpe armado: el que roba la suelta enseguida y la jugada sale con
+  // pases (pelotazo al 9, diagonal del lateral, lateral-volante-pase o el
+  // volante que conduce y filtra). Corren 3 o 4; el resto acompaña.
   async counterRun(ev, newA) {
     this.ui.banner('¡CONTRAGOLPE!', { small: true });
     this.cam.tzoom = 1.35;
-    const lane = LANE_U[ev.laneAfter || 'C'];
-    const [, v] = this.ballUV(newA);
-    await this.dribble(newA, [lerp(this.ballUV(newA)[0], lane, 0.5), Math.min(v + 8, 60)], 0.7);
-    await this.pass(newA, [lane, Math.min(v + 26, 70)], { dur: 1.0, h: 3 });
-    await this.dribble(newA, [lane, 73], 0.6);
+    const A = newA, lane = LANE_U[ev.laneAfter || 'C'];
+    const side = lane < 34 ? 'L' : lane > 34 ? 'R' : (Math.random() < 0.5 ? 'L' : 'R');
+    const wing = this.byNum(A, side === 'L' ? 5 : 8);
+    const fwd = this.mate(A, Math.abs(this.byNum(A, 9).x - this.W(A, lane, 60)[0]) < Math.abs(this.byNum(A, 10).x - this.W(A, lane, 60)[0]) ? [9, 10] : [10, 9]);
+    const other = this.mate(A, [9, 10], [fwd]);
+    // si la recuperó muy atrás (el arquero, un central), primero una salida corta
+    let [u, v] = this.ballUV(A);
+    if (v < 20) {
+      const out = this.mate(A, u < 34 ? [6, 7] : [7, 6], [this.ball.owner]);
+      await this.passTo(A, out, [clamp(u + (34 - u) * 0.5, 20, 48), 30], { dur: 0.8, h: 1.2 });
+      [u, v] = this.ballUV(A);
+    } else await this.dribble(A, [u + (34 - u) * 0.05, v + 1.2], 0.25);
+    const far = clamp(v + 28, 52, 70);
+    this.runs(A, [[fwd, lane, far - 2], [other, 68 - lane * 0.6 - 4, far - 6], [wing, side === 'L' ? 10 : 58, far - 4]], 1.4);
+    const kind = pickR(['pelotazo', 'diagonal', 'lateral', 'volante']);
+    if (kind === 'pelotazo') {
+      // pelota larga al 9, que pica hacia adelante
+      await this.passTo(A, fwd, [lane, far], { dur: 1.15, h: 3.4 });
+    } else if (kind === 'diagonal') {
+      // el lateral del otro lado cambia de frente buscando al puntero
+      const fb = this.byNum(A, side === 'L' ? 4 : 1);
+      await this.passTo(A, fb, [side === 'L' ? 58 : 10, v + 4], { dur: 0.6, h: 0.3 });
+      await this.passTo(A, wing, [side === 'L' ? 10 : 58, far], { dur: 1.25, h: 3.6 });
+    } else if (kind === 'lateral') {
+      // lateral → volante → pase al que pica
+      const fb = this.byNum(A, side === 'L' ? 1 : 4), cm = this.byNum(A, side === 'L' ? 6 : 7);
+      await this.passTo(A, fb, [side === 'L' ? 9 : 59, v + 4], { dur: 0.55, h: 0.3 });
+      await this.passTo(A, cm, [lerp(34, lane, 0.3), v + 11], { dur: 0.6, h: 0.3 });
+      await this.passTo(A, fwd, [lane, far], { dur: 0.95, h: 0.4 });
+    } else {
+      // el volante la recibe, conduce unos metros y filtra
+      const cm = this.mate(A, [6, 7], [this.ball.owner]);
+      await this.passTo(A, cm, [34 + rnd(-4, 4), v + 6], { dur: 0.55, h: 0.3 });
+      const [cu, cv] = this.ballUV(A);
+      await this.dribble(A, [lerp(cu, lane, 0.25), cv + 7], 0.9);
+      await this.passTo(A, pickR([fwd, wing]), [lane, far], { dur: 0.95, h: 0.4 });
+    }
+    // un par de pasos para acomodarse en el último tercio
+    const [eu, ev2] = this.ballUV(A);
+    if (ev2 < 70) await this.dribble(A, [lerp(eu, lane, 0.5), Math.min(72, ev2 + 5)], 0.6);
   }
 
   async afterSteal(D) {
@@ -865,24 +1032,54 @@ export class Renderer {
     return false;
   }
 
+  // La salida: la pelota pasa por varios jugadores hasta el tercio elegido.
+  // Cada vez sale una forma distinta (toque corto, cambio de frente, pelotazo
+  // o pared); el último pase es el duelo que decide si llega.
   async playBuild(ev, A, D) {
     this.cam.tzoom = 1.3; this.cam.follow = null;
     this.possSide = A;
     this.ensureOwner(A);
     const lane = LANE_U[ev.att];
     this.focus[D] = 68 - LANE_U[ev.def];
-    const [cu0, cv] = this.ballUV(A);
-    void cu0;
-    const v1 = clamp(cv + 6, 26, 46);
-    await this.pass(A, [lerp(34, lane, 0.35) + rnd(-3, 3), v1], { dur: cv < 15 ? 1.0 : 0.75, h: cv < 15 ? 1.8 : 0.3 });
-    await this.dribble(A, [lerp(this.ballUV(A)[0], lane, 0.55), v1 + 6], 0.8);
-    // El pase decisivo: largo por la banda o raso por el medio.
-    const long = ev.att !== 'C';
+    const kind = pickR(['corto', 'cambio', 'pelotazo', 'pared']);
+    // quién recibe el pase decisivo: el puntero de esa banda o un delantero por el medio
+    const target = [clamp(lane + rnd(-2, 2), 5, 63), 66];
+    const recvFor = (passer) => ev.att === 'L' ? this.mate(A, [5, 9, 1], [passer]) : ev.att === 'R' ? this.mate(A, [8, 10, 4], [passer]) : this.mate(A, pickR([[9, 10, 6], [10, 9, 7]]), [passer]);
+    let [u, v] = this.ballUV(A);
+    if (kind === 'corto') {
+      // dos o tres pases cortos, avanzando y cargando hacia el carril
+      const n = v > 40 ? 1 : v > 25 ? 2 : 3;
+      for (let k = 0; k < n; k++) {
+        [u, v] = this.ballUV(A);
+        const to = [clamp(lerp(u, lane, 0.3) + rnd(-7, 7), 6, 62), Math.min(v + rnd(7, 11), 56)];
+        await this.pass(A, to, { dur: 0.6, h: 0.25 });
+        await this.wait(0.1);
+      }
+    } else if (kind === 'cambio') {
+      // un pase corto para cargar del otro lado y después el cambio de frente
+      const away = lane < 34 ? 46 : lane > 34 ? 22 : (Math.random() < 0.5 ? 22 : 46);
+      await this.pass(A, [away + rnd(-3, 3), Math.min(v + 7, 50)], { dur: 0.65, h: 0.25 });
+    } else if (kind === 'pared') {
+      // pasa, pica y se la devuelven
+      const first = this.ball.owner;
+      const wall = this.mate(A, u < 34 ? [6, 7, 5] : [7, 6, 8], [first]);
+      const wallAt = [clamp(u + (u < 34 ? 7 : -7), 8, 60), Math.min(v + 5, 50)];
+      const run = [clamp(lerp(u, lane, 0.3), 8, 60), Math.min(v + 13, 56)];
+      const p1 = this.passTo(A, wall, wallAt, { dur: 0.55, h: 0.2 });
+      this.moveTo(first, this.W(A, ...run), 1.0);
+      await p1;
+      await this.passTo(A, first, run, { dur: 0.5, h: 0.2 });
+    }
+    // el pase decisivo: largo y por arriba a la banda (o el pelotazo), raso por el medio
+    const passer = this.ball.owner;
+    const recv = recvFor(passer);
+    const long = ev.att !== 'C' || kind === 'pelotazo';
+    if (recv) { recv.ov = this.short(recv, this.W(A, ...target), 3); recv.boost = 1.2; }
     this.cam.tzoom = 1.4;
-    const winner = await this.duelPass(ev, A, [clamp(lane + rnd(-2, 2), 5, 63), 66], {
-      h: long ? 3.4 : 0.3, dur: long ? 1.3 : 1.0, defWins: ev.match, style: long ? 'header' : 'slide',
+    const winner = await this.duelPass(ev, A, target, {
+      h: long ? (kind === 'pelotazo' ? 4 : 3.4) : 0.3, dur: long ? 1.3 : 1.0, defWins: ev.match, style: long ? 'header' : 'slide', recv,
     });
-    if (!ev.match) { await this.dribble(A, [lane, 73], 0.7); return; }
+    if (!ev.match) { await this.dribble(A, [lerp(this.ballUV(A)[0], lane, 0.5), 70], 0.5); return; }
     await this.diceMoment(ev);
     if (await this.cardPlay(ev, A)) return;
     if (ev.outcome === 'foul') {
@@ -905,13 +1102,28 @@ export class Renderer {
     this.ensureOwner(A);
     this.defStyle[D] = ev.def;
     const lane = LANE_U[ev.lane] ?? 34;
-    const fw = this.players[A].slice(9);
     if (ev.att === 'cross') {
+      // Centro: la abre a un compañero de la banda (el puntero o el lateral que pasa
+      // al ataque) y ese tira el centro; al área entran los delanteros, nunca el que centra.
       const wingU = ev.lane === 'R' ? 62 : ev.lane === 'L' ? 6 : (Math.random() < 0.5 ? 6 : 62);
-      const target = [wingU < 34 ? 38 : 30, 95.5];
-      const runner = wingU < 34 ? fw[1] : fw[0];
-      fw[0].ov = this.W(A, wingU < 34 ? 30 : 38, 92); fw[1].ov = this.W(A, wingU < 34 ? 37 : 31, 90);
-      await this.dribble(A, [wingU, 86], 1.1);
+      const L = wingU < 34;
+      const owner = this.ball.owner;
+      const [ou] = this.ballUV(A);
+      const wide = [this.byNum(A, L ? 5 : 8), this.byNum(A, L ? 1 : 4)];
+      let crosser = wide.includes(owner) && Math.abs(ou - wingU) < 14 ? owner : (Math.random() < 0.6 ? wide[0] : wide[1]);
+      if (crosser === owner && !wide.includes(owner)) crosser = wide[0];
+      const target = [L ? 38 : 30, 95.5];
+      const heads = [this.byNum(A, 9), this.byNum(A, 10)].filter((p) => p !== crosser);
+      const runner = heads[L ? heads.length - 1 : 0] || this.mate(A, [6, 7], [crosser]);
+      const second = heads.find((p) => p !== runner) || this.mate(A, [7, 6], [crosser, runner]);
+      this.runs(A, [[runner, L ? 31 : 37, 90], [second, L ? 37 : 31, 88], [this.mate(A, [6, 7], [crosser]), 34, 82]], 1.2);
+      if (crosser !== owner) {
+        const at = [wingU + (L ? 3 : -3), 79];
+        crosser.ov = this.W(A, ...at); crosser.boost = 1.4;
+        await this.wait(0.15);
+        await this.passTo(A, crosser, at, { dur: 0.8, h: 0.35 });
+      }
+      await this.dribble(A, [wingU + (L ? 1 : -1), 84], 0.55);
       this.cam.tzoom = 1.6;
       const marker = this.nearest(D, ...this.W(A, target[0], target[1]), true);
       await this.duelPass(ev, A, target, { h: 6, dur: 1.3, defWins: ev.match, style: 'header', recv: runner, def: marker });
@@ -929,13 +1141,38 @@ export class Renderer {
       return;
     }
     if (ev.att === 'through') {
-      const [cu] = this.ballUV(A);
-      await this.dribble(A, [lerp(cu, 34, 0.5), 74], 0.7);
+      // Pase entre líneas: lo recibe otro que pica en diagonal a la espalda del defensor
+      // (filtrado directo, un toque al lado y filtrado, o pared con el 9).
+      const [cu, cv] = this.ballUV(A);
+      await this.dribble(A, [lerp(cu, 34, 0.3), Math.max(cv, 70) + 1.5], 0.4);
       const runU = 34 + (lane < 34 ? -5 : lane > 34 ? 5 : rnd(-4, 4));
-      fw[0].ov = this.W(A, runU, 84); fw[0].boost = 1.4;
-      await this.wait(0.2);
+      const owner = this.ball.owner;
+      const kind = pickR(['directo', 'toque', 'pared']);
+      let runner;
+      if (kind === 'pared') {
+        // se la da al 9 de espaldas y pica: el 9 se la devuelve al espacio
+        const nine = this.mate(A, [9, 10, 6], [owner]);
+        const [ou, ov] = this.ballUV(A);
+        await this.passTo(A, nine, [lerp(ou, 34, 0.5), ov + 7], { dur: 0.5, h: 0.2 });
+        runner = owner;
+        this.moveTo(owner, this.W(A, runU + (runU < 34 ? -3 : 3), 84), 0.7);
+        await this.wait(0.15);
+      } else {
+        if (kind === 'toque') {
+          const [ou, ov] = this.ballUV(A);
+          const side = this.mate(A, ou < 34 ? [7, 6] : [6, 7], [owner]);
+          await this.passTo(A, side, [clamp(ou + (ou < 34 ? 6 : -6), 14, 54), ov + 0.5], { dur: 0.45, h: 0.15 });
+        }
+        const holder = this.ball.owner;
+        runner = this.mate(A, runU < 34 ? [9, 5, 10, 8] : [10, 8, 9, 5], [holder]);
+        // arranca abierto y entra en diagonal
+        const [ru] = this.U(A, runner.x, runner.y);
+        runner.lock = null;
+        runner.ov = this.W(A, runU + (ru < runU ? -2 : 2), 85); runner.boost = 1.45;
+        await this.wait(0.2);
+      }
       this.cam.tzoom = 1.6;
-      await this.duelPass(ev, A, [runU, 89], { h: 0.25, dur: 1.0, defWins: ev.match, style: 'slide', recv: fw[0] });
+      await this.duelPass(ev, A, [runU, 89], { h: 0.25, dur: 1.0, defWins: ev.match, style: 'slide', recv: runner });
       if (!ev.match) {
         this.players[D][0].ov = this.W(A, 34, 99.5);
         await this.dribble(A, [runU * 0.7 + 34 * 0.3, 92], 0.5);
@@ -953,14 +1190,28 @@ export class Renderer {
       await this.afterSteal(D);
       return;
     }
-    // Gambeta
-    const [cu] = this.ballUV(A);
+    // Gambeta: si sale, se saca a uno (a veces a dos) y remata; de vez en cuando
+    // queda solo frente al arquero. Es solo la imagen: la regla sigue siendo un remate.
+    const [cu, cv] = this.ballUV(A);
     const endU = clamp(lerp(cu, 34, 0.7) + rnd(-4, 4), 24, 44);
-    await this.dribble(A, [lerp(cu, endU, 0.4), 80], 0.8, 1);
+    await this.dribble(A, [lerp(cu, endU, 0.4), Math.max(cv + 3, 76)], 0.7, 1);
     this.cam.tzoom = 1.65;
-    await this.duelDribble(ev, A, [endU, 89], { defWins: ev.match });
+    const look = ev.match ? null : ev.outcome === 'penalty' ? 'pen' : pickR(['afuera', 'afuera', 'adentro', 'adentro', 'mano']);
+    await this.duelDribble(ev, A, [endU, look === 'afuera' ? 83 : 86], { defWins: ev.match });
     if (!ev.match) {
       await this.diceMoment(ev);
+      if (look === 'adentro') {
+        // se saca a un segundo rival con un recorte y remata con él encima
+        const d2 = this.nearest(D, this.ball.x, this.ball.y, true);
+        const cut = [clamp(endU + (endU < 34 ? 5 : -5), 22, 46), 90];
+        d2.ov = this.W(A, cut[0] + (endU < 34 ? -1.5 : 1.5), 91.5); d2.boost = 1.3;
+        await this.dribble(A, cut, 0.55, 1);
+      } else if (look === 'mano') {
+        // se va solo: el arquero sale a achicar
+        this.players[D][0].ov = this.W(A, 34, 98.5);
+        await this.dribble(A, [lerp(endU, 34, 0.6), 93], 0.6);
+        this.shotLook = 'mano';
+      }
       if (ev.outcome === 'penalty') {
         const victim = this.ball.owner;
         const fouler = this.nearest(D, this.ball.x, this.ball.y, true);
@@ -1004,7 +1255,7 @@ export class Renderer {
   // Nombre y número del jugador en el plantel de su equipo.
   playerInfo(p) {
     const team = this.teams[p.side];
-    return { name: playerName(team.id, p.i), num: NUMS[p.i], team: team.short, skin: p.skin, hair: p.hair };
+    return { name: playerName(team.id, p.i), num: NUMS[p.i], team: team.short, skin: p.skin, hair: p.hair, style: p.style };
   }
 
   async playShot(ev, A, D) {
@@ -1107,34 +1358,58 @@ export class Renderer {
     await this.goalKick(D);
   }
 
-  // Un penal de la tanda: el resto de los jugadores mira desde el círculo central.
+  // Un penal de la tanda. Se patea siempre al mismo arco (el que ataca el local). Los
+  // dos equipos miran abrazados desde el círculo central, cada uno de su lado, y el
+  // arquero que no ataja espera al costado del área.
   async playShootout(ev, A, D) {
+    const F = 0;
     const shooter = this.players[A].find((p) => p.i === ev.shooter) || this.players[A][9];
     const keeper = this.players[D][0];
+    const lineU = (side, k) => (side === 0 ? 32.6 - k * 1.5 : 35.4 + k * 1.5);
+    const linePos = new Map();
     await this.fade(() => {
-      let k = 0;
-      this.placeTeam(A, (p) => (p === shooter ? [34, 92] : p.i === 0 ? [30, 50] : [26 + ((k++) % 5) * 2.2, 51.5 + Math.floor(k / 6) * 1.6]));
-      let j = 0;
-      this.placeTeam(D, (p) => (p.i === 0 ? [34, 0.6] : [36 + ((j++) % 5) * 2.2, 52 + Math.floor(j / 6) * 1.6]));
-      for (const team of this.players) for (const p of team) if (p !== shooter) { p.ov = [p.x, p.y]; p.boost = 0.5; }
+      for (const side of [0, 1]) {
+        let k = 0;
+        this.placeTeam(side, (p) => {
+          if (p === shooter) return [34, 92];
+          if (p === keeper) return [34, 104.4];
+          if (p.i === 0) return [side === 0 ? 12.5 : 55.5, 87];
+          const at = [lineU(side, k++), 52.5];
+          linePos.set(p, at);
+          return at;
+        }, F);
+      }
+      for (const team of this.players) for (const p of team) if (p !== shooter) {
+        p.ov = [p.x, p.y]; p.boost = 0.5;
+        if (linePos.has(p)) p.stance = 'linked';
+        const [sx, sy] = this.W(F, 34, 94), dl = Math.hypot(sx - p.x, sy - p.y) || 1;
+        p.fx = (sx - p.x) / dl; p.facing = (sy - p.y) / dl;
+      }
       this.give(shooter);
-      [this.ball.x, this.ball.y] = this.W(A, 34, 94);
+      [this.ball.x, this.ball.y] = this.W(F, 34, 94);
       this.focus = [null, null]; this.defStyle = [null, null];
-      this.cam.tzoom = 1.8; this.cam.follow = null;
+      // arranca mirando el círculo central y va hacia el punto penal
+      const mid = this.W(F, 34, 54);
+      this.cam.follow = { x: mid[0], y: mid[1] }; this.cam.tzoom = 1.8;
+      [this.cam.x, this.cam.y] = this.px(mid[0], mid[1]);
     });
     this.possSide = A;
     this.lastShooter = this.playerInfo(shooter);
     this.lastKeeper = this.playerInfo(keeper);
-    await this.wait(0.4);
+    await this.wait(0.9);
+    this.cam.follow = null;
+    await this.wait(0.8);
     await this.shotScene(ev, A, D, shooter, keeper);
     const b = this.ball;
     b.owner = null; b.flight = null;
     const tu = GOAL_U[ev.att];
     const to = ev.match ? [tu, 104.5] : ev.outcome === 'goal' ? [tu, 106.6] : ev.outcome === 'post' ? [ev.att === 'R' ? 41 : 27, 101] : [tu < 34 ? 28.6 : tu > 34 ? 39.4 : 34, 109.5];
-    [b.x, b.y] = this.W(A, to[0], to[1]); b.z = 0;
+    [b.x, b.y] = this.W(F, to[0], to[1]); b.z = 0;
     this.reveal(ev);
-    if (ev.outcome === 'goal') {
-      const gi = this.W(A, 34, 105)[1] < 50 ? 0 : 1;
+    const scored = ev.outcome === 'goal';
+    const line = (side) => this.players[side].filter((p) => linePos.has(p));
+    if (scored) {
+      const gi = this.W(F, 34, 105)[1] < 50 ? 0 : 1;
       this.netShake[gi] = 1;
       this.crowdJump = { side: A, t: 2 };
       shooter.cheer = 2;
@@ -1144,7 +1419,36 @@ export class Renderer {
       keeper.cheer = ev.match ? 2 : 0;
       this.ui.banner(ev.match ? '¡ATAJADO!' : ev.outcome === 'post' ? '¡AL PALO!' : '¡AFUERA!', { small: true });
     }
-    await this.wait(1.2);
+    if (!ev.shootoutEnd) {
+      // festejan en el lugar, sin soltarse
+      const happy = scored ? A : D;
+      for (const p of line(happy)) p.cheer = 1.4 + Math.random() * 0.4;
+      await this.wait(1.2);
+      return;
+    }
+    // Último penal: los que ganan corren al que lo metió (o al arquero, si lo decidió
+    // él) y los que pierden se quedan en el pasto.
+    const win = scored ? A : D, lose = 1 - win;
+    const hero = scored ? shooter : keeper;
+    await this.wait(0.5);
+    for (const p of this.players[win]) {
+      if (p === hero) continue;
+      p.stance = null;
+      p.ov = [hero.x + rnd(-2.2, 2.2), hero.y + rnd(-1.6, 1.6)]; p.boost = 1.9; p.cheer = 7;
+    }
+    hero.ov = [hero.x, hero.y]; hero.cheer = 6;
+    const ground = ['kneelHead', 'kneelDown', 'sitBack', 'lieBack', 'kneelHead', 'sitBack'];
+    let g = 0;
+    for (const p of this.players[lose]) {
+      p.cheer = 0;
+      if (p.i === 0 && p !== keeper) { p.stance = null; continue; }
+      if (p !== shooter && p !== keeper && Math.random() < 0.3) { p.stance = null; continue; } // alguno queda de pie, mirando
+      p.stance = ground[g++ % ground.length]; p.stanceDir = Math.random() < 0.5 ? 1 : -1;
+    }
+    if (!scored) shooter.stance = 'kneelHead';
+    this.cam.follow = hero; this.cam.tzoom = 1.6;
+    await this.wait(4.5);
+    this.cam.follow = null;
   }
 
   async shotScene(ev, A, D, shooter, keeper) {
@@ -1155,7 +1459,7 @@ export class Renderer {
     const scene = this.cut.play({
       // Si el arquero adivinó, la escena siempre la muestra en sus manos: el dado
       // decide después (se le escapa, la saca al córner o sale de contra).
-      kind: ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.match ? 'save' : ev.outcome,
+      kind: ev.shotKind === 'remate' && this.shotLook ? this.shotLook : ev.shotKind, att: ev.att, def: ev.def, match: ev.match, outcome: ev.match ? 'save' : ev.outcome,
       shooter: sh, keeper: kp,
       kitA: this.kits[A], kitD: this.kits[D], gkColor: this.kits[D].gk,
       crowd: [this.kits[A].shirt, this.kits[D].shirt],
@@ -1170,6 +1474,7 @@ export class Renderer {
         if (ev.outcome === 'goal') this.reveal(ev);
       },
     });
+    this.shotLook = null;
     await this.ui.fadeIn();
     await scene;
     await this.ui.fadeOut();
@@ -1591,6 +1896,28 @@ export class Renderer {
     if (this.mySide === 1) { facing = -facing; fx = -fx; }
     const flipDir = (d) => (this.mySide === 1 ? -d : d);
 
+    const now = performance.now();
+    const cheerHop = p.cheer > 0 && !p.jump ? Math.round(Math.abs(Math.sin(now / 120)) * 3) : 0;
+    const kk = this.hdKit(p, kit, isGK);
+    const pick = this.hdPick(p, isGK, fx, facing, flipDir, now);
+    const hs = this.hdGet(kk, pick.view, pick.key, pick.pose, true);
+    if (hs) {
+      let dx, dy;
+      if (pick.dive != null) {
+        // la estirada se ubica por el centro del cuerpo, que baja hasta el pasto
+        const q = pick.dive;
+        dx = x - hs.c[0];
+        dy = y - lerp(9, 3, q) - lift - hs.c[1];
+      } else {
+        dx = x - (pick.dir < 0 ? hs.cv.width - hs.ox : hs.ox);
+        dy = y - hs.oy - lift - cheerHop;
+      }
+      dx = Math.round(dx); dy = Math.round(dy);
+      if (pick.dir < 0) { g.save(); g.translate(dx + hs.cv.width, dy); g.scale(-1, 1); g.drawImage(hs.cv, 0, 0); g.restore(); }
+      else g.drawImage(hs.cv, dx, dy);
+      return;
+    }
+
     let view, frame = 0, dir = 1, img;
     if (p.dive && p.dive.dir !== 0) { view = 'dive'; dir = flipDir(p.dive.dir); }
     else if (p.pose && p.pose.kind === 'slide') { view = 'slide'; dir = flipDir(p.pose.dir); }
@@ -1604,7 +1931,6 @@ export class Renderer {
     }
     img = this.sprite(kit, isGK, p.skin, p.hair, view, frame);
     const bob = (view === 'front' || view === 'back' || view === 'side') && (frame === 1 || frame === 3) ? 1 : 0;
-    const cheerHop = p.cheer > 0 && !p.jump ? Math.round(Math.abs(Math.sin(performance.now() / 120)) * 3) : 0;
     const dx = x - Math.floor(img.width / 2), dy = y - img.height - lift - bob - cheerHop + (POSES[view] ? 1 : 0);
     if (dir < 0) {
       g.save(); g.translate(dx + img.width, dy); g.scale(-1, 1); g.drawImage(img, 0, 0); g.restore();
@@ -1623,14 +1949,12 @@ export class Renderer {
     const sw = Math.max(2, 4 - Math.floor(bz / 10));
     g.fillStyle = `rgba(0,0,0,${Math.max(0.12, 0.38 - bz * 0.01)})`;
     g.fillRect(X - (sw >> 1), Y, sw, 1);
-    const big = z > 3;
-    const sz = big ? 4 : 3;
-    const bx = X - 1, by = Y - sz - bz;
-    g.fillStyle = '#d8d8d8'; g.fillRect(bx, by, sz, sz);
-    g.fillStyle = '#ffffff'; g.fillRect(bx, by, sz - 1, sz - 1);
-    const f = Math.floor(this.ball.spin) % 3;
-    g.fillStyle = '#2a2a2a';
-    g.fillRect(bx + (f === 0 ? 1 : f === 1 ? 0 : sz - 2), by + (f === 2 ? 0 : 1), 1, 1);
+    // la pelota oficial en chico, girando: imágenes guardadas por tamaño y giro
+    const r = z > 3 ? 2 : 1.6, spin = (Math.floor(this.ball.spin * 2) % 12) / 2;
+    const key = `${r}|${spin}`;
+    if (!FAR_BALLS.has(key)) FAR_BALLS.set(key, P4.ball(r, spin));
+    const im = FAR_BALLS.get(key);
+    g.drawImage(im, X - (im.width >> 1) + 1, Y - im.height + 1 - bz);
   }
 
   // Lluvia sobre la transmisión: tono gris azulado y gotas en diagonal.
@@ -1671,7 +1995,9 @@ export class Renderer {
       ents.push({ y: this.px(this.ref.x, this.ref.y)[1], d: () => this.drawRef(g) });
       const b = this.ball;
       const [bx, by] = this.px(b.x, b.y);
-      ents.push({ y: by + 0.1, d: () => this.drawBall(g, bx, by, b.z) });
+      // la pelota que se conduce se dibuja delante de su dueño, a la altura de los pies
+      const oy = b.owner && !b.flight && !b.head ? this.px(b.owner.x, b.owner.y)[1] + 0.2 : -Infinity;
+      ents.push({ y: Math.max(by + 0.1, oy), d: () => this.drawBall(g, bx, by, b.z) });
       ents.sort((a, b2) => a.y - b2.y).forEach((e) => e.d());
       // estela de la pelota
       for (const t of this.trail) {

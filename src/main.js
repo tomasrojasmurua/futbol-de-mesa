@@ -12,6 +12,8 @@ import * as audio from './audio.js';
 import { icon, iconFor } from './icons.js';
 import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
+import { fxTipHtml, cardArt } from './cardinfo.js';
+import { paintGrass, paintLogo, paintIcon } from './titleart.js';
 
 const $ = (s) => document.querySelector(s);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,7 +48,31 @@ function paintMyTeam() {
   const t = teamById(myTeamId);
   $('#my-team-name').textContent = t.name;
   $('#my-swatch').style.background = swatchCss(t.kit);
+  paintHome();
 }
+
+// Portada: pasto en píxeles grandes del tamaño justo de la pantalla, y el logo.
+let homeSize = '';
+function paintHome(force = true) {
+  const cv = $('#title-art');
+  if (!cv) return;
+  const vw = innerWidth, vh = innerHeight;
+  const k = Math.max(2, Math.round(vw / 200));
+  const W = Math.ceil(vw / k) + 1, H = Math.ceil(vh / k) + 1;
+  if (force || homeSize !== `${W}x${H}`) {
+    homeSize = `${W}x${H}`;
+    try { paintGrass(cv, W, H); cv.style.width = `${W * k}px`; cv.style.height = `${H * k}px`; } catch (e) { console.warn('pasto', e); }
+  }
+  const logo = $('#logo-art');
+  try {
+    const { W: lw } = paintLogo(logo);
+    const lk = Math.max(2, Math.floor(Math.min(vw - 40, 440) / lw));
+    logo.style.width = `${logo.width * lk}px`; logo.style.height = `${logo.height * lk}px`;
+    logo.parentElement.classList.add('drawn');
+  } catch (e) { console.warn('logo', e); }
+}
+let homeTimer = 0;
+addEventListener('resize', () => { clearTimeout(homeTimer); homeTimer = setTimeout(() => paintHome(false), 200); });
 
 function buildTeamGrid() {
   const grid = $('#team-grid');
@@ -65,7 +91,7 @@ function buildTeamGrid() {
       myTeamId = t.id;
       try { localStorage.setItem('fdm-team', t.id); } catch { /* sin storage */ }
       paintMyTeam();
-      show('screen-menu');
+      show('screen-play');
     };
     grid.appendChild(b);
   }
@@ -93,7 +119,7 @@ const HELP = `
 <h3>1. La salida</h3>
 <p>Quien tiene la pelota elige por dónde sale: izquierda, centro o derecha. El rival elige qué zona cierra. Si el rival adivina, recupera la pelota; si no, el ataque llega al último tercio.</p>
 <h3>2. El último tercio</h3>
-<p>El atacante elige <b>centro al área</b>, <b>pase filtrado</b> o <b>gambeta</b>. El defensor elige <b>cerrar bandas</b> (para el centro), <b>achicar la línea</b> (para el pase filtrado) o <b>doble marca</b> (para la gambeta). Si el defensor acierta, corta el ataque.</p>
+<p>El atacante elige <b>centro al área</b>, <b>pase filtrado</b> o <b>gambeta</b>. El defensor elige <b>cerrar bandas</b> (para el centro), <b>achicar espacios</b> (para el pase filtrado) o <b>doble marca</b> (para la gambeta). Si el defensor acierta, corta el ataque.</p>
 <h3>3. El remate</h3>
 <p>El atacante patea a un palo o al medio; el arquero elige hacia dónde se tira. Si adivina, ataja. Si no... ¡casi siempre es gol!</p>
 <h3>El dado</h3>
@@ -107,8 +133,8 @@ const HELP = `
 <h3>Situaciones de juego</h3>
 <p>Dos mazos de cartas traen lo impredecible de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras del dado, y los dos ven la carta y el dado cambiado.</p>
 <ul>
-<li><b>Mazo de partido</b> (60 cartas, 21 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Decisión polémica, Remate de primera, Defensa sólida o Despeje en la línea. Casi todas duran una jugada; la Lluvia dura el resto del partido. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
-<li><b>Mazo de disciplina</b>: sale con cada falta. Advertencia del árbitro (sigue el partido), amarilla (la segunda es roja), tiro libre directo o roja (con uno menos, al defender una cara «recupera» pasa a falta o córner). Hay un mazo para cada duración, así que en cualquier partido sale más o menos una roja cada 5 partidos.</li>
+<li><b>Mazo de partido</b> (60 cartas, 21 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Decisión polémica, Remate de primera, Defensa sólida o Despeje en la línea. Casi todas duran una jugada y, si no se usan, vencen al terminar el tiempo; la Lluvia dura el resto del partido, tanda de penales incluida. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
+<li><b>Mazo de disciplina</b>: sale con cada falta. Advertencia del árbitro (sigue el partido), amarilla (la segunda es roja), tiro libre directo (solo con faltas en el último tercio; en la salida el árbitro solo advierte) o roja (con uno menos, al defender una cara «recupera» pasa a falta o córner). Hay un mazo para cada duración, así que en cualquier partido sale más o menos una roja cada 5 partidos.</li>
 </ul>
 <h3>Duración</h3>
 <p>En el menú eliges partido <b>corto</b> (unos 3 a 5 minutos), <b>normal</b> (5 a 8) o <b>largo</b> (10 a 14). En una sala manda la duración de quien la crea.</p>
@@ -146,6 +172,7 @@ const MIRROR = { L: 'R', C: 'C', R: 'L' };
 
 // De qué es el dado que se tira.
 function diceTitle(ev) {
+  if (ev.die === 'buildWin' || ev.die === 'attackWin') return 'Dado de la defensa';
   if (ev.situation === 'build') return 'Dado de la salida';
   if (ev.situation === 'attack') return ev.att === 'dribble' && !ev.match ? 'Dado de la gambeta' : 'Dado del último tercio';
   if (['shot', 'penalty', 'shootout'].includes(ev.situation)) return ev.match ? 'Dado de la atajada' : 'Dado del remate';
@@ -178,8 +205,8 @@ const COACH = {
   toss: ['El sorteo', 'Elige cara o sello. Quien gana el sorteo saca primero.'],
   'build-att': ['La salida', 'Tienes la pelota. Elige por dónde sales: izquierda, centro o derecha. Si el rival cierra esa zona, casi siempre te la quita. Si no, llegas al último tercio.'],
   'build-def': ['Defender la salida', 'El rival sale jugando. Elige qué zona cierras. Si adivinas por dónde sale, casi siempre recuperas la pelota.'],
-  'attack-att': ['El último tercio', 'Elige centro al área, pase filtrado o gambeta. Cada uno tiene su defensa: cerrar bandas frena el centro, achicar la línea frena el pase y la doble marca frena la gambeta. Si no te adivinan, vas al remate.'],
-  'attack-def': ['Defender el área', 'Elige tu defensa: cerrar bandas frena el centro, achicar la línea frena el pase filtrado y la doble marca frena la gambeta.'],
+  'attack-att': ['El último tercio', 'Elige centro al área, pase filtrado o gambeta. Cada uno tiene su defensa: cerrar bandas frena el centro, achicar espacios frena el pase y la doble marca frena la gambeta. Si no te adivinan, vas al remate.'],
+  'attack-def': ['Defender el área', 'Elige tu defensa: cerrar bandas frena el centro, achicar espacios frena el pase filtrado y la doble marca frena la gambeta.'],
   'shot-att': ['El remate', 'Patea a la izquierda, al medio o a la derecha, mirando desde el pateador. Si el arquero no adivina, casi siempre es gol.'],
   'shot-def': ['Tu arquero', 'Elige hacia dónde se tira tu arquero, mirando desde el que patea. Si adivinas, atajas.'],
   'penalty-att': ['¡Penal!', 'Igual que un remate: elige el lado. Si el arquero no adivina, casi siempre es gol.'],
@@ -415,6 +442,9 @@ class MatchView {
     const el = $('#sitcard');
     el.className = `sitcard ${card.deck} k-${card.id}${this.spectator || both ? '' : good ? ' good' : ' bad'}`;
     el.innerHTML = `<div class="sc-box"><small>${card.deck === 'partido' ? 'SITUACIÓN DE JUEGO' : 'DISCIPLINA'}</small><div class="sc-art"><i></i></div><b>${title}</b><em>${who}</em><p>${info.text}</p><u class="sc-tap">${this.spectator ? '' : 'Toca para seguir'}</u></div>`;
+    // La ilustración con las camisetas del partido (si no se pudo pintar, queda el símbolo).
+    const art = renderer && renderer.kits ? cardArt(card.id, renderer.kits, card.side, CARDS.chilena && CARDS.chilena.who === 'def') : null;
+    if (art) { const box = el.querySelector('.sc-art'); box.textContent = ''; box.classList.add('pic'); box.appendChild(art); }
     audio.sound(card.id === 'red' || card.id === 'yellow' ? 'whistle' : 'card');
     if (card.id === 'red' || card.id === 'yellow') audio.sound('boo');
     requestAnimationFrame(() => el.classList.add('show'));
@@ -465,11 +495,11 @@ class MatchView {
     const team = teamById(this.state.teams[side]);
     const mine = this.spectator ? '' : side === this.mySide ? ' (tú)' : ' (rival)';
     const tip = $('#fxtip');
-    tip.innerHTML = `<b>${id === 'red' ? 'Con uno menos' : info.title}</b><em>${team.name}${mine}</em><p>${info.text}</p>`;
+    tip.innerHTML = fxTipHtml(this.state, info, id, side, `${team.name}${mine}`);
     const wrap = document.querySelector('.pitch-wrap').getBoundingClientRect();
     const r = chip.getBoundingClientRect();
     tip.style.top = `${r.bottom - wrap.top + 6}px`;
-    tip.style.left = `${Math.max(6, Math.min(r.left - wrap.left, wrap.width - 226))}px`;
+    tip.style.left = `${Math.max(6, Math.min(r.left - wrap.left, wrap.width - 254))}px`;
     tip.classList.add('show');
     document.querySelectorAll('.fx-chip.open').forEach((c) => c.classList.remove('open'));
     chip.classList.add('open');
@@ -1303,6 +1333,11 @@ function paintCupButton() {
   const b = $('#btn-cup-continue');
   b.hidden = !saved || !!champion(saved);
   if (saved) b.textContent = `Continuar torneo con ${teamById(saved.me).short}`;
+  // Carrera guardada sin terminar: un toque para volver a ella.
+  const c = Object.values(loadCareers()).find((x) => x && !seasonOver(x));
+  const cb = $('#btn-career-continue');
+  cb.hidden = !c;
+  if (c) cb.textContent = `Seguir carrera con ${teamById(c.me).short} · fecha ${c.round + 1}`;
 }
 
 function cupMenu() {
@@ -1521,7 +1556,7 @@ function showCareer() {
     btn('Jugar partido', 'primary', () => playCareerMatch());
     btn('Simular mi partido', '', () => { playRound(c, null); saveCareer(); showCareer(); });
   }
-  btn('Salir (queda guardado)', 'ghost', () => { career = null; show('screen-menu'); });
+  btn('Salir (queda guardado)', 'ghost', () => { career = null; show('screen-menu'); paintCupButton(); });
   // Tabla completa.
   const dg = (r) => (r.gf - r.gc > 0 ? '+' : '') + (r.gf - r.gc);
   $('#career-table').innerHTML = '<tr><th></th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr>' + t.map((r, k) => {
@@ -1579,7 +1614,11 @@ function confirmQuitCareer() {
 paintMyTeam();
 buildTeamGrid();
 $('#btn-team').onclick = () => { buildTeamGrid(); show('screen-teams'); };
-document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show('screen-menu')));
+document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show(b.dataset.back || 'screen-menu')));
+$('#btn-play').onclick = () => show('screen-play');
+$('#btn-room').onclick = () => { const o = $('#room-opts'); o.hidden = !o.hidden; $('#btn-room').classList.toggle('open', !o.hidden); };
+$('#btn-career-continue').onclick = () => showCareerPick();
+document.querySelectorAll('canvas[data-icon]').forEach((c) => paintIcon(c, c.dataset.icon));
 $('#btn-cpu').onclick = () => modal(`<h2>Contra la IA</h2>
   <p><b>Fácil:</b> tiene mañas y repite jugadas; si lo lees, le ganas.</p>
   <p><b>Normal:</b> juega suelto y de vez en cuando se anticipa.</p>
@@ -1620,14 +1659,20 @@ document.addEventListener('click', (e) => {
   if (view && view.fxOpen && !e.target.closest('#fxtip')) view.closeFxTip();
 });
 const muteBtn = $('#btn-mute');
-const paintMute = () => muteBtn.classList.toggle('off', audio.isMuted());
+const paintMute = () => { muteBtn.classList.toggle('off', audio.isMuted()); if ($('#btn-home-mute')) $('#btn-home-mute').classList.toggle('off', audio.isMuted()); };
 paintMute();
 muteBtn.onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); paintMute(); };
+const homeMute = $('#btn-home-mute');
+const paintHomeMute = () => homeMute.classList.toggle('off', audio.isMuted());
+paintHomeMute();
+homeMute.onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); paintHomeMute(); paintMute(); };
 
 const params = new URLSearchParams(location.search);
 if (params.get('sala')) {
   $('#join-code').value = params.get('sala').toUpperCase();
   $('#menu-msg').textContent = 'Elige tu equipo y toca «Unirse».';
+  $('#room-opts').hidden = false; $('#btn-room').classList.add('open');
+  show('screen-play');
 }
 if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(); }
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');

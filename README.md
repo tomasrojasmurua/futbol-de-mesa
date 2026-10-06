@@ -6,7 +6,7 @@ Juego de fútbol de cartas para celular, para 2 jugadores en una sala (o contra 
 
 1. **Sorteo**: el que entra a la sala elige cara o sello. El ganador saca.
 2. **Salida**: quien tiene la pelota elige izquierda, centro o derecha; el rival elige qué zona cierra. Si adivina, recupera la pelota.
-3. **Último tercio**: centro al área, pase filtrado o gambeta, contra cerrar bandas, achicar la línea o doble marca.
+3. **Último tercio**: centro al área, pase filtrado o gambeta, contra cerrar bandas, achicar espacios o doble marca.
 4. **Remate**: el atacante elige palo izquierdo, medio o palo derecho; el arquero rival elige hacia dónde se tira. Cada remate se ve en una escena animada a pantalla completa, desde atrás del tirador, con su nombre y el del arquero.
 
 Si el partido termina empatado se define por penales (cinco por lado y después muerte súbita). Al final aparecen los goleadores con minuto y asistencia, la figura del partido y las estadísticas.
@@ -31,24 +31,31 @@ Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una
 
 Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los cuatro dados (salida defendida, ataque defendido, atajada y remate). Caras nuevas que pueden aparecer: «sigue la jugada», «remate directo» y «penal».
 
-**Mazo de partido** (40 cartas): se roba en una salida al 40% y al 80% de cada tiempo.
+**Mazo de partido** (60 cartas, 21 situaciones): se roba cuatro veces por partido, dos por tiempo, siempre en una salida. Casi todas duran una jugada y vencen al terminar el tiempo; la Lluvia dura el resto del partido.
 
-| Carta | Copias | A quién | Qué cambia | Dura |
-|---|---|---|---|---|
-| Ánimo de la hinchada | 3 | va perdiendo (empate: tiene la pelota) | remate: «afuera» pasa a gol | 1 remate |
-| Entran suplentes | 3 | no tiene la pelota | al defender: 1 «recupera» pasa a contra | 2 tiradas |
-| Lesión | 4 | no tiene la pelota | al defender: 1 «recupera» pasa a «sigue la jugada» del rival | 3 tiradas |
-| Habilitación larga | 4 | tiene la pelota | salida defendida: 1 «recupera» pasa a «remate directo» | 1 tirada |
-| Cambio táctico | 4 | va perdiendo (empate: no tiene la pelota) | al atacar: 1 «recupera» pasa a «sigue»; al defender, lo mismo para el rival | 3 atacando, 1 defendiendo |
-| Arquero inspirado | 3 | no tiene la pelota | remate rival: 1 gol pasa a «atajada al córner» | 1 remate |
-| Capitán inspirado | 3 | tiene la pelota | al atacar: 1 «recupera» pasa a «sigue la jugada» | 3 tiradas |
-| Genialidad del crack | 3 | tiene la pelota | al atacar: 2 «recupera» pasan a «sigue la jugada» | 1 tirada |
-| Decisión polémica | 3 | tiene la pelota | ataque defendido: 1 «recupera» pasa a penal | 1 tirada |
-| Lluvia | 2 | los dos | remate: 1 gol pasa a «afuera» | hasta el entretiempo |
-| Error del DT | 2 | va ganando (empate: tiene la pelota) | al defender: 1 «recupera» pasa a «sigue la jugada» del rival | 2 tiradas |
-| Golpe de iluminación | 2 | tiene la pelota | remate: «palo» pasa a gol | 1 remate |
-| Golazo de chilena | 2 | tiene la pelota | atajada: 1 «atajada» pasa a gol | 1 remate |
-| Error en la defensa | 2 | tiene la pelota | al atacar: 3 «recupera» pasan a «sigue la jugada» | 1 tirada |
+| Carta | Copias | A quién | Qué hace |
+|---|---|---|---|
+| Ánimo de la hinchada | 3 | va perdiendo (empate: tiene la pelota) | En su próximo remate que supere al arquero, todo es gol: ni palo ni afuera. |
+| Entran suplentes | 3 | no tiene la pelota | Piernas frescas: en su próxima defensa, si acierta casi toda pelota recuperada sale de contra; si no acierta, 2 de 6 se la quitan igual y sale de contra. |
+| Lesión | 4 | no tiene la pelota | Con uno menos hasta el cambio: en su próxima defensa acertada, dos caras «recupera» pasan a favor del rival. |
+| Habilitación larga | 4 | tiene la pelota | Si le adivinan la próxima salida, tres caras pasan a «pase largo»: la pelota llega al último tercio. |
+| Remate de primera | 4 | tiene la pelota | Si le adivinan el próximo ataque en el último tercio, el dado queda: córner, falta, recupera y 3 remate al arco. |
+| Cambio táctico: todo al ataque | 4 | va perdiendo (empate: no tiene la pelota) | En su próximo ataque que le adivinen, el rival pierde la contra y la jugada sigue con 3 caras. |
+| Fortuna de arquero | 3 | no tiene la pelota | En el próximo remate rival que lo supere, tres caras de gol pasan a «atajada al córner». |
+| Capitán inspirado | 3 | tiene la pelota | Tiki-taka: en su próximo ataque que le adivinen, tres caras pasan a favor de su equipo. |
+| Genialidad del crack | 3 | tiene la pelota | En su próximo ataque que le adivinen, tres caras pasan a favor de su equipo. |
+| Decisión polémica | 3 | tiene la pelota | En su próximo ataque en el último tercio: si se lo adivinan, el dado queda córner, recupera, 3 penal y contra; si gana la gambeta, 3 de 6 son penal (y la carta sigue). Ese penal, si supera al arquero, tiene 5 caras de gol. |
+| Lluvia | 2 | los dos | Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera». |
+| Error del DT | 2 | va ganando (empate: tiene la pelota) | En su próxima defensa acertada pierde la contra y el rival sigue la jugada con 3 caras. |
+| Tiro colocado | 2 | tiene la pelota | En su próximo remate que supere al arquero, todo es gol: ni palo ni afuera. |
+| Arquero nervioso | 2 | tiene la pelota | Si le atajan el próximo remate, el dado queda: córner, 2 atajada y 3 gol. |
+| Desorden defensivo | 2 | tiene la pelota | En su próximo ataque que le adivinen, el rival pierde la contra y la jugada sigue con 4 caras. |
+| Instrucción del DT | 3 | tiene la pelota | En su próximo ataque que le adivinen, el rival pierde la contra: 3 caras de pase largo en la salida o de remate en el último tercio. |
+| Defensa sólida | 2 | no tiene la pelota | En el próximo ataque rival en el último tercio: si lo adivina, córner y 5 contra; si no, 2 de 6 la corta igual. |
+| Barrida quirúrgica | 3 | no tiene la pelota | En el próximo ataque rival en el último tercio: si lo adivina, la quita limpia (1 recupera y 5 contra); si no, 2 de 6 llega igual con la barrida. |
+| Despeje en la línea | 3 | no tiene la pelota | En el próximo remate rival que supere al arquero (no en penales), dos caras de gol pasan a «despeje»: un defensor la saca en la línea. |
+| Presión alta | 3 | no tiene la pelota | En la próxima salida rival: si la adivina, toda pelota recuperada sale de contra; si no, 2 de 6 lo apura y se la quita igual. |
+| Achique del arquero | 2 | no tiene la pelota | En el próximo remate rival: si su arquero lo adivina, sale rápido (1 atajada y 5 contra); si no, achica y 2 caras de gol pasan a «atajada al córner». |
 
 **Mazo de disciplina** (se roba con cada falta): advertencia del árbitro (sin efecto), amarilla (la segunda al mismo jugador es roja), tiro libre directo y roja (resto del partido: al defender, 1 «recupera» pasa a falta en la salida o córner en el último tercio). Hay un mazo por duración para que salga una roja cada 5 partidos en promedio, contando las de doble amarilla:
 
