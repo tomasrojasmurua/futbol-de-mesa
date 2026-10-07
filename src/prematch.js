@@ -6,7 +6,8 @@ import { P4 } from './players.js';
 import { p4Kit } from './playerkit.js';
 import { teamById, kitsClash, hexRgb } from './teams.js';
 import { STADIUMS, stadiumFor, stadiumCountry, COUNTRIES, CONTINENTS } from './stadiums.js';
-import { flagUrl } from './flags.js';
+import { flagUrl, teamFlag } from './flags.js';
+import { crestOf } from './crests.js';
 import { LENGTHS } from './game.js';
 import { LEVELS } from './host.js';
 import { TIMES, WEATHERS, weatherLabel, LIGHT } from './matchday.js';
@@ -228,6 +229,13 @@ function paintScene(cv, o, t) {
   }
 }
 
+// Primera fila con píxeles del dibujo (el sprite trae aire arriba de la cabeza).
+function topRow(cv) {
+  const { width: w, height: h } = cv, d = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 40) return y;
+  return 0;
+}
+
 // El jugador iluminado como la escena (un poco menos, para que se luzca la camiseta).
 function litSprite(spr, setup) {
   const c = document.createElement('canvas');
@@ -317,6 +325,19 @@ export function openPrematch(o) {
       const spr = P4.sprite(P4.POSES.idleFront(), kit, 'front', SC, 'pre');
       const old = scene.players[side] || {};
       return { spr, lit: litSprite(spr, st.setup), x: old.x || 0, y: old.y || 0 };
+    });
+    paintCrests();
+  };
+  // El escudo del club (o la bandera de la selección) sobre la cabeza de cada jugador.
+  const paintCrests = () => {
+    [0, 1].forEach((side) => {
+      const t = teams[side], box = $(`.pre-side[data-side="${side}"] .pre-crest`, el);
+      const nat = t.group === 'Selecciones' && teamFlag(t.id);
+      const c = nat ? null : crestOf(t.short);
+      const url = nat ? flagUrl(teamFlag(t.id)) : c ? c.toDataURL() : null;
+      box.innerHTML = url ? `<img src="${url}" alt="${t.name}" class="${nat ? 'flag' : ''}">` : '';
+      const { spr } = scene.players[side];
+      box.style.bottom = `${(spr.oy - topRow(spr.cv)) * PX + 14}px`;
     });
   };
   const layout = () => {
