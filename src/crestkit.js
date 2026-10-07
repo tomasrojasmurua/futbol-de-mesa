@@ -1,4 +1,4 @@
-// Calcciopoli · herramientas para dibujar escudos en una grilla de 28 × 34 píxeles.
+// Calciopoli · herramientas para dibujar escudos en una grilla de 28 × 34 píxeles.
 import { textPx } from './intro/font3.js';
 
 export const W = 28, H = 34;

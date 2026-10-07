@@ -11,7 +11,7 @@ const SKINS = ['#f1c7a0', '#e0a77c', '#c68657', '#9c6440', '#6e4428'];
 // o: { crowd: [colA, colD], stadium }, LW ancho, H alto, GY línea de los pies.
 export function buildSide(o, LW, H, GY) {
   const R = rng(23);
-  const st = o.stadium || { seats: ['#2a2f3a', '#3a404d'], name: 'CALCCIOPOLI' };
+  const st = o.stadium || { seats: ['#2a2f3a', '#3a404d'], name: 'CALCIOPOLI' };
   const grassTop = GY - 114, gw = 1400, gh = H - grassTop;
   // pasto: franjas que se angostan hacia el fondo, con algo de ruido
   const grass = document.createElement('canvas'); grass.width = gw; grass.height = gh;
@@ -43,7 +43,7 @@ export function buildSide(o, LW, H, GY) {
   {
     const b = boards.getContext('2d');
     b.fillStyle = '#0c0e16'; b.fillRect(0, 0, bw, 16);
-    const ads = [['CALCCIOPOLI', '#ffd23f', '#1a1c3a'], ['EL CALCCIOPOLITANO', '#f4f2ec', '#a8202a'], [(st.name || 'CALCCIOPOLI').toUpperCase(), '#1c2340', '#d8dce6'], ['DADOS Y CO', '#f4f2ec', '#2a7a3a']];
+    const ads = [['CALCIOPOLI', '#ffd23f', '#1a1c3a'], ['EL CALCIOPOLITANO', '#f4f2ec', '#a8202a'], [(st.name || 'CALCIOPOLI').toUpperCase(), '#1c2340', '#d8dce6'], ['DADOS Y CO', '#f4f2ec', '#2a7a3a']];
     let x = 0, i = 0;
     while (x < bw) {
       const [t, fg, bg] = ads[i++ % ads.length];

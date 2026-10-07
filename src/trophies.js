@@ -1,4 +1,4 @@
-// Calcciopoli · trofeos y sala de trofeos.
+// Calciopoli · trofeos y sala de trofeos.
 // Las copas se pintan píxel por píxel como sólidos de revolución: para cada
 // píxel se calcula la normal del metal y se ilumina con un estudio (luz arriba
 // a la izquierda, reflejo del cielo y del piso), y el brillo se reduce a una
@@ -238,7 +238,7 @@ const ART = {
     lathe(b, cx, [[3, 6.2, 'silver'], [5, 5.6, 'silver'], [14, 5.2, 'silver'], [20, 3.8, 'silver'], [26, 2.4, 'silver'], [H - 10, 2, 'silver'], [H - 6, 5, 'silver']]);
     for (const s of [-1, 1]) tube(b, [[cx + s * 5, 6], [cx + s * 7.4, 7], [cx + s * 7.2, 11], [cx + s * 5, 12]], 0.8, 'silver', 3);
   },
-  // Copa Calcciopoli: dorada con una pelota encima.
+  // Copa Calciopoli: dorada con una pelota encima.
   calc(b) {
     const cx = b.W / 2, H = b.H;
     lathe(b, cx, [[H - 8, 5.6, 'black'], [H - 1, 7.8, 'black']], { linear: true });
@@ -326,7 +326,7 @@ export const COMPS = [
   { id: 'euro', name: 'Eurocopa', sub: 'Selecciones de Europa', art: 'euro', pool: ['esp', 'fra', 'ger', 'eng', 'ita', 'por', 'ned', 'cro', 'bel', 'sui', 'den'], size: 8 },
 ];
 // El torneo libre de siempre.
-export const FREE_CUP = { id: 'calc', name: 'Copa Calcciopoli', sub: 'Torneo libre: tú eliges con quién', art: 'calc' };
+export const FREE_CUP = { id: 'calc', name: 'Copa Calciopoli', sub: 'Torneo libre: tú eliges con quién', art: 'calc' };
 
 // Trofeos de liga (modo carrera).
 const LEAGUE_ART = {

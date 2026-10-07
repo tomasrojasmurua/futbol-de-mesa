@@ -1,4 +1,4 @@
-// Calcciopoli · la previa en película: utilidades compartidas por las escenas.
+// Calciopoli · la previa en película: utilidades compartidas por las escenas.
 import { hexRgb } from '../teams.js';
 import { crestOf, CREST_W, CREST_H } from '../crests.js';
 

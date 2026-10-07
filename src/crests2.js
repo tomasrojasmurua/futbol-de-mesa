@@ -1,4 +1,4 @@
-// Calcciopoli · escudos de los demás clubes (ver crests.js).
+// Calciopoli · escudos de los demás clubes (ver crests.js).
 import { BK, WH, poly, rect, circ, ell, px, word, art, SHIELD, ring, star, vstripes, hstripes, disc, clipCirc, clipPoly } from './crestkit.js';
 
 // Escudo con borde: se rellena con fn dentro del casco.

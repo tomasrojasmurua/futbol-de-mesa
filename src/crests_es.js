@@ -1,4 +1,4 @@
-// Calcciopoli · escudos de LaLiga dibujados a mano, siguiendo los escudos reales (ver crests.js).
+// Calciopoli · escudos de LaLiga dibujados a mano, siguiendo los escudos reales (ver crests.js).
 import { BK, WH, poly, rect, circ, ell, px, word, art, SHIELD, star, vstripes, hstripes, disc, clipCirc, clipPoly, ring } from './crestkit.js';
 
 const alt = (a, b, n) => Array.from({ length: n }, (_, i) => (i % 2 ? b : a));
