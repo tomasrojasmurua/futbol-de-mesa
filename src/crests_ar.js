@@ -1,0 +1,158 @@
+// Calcciopoli · escudos de la liga argentina dibujados a mano, siguiendo los escudos reales (ver crests.js).
+import { BK, WH, poly, rect, circ, ell, px, word, art, SHIELD, star, vstripes, hstripes, disc, clipCirc, clipPoly, ring } from './crestkit.js';
+
+const alt = (a, b, n) => Array.from({ length: n }, (_, i) => (i % 2 ? b : a));
+const GOLD = '#f2b900', NAVY = '#0b2a6b', RED = '#d41f2a', SKY = '#4aa8e0';
+// Escudo alto y angosto (Banfield, Estudiantes, Instituto).
+const TALL = (i = 0) => [[6 + i, 6 + i], [21 - i, 6 + i], [21 - i, 24], [17 - i, 29 - i * 0.5], [13.5, 32 - i], [10 + i, 29 - i * 0.5], [6 + i, 24]];
+
+export const CRESTS_AR = {
+  // Banfield: franjas verdes y blancas con dos estrellas y CAB.
+  BAN: { draw(g) {
+    poly(g, BK, TALL(0)); clipPoly(g, TALL(1));
+    vstripes(g, alt('#0a7a3b', WH, 7), 6, 21, 0, 34);
+    rect(g, WH, 6, 14, 15, 6); word(g, 'CAB', 8, 15, '#0a7a3b');
+    g.restore();
+    star(g, '#b8bcc4', 10, 3.4, 2); star(g, '#b8bcc4', 17, 3.4, 2);
+  } },
+  // Belgrano: círculo celeste y blanco con la A y la B.
+  BLG: { draw(g) {
+    disc(g, [[13.5, '#1d3d84'], [12.2, WH], [10.4, SKY], [8.6, WH]]);
+    art(g, 8, 10, ['....##....', '...####...', '..##..##..', '..##..##..', '.##....##.', '.########.', '##########', '##......##'], { '#': SKY });
+    word(g, 'B', 12, 17, '#1d3d84');
+    px(g, '#1d3d84', 4, 7, 22, 7, 3, 19, 24, 19);
+  } },
+  // Boca Juniors: escudo azul de borde dorado, estrellas y CABJ.
+  BOC: { draw(g) {
+    poly(g, GOLD, SHIELD(0)); clipPoly(g, SHIELD(1.6));
+    rect(g, '#0f3b97', 0, 0, 28, 34);
+    for (let i = 0; i < 5; i++) star(g, GOLD, 5.5 + i * 4, 6, 1.5);
+    for (let i = 0; i < 4; i++) star(g, GOLD, 7.5 + i * 4, 10, 1.4);
+    rect(g, GOLD, 0, 14, 28, 1); rect(g, GOLD, 0, 21, 28, 1); word(g, 'CABJ', 6, 16, GOLD);
+    for (let i = 0; i < 3; i++) star(g, GOLD, 9 + i * 4.8, 26, 1.4);
+    g.restore();
+  } },
+  // Defensa y Justicia: escudo verde con borde amarillo y las letras.
+  DYJ: { draw(g) {
+    poly(g, '#f2dc16', [[2, 3], [25, 3], [25, 20], [20, 28], [13.5, 32.6], [7, 28], [2, 20]]);
+    poly(g, '#13902f', [[3.4, 4.4], [23.6, 4.4], [23.6, 19.6], [19.2, 26.8], [13.5, 30.8], [7.8, 26.8], [3.4, 19.6]]);
+    poly(g, '#f2dc16', [[3.4, 21], [9, 24], [16, 25], [23.6, 21], [23.6, 23], [18, 28], [13.5, 30.8], [9, 28], [3.4, 23]]);
+    word(g, 'DYJ', 8, 10, '#f2dc16');
+    px(g, '#f2dc16', 7, 17, 8, 17);
+  } },
+  // Estudiantes: franjas rojas y blancas, estrella arriba y E. de L.P.
+  EST: { draw(g) {
+    star(g, '#e6b800', 13.5, 3.4, 3.4);
+    const T = (i) => [[6 + i, 8 + i], [21 - i, 8 + i], [21 - i, 24], [17 - i, 29 - i * 0.5], [13.5, 32 - i], [10 + i, 29 - i * 0.5], [6 + i, 24]];
+    poly(g, BK, T(0)); clipPoly(g, T(1));
+    vstripes(g, alt(RED, WH, 7), 6, 21, 0, 34);
+    rect(g, WH, 6, 9, 15, 6); word(g, 'ELP', 8, 10, RED);
+    g.restore();
+  } },
+  // Gimnasia (La Plata): escudo blanco con el yelmo y el laurel.
+  GLP: { draw(g) {
+    const GL = '#2d6a2a';
+    [-1, 1].forEach((d) => { for (let i = 0; i < 7; i++) { const a = 0.4 + i * 0.22, x = 13.5 + d * 11.4 * Math.cos(a), y = 14 + 14 * Math.sin(a); poly(g, GL, [[x, y - 1.8], [x + d * 1.1, y], [x, y + 1.8], [x - d * 0.9, y]]); } });
+    poly(g, '#13254a', [[7, 10], [20, 10], [20, 20], [16, 26], [13.5, 28.6], [11, 26], [7, 20]]);
+    poly(g, WH, [[8, 11], [19, 11], [19, 19.6], [15.4, 25], [13.5, 27], [11.6, 25], [8, 19.6]]);
+    word(g, 'GE', 10, 15, '#13254a');
+    // yelmo con plumas
+    poly(g, '#8e99ac', [[10, 9], [10, 5], [13, 3.4], [16.4, 5], [17, 9]]); rect(g, '#13254a', 10, 6.4, 5, 0.9);
+    poly(g, '#13254a', [[11, 3.2], [13, 0.8], [15, 1.6], [17, 0.8], [18.6, 3.4], [16, 3.6]]);
+  } },
+  // Godoy Cruz: círculo gris con franjas azules y blancas.
+  GCZ: { draw(g) {
+    disc(g, [[13.5, '#6e747f'], [12.4, '#c9ccd2'], [11, '#1d4fa8']]);
+    clipCirc(g, 11); vstripes(g, alt('#1d4fa8', WH, 7), 2, 25, 6, 28); g.restore();
+    rect(g, WH, 5, 14, 17, 6); word(g, 'CDGC', 6, 15, '#1d4fa8');
+  } },
+  // Independiente: escudo rojo con la franja blanca diagonal y CAI.
+  IND: { draw(g) {
+    poly(g, BK, SHIELD(0)); clipPoly(g, SHIELD(1.5));
+    rect(g, '#d4202c', 0, 0, 28, 34);
+    poly(g, WH, [[0, 4], [5, 2], [28, 21], [28, 27], [24, 28], [0, 10]]);
+    word(g, 'C', 5, 4, BK); word(g, 'A', 11, 9, BK); word(g, 'I', 17, 14, BK);
+    g.restore();
+  } },
+  // Lanús: círculo granate con el monograma entrelazado.
+  LAN: { draw(g) {
+    disc(g, [[13.5, '#7c1d36'], [12.4, '#a8a0a4'], [11.4, '#7c1d36']]);
+    ring(g, '#d6c8cd', 13.5, 17, 9.4, 0.9);
+    rect(g, '#d6c8cd', 10, 8, 1, 17); rect(g, '#d6c8cd', 10, 24, 9, 1); rect(g, '#d6c8cd', 8, 12, 12, 1);
+    poly(g, '#d6c8cd', [[14, 8], [15, 8], [19, 24], [18, 24]]); circ(g, '#d6c8cd', 17.5, 12.5, 1.1);
+  } },
+  // Newell's Old Boys: escudo mitad rojo y mitad negro con NOB y las estrellas.
+  NOB: { draw(g) {
+    const S = (i) => [[3 + i, 1 + i], [24 - i, 1 + i], [24 - i, 17], [20 - i * 0.6, 22.6 - i * 0.3], [13.5, 27 - i], [7 + i * 0.6, 22.6 - i * 0.3], [3 + i, 17]];
+    poly(g, BK, S(0)); clipPoly(g, S(1.4));
+    rect(g, '#d4202c', 0, 0, 14, 34); rect(g, BK, 14, 0, 14, 34);
+    word(g, 'N', 5, 6, WH); word(g, 'O', 11, 10, WH); word(g, 'B', 17, 14, WH);
+    g.restore();
+    [[3, 27], [8, 30], [13.5, 31], [19, 30], [24, 27]].forEach(([x, y]) => star(g, '#d4202c', x, y, 2));
+  } },
+  // Racing: escudo celeste y blanco con RACING arriba.
+  RAC: { draw(g) {
+    poly(g, '#27337a', SHIELD(0)); clipPoly(g, SHIELD(1.4));
+    vstripes(g, alt('#69b4e6', WH, 6), 0, 28, 0, 34);
+    rect(g, '#69b4e6', 0, 0, 28, 9); word(g, 'RAC', 8, 3, WH);
+    g.restore();
+  } },
+  // River Plate: escudo blanco con la banda roja y CARP.
+  RIV: { draw(g) {
+    poly(g, BK, SHIELD(0)); poly(g, WH, SHIELD(1.4)); clipPoly(g, SHIELD(1.4));
+    poly(g, '#d4202c', [[0, 6], [5, 4], [28, 27], [28, 33], [22, 34], [0, 14]]);
+    word(g, 'CA', 14, 4, BK);
+    g.restore();
+  } },
+  // Rosario Central: círculo azul y amarillo con el laurel y CARC.
+  RCE: { draw(g) {
+    disc(g, [[13.5, '#c99a00'], [12.2, '#f2b900'], [10.6, '#1d3f8c']]);
+    clipCirc(g, 10.6); vstripes(g, alt('#1d3f8c', '#f2b900', 11), 3, 24, 6, 28); g.restore();
+    rect(g, '#1d3f8c', 5, 13, 17, 8); word(g, 'CARC', 6, 14, '#f2b900');
+    px(g, '#c99a00', 2, 6, 25, 6, 1, 14, 26, 14, 2, 22, 25, 22);
+  } },
+  // San Lorenzo: franjas azules y rojas con el óvalo blanco central.
+  SLO: { draw(g) {
+    poly(g, BK, SHIELD(0)); clipPoly(g, SHIELD(1.5));
+    vstripes(g, alt('#1b3a8c', '#c8102e', 8), 0, 28, 0, 34);
+    ell(g, WH, 13.5, 14, 7.5, 6.5); ell(g, '#1b3a8c', 13.5, 14, 6.4, 5.4);
+    word(g, 'SL', 10, 12, WH);
+    g.restore();
+  } },
+  // Tigre: franja roja arriba con TIGRE y bandas azul y roja.
+  TIG: { draw(g) {
+    poly(g, BK, [[2, 2], [25, 2], [25, 22], [20, 28], [13.5, 32.6], [7, 28], [2, 22]]);
+    clipPoly(g, [[3.2, 3.2], [23.8, 3.2], [23.8, 21.6], [19.4, 27.2], [13.5, 31.2], [7.6, 27.2], [3.2, 21.6]]);
+    vstripes(g, ['#1b3a8c', '#d4202c', '#1b3a8c'], 0, 28, 0, 34);
+    rect(g, '#d4202c', 0, 0, 28, 10); word(g, 'TIGRE', 4, 3, WH);
+    g.restore();
+  } },
+  // Vélez Sarsfield: escudo blanco con la V azul.
+  VEL: { draw(g) {
+    poly(g, '#1b3f94', SHIELD(0)); poly(g, WH, SHIELD(1.5)); clipPoly(g, SHIELD(1.5));
+    poly(g, '#1b3f94', [[3, 4], [10, 4], [13.5, 17], [17, 4], [24, 4], [16.6, 27], [10.4, 27]]);
+    poly(g, WH, [[7, 4], [9, 4], [13.5, 21], [18, 4], [20, 4], [14.6, 24], [12.4, 24]]);
+    g.restore();
+  } },
+  // Aldosivi: círculo verde y amarillo con las letras CAA.
+  ALD: { draw(g) {
+    disc(g, [[13.5, '#0b6a2e'], [12.4, '#0f9a42']]);
+    clipCirc(g, 12.4); rect(g, '#f4d41a', 8, 0, 12, 34); g.restore();
+    word(g, 'C', 12, 6, '#0b6a2e'); word(g, 'A', 12, 14, '#0b6a2e'); word(g, 'A', 12, 22, '#0b6a2e');
+  } },
+  // Argentinos Juniors: círculo azul con la banda roja diagonal.
+  AAJ: { draw(g) {
+    disc(g, [[13.5, '#1a3a8c'], [11.6, WH], [10.6, '#1a3a8c'], [9.6, WH]]);
+    clipCirc(g, 9.6);
+    poly(g, '#d4202c', [[3, 24], [3, 19], [18, 7], [24, 7], [24, 13], [9, 27]]);
+    poly(g, '#d4202c', [[16, 21], [24, 14], [24, 28], [16, 28]]);
+    g.restore();
+  } },
+  // Instituto: franjas rojas y blancas con las letras IACC.
+  INS: { draw(g) {
+    poly(g, BK, TALL(0)); clipPoly(g, TALL(1));
+    vstripes(g, alt(RED, WH, 7), 6, 21, 0, 34);
+    rect(g, WH, 6, 12, 15, 7); word(g, 'IAC', 8, 13, RED);
+    g.restore();
+  } },
+};
