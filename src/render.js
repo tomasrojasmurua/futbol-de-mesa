@@ -685,9 +685,18 @@ export class Renderer {
   }
 
   async pass(side, uv, { dur = 0.8, h = 0.4, recv = null, z1 = 0 } = {}) {
-    const to = this.W(side, uv[0], uv[1]);
+    let to = this.W(side, uv[0], uv[1]);
     const passer = this.ball.owner;
     const r = recv || this.nearest(side, to[0], to[1], true, passer ? [passer] : []);
+    // El que recibe llega corriendo: si el pase cae más lejos de lo que alcanza a
+    // cubrir, la pelota tarda un poco más y cae donde él llega. Así nunca queda
+    // sola esperando ni se desliza hacia él sin que nadie la toque.
+    const RUN = 9, dist = Math.hypot(r.x - to[0], r.y - to[1]);
+    if (dist > RUN * dur + 1) {
+      dur = Math.min(2, (dist - 1) / RUN);
+      const reach = RUN * dur + 1;
+      if (dist > reach) { const k = reach / dist; to = [r.x + (to[0] - r.x) * k, r.y + (to[1] - r.y) * k]; }
+    }
     r.ov = to; r.boost = 1.5;
     this.launch(to, { dur, h, z1 });
     this.ui.sound('kick');
