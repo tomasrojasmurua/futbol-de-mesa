@@ -14,6 +14,7 @@ import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
+import { playTitleIntro } from './titleintro.js';
 import { paintFlag, GROUP_FLAG, teamFlag, flagUrl } from './flags.js';
 import { paintMap } from './maps.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
@@ -2022,6 +2023,10 @@ if (params.get('sala')) {
 }
 if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(); }
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
+// Al abrir el juego en la portada, la entrada animada antes de JUGAR (?intro=0 la omite).
+if (params.get('intro') !== '0' && $('#screen-menu').classList.contains('active')) {
+  try { playTitleIntro($('#screen-menu'), $('#logo-art')); } catch (e) { console.warn('entrada', e); }
+}
 
 // Para pruebas automáticas.
 window.__fdm = { get career() { return career; }, get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon, cupResult: (r) => cupAfterMatch(r) };

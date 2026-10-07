@@ -41,6 +41,27 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .home-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 12px; border-top: 2px solid rgba(0,0,0,.3); }
 .home-foot .link { font-size: 21px; text-decoration: none; text-shadow: 2px 2px 0 rgba(0,0,0,.5); padding: 4px 2px; }
 .home-foot .sound.off { opacity: .45; text-decoration: line-through; }
+/* Entrada de la portada (src/titleintro.js): focos, letras, pelota, y recién ahí JUGAR */
+#intro-art { position: absolute; z-index: 2; pointer-events: none; image-rendering: pixelated; filter: drop-shadow(0 6px 0 rgba(0,0,0,.35)); }
+#screen-menu.intro #logo-art { visibility: hidden; }
+#screen-menu.intro:not(.intro-go) #title-art { filter: brightness(.06); }
+#screen-menu.intro-go #title-art { animation: lights-on 900ms linear both; }
+#screen-menu.intro:not(.intro-in) .tag, #screen-menu.intro:not(.intro-in) .home-actions > * { opacity: 0; pointer-events: none; }
+#screen-menu.intro-in .tag { animation: intro-fade 500ms steps(5) both; }
+#screen-menu.intro-in .home-actions > * { animation: intro-rise 420ms steps(6) both; }
+#screen-menu.intro-in .home-actions > :nth-child(2) { animation-delay: 120ms; }
+#screen-menu.intro-in .home-actions > :nth-child(3) { animation-delay: 240ms; }
+#screen-menu.intro-fast .tag, #screen-menu.intro-fast .home-actions > * { animation-duration: 200ms; animation-delay: 0ms; }
+@keyframes lights-on {
+  0%, 12% { filter: brightness(.06); }
+  15% { filter: brightness(.55); }
+  19%, 30% { filter: brightness(.14); }
+  34% { filter: brightness(.8); }
+  39% { filter: brightness(.45); }
+  60%, 100% { filter: brightness(1); }
+}
+@keyframes intro-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes intro-rise { from { opacity: 0; transform: translateY(18px); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
 /* Elegir modo */
 #screen-play { background: var(--bg); }
 .play-list { flex: 1; overflow-y: auto; width: min(420px, 100%); margin: 0 auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
