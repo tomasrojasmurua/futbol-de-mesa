@@ -5,7 +5,8 @@
 import { P4 } from '../players.js';
 import { text as pxText, textW as pxTextW } from '../cutscene.js';
 import { lookOf, nameOf, NUMS, kitFor, paint } from './cast.js';
-import { rgb, css, mixv, mix, dark, ramp, clamp, lerp, ease, seeded, fillPoly, line, drawSprite, canvas, ellipse } from './common.js';
+import { CloseUp, CLOSE_FR } from './closeup.js';
+import { rgb, css, mixv, mix, dark, ramp, clamp, lerp, ease, seeded, fillPoly, line, drawSprite, canvas, ellipse, crest } from './common.js';
 
 const SC = 10;          // escala de los jugadores (≈86 px de pie)
 const WIDE = 3.0;       // segundos del plano general
@@ -13,7 +14,8 @@ const SW = 380;         // ancho del camarín (más que la pantalla: la cámara 
 
 // Poses propias del camarín (de costado, mirando a la derecha).
 const POSE = {
-  tie: (u) => ({ lean: 0.92, twist: 0.5, headTilt: 0.4, legs: [{ a: 1.2, k: 2.0, p: 0.4 }, { a: 1.45, k: 1.45, p: 0 }], arms: [{ a: 0.02 + Math.sin(u * 6.28) * 0.08, e: 0.15 + Math.cos(u * 6.28) * 0.12 }, { a: 0.1 - Math.sin(u * 6.28) * 0.08, e: 0.12 }] }),
+  // sentado en el banco, inclinado sobre la rodilla, las manos en el botín
+  tie: (u) => ({ lean: 1.0, twist: 0.5, headTilt: 0.45, legs: [{ a: 1.45, k: 1.45, p: 0 }, { a: 1.35, k: 1.5, p: 0 }], arms: [{ a: 0.12 + Math.sin(u * 6.28) * 0.06, e: 0.25 + Math.cos(u * 6.28) * 0.1 }, { a: 0.2 - Math.sin(u * 6.28) * 0.06, e: 0.2 }] }),
   guard: (u) => ({ lean: 0.65, twist: 0.5, headTilt: 0.3, legs: [{ a: 1.45, k: 1.45, p: 0 }, { a: 1.3, k: 0.55, p: 0.1 }], arms: [{ a: 0.45 + Math.sin(u * 6.28) * 0.05, e: 0.2 }, { a: 0.6 + Math.sin(u * 6.28) * 0.06, e: 0.0 }] }),
   gloves: (u) => ({ lean: 0.18, twist: 0.5, headTilt: 0.25, legs: [{ a: 1.45, k: 1.5, p: 0 }, { a: 1.55, k: 1.55, p: 0 }], arms: [{ a: 0.95 + Math.sin(u * 6.28) * 0.05, e: 0.75 }, { a: 1.0, e: 0.55 + Math.sin(u * 6.28) * 0.08 }] }),
   talk: (u) => ({ lean: 0.04, twist: 0.5, headTilt: 0.05, legs: [{ a: -0.05, k: 0.05, p: 0 }, { a: 0.1, k: 0.08, p: 0 }], arms: [{ a: 0.12, e: 0.3 }, { a: 0.35 + Math.sin(u * 6.28) * 0.2, e: 1.6 + Math.sin(u * 6.28 + 1) * 0.35 }] }),
@@ -42,6 +44,10 @@ export class Locker {
       for (let f = 0; f < p.n; f++) cast.want(p.anim, f, at, () => paint(POSE[p.pose](f / p.n), p.kit, p.view || 'side', SC));
     }
     this.shirtKit = mk(10);
+    this.close = new CloseUp({ pk: this.people[0].kit, kit });
+    // el primer plano se modela de antemano: la base durante el título y los cuadros después
+    cast.want('close-base', 0, -1, () => this.close.prepare(cast.W || 180, cast.H || 360));
+    for (let i = 0; i < CLOSE_FR; i++) for (const w of ['back', 'front']) cast.want(`close-${w}`, i, at + WIDE - 2.5, () => this.close.prepare(cast.W || 180, cast.H || 360, i, w));
     this.ball = P4.ball(4.5, 0.6);
     this.bg = null;
   }
@@ -146,13 +152,18 @@ export class Locker {
       line(g, x0, wallB, x1, H, fl[0]);
     }
     for (let y = wallB + 4, s = 4; y < H; s *= 1.45, y += Math.round(s)) { g.fillStyle = fl[0]; g.fillRect(0, y, W, 1); }
-    // escudo en el piso (elipse aplastada)
+    // escudo del club pintado en el piso: se dibuja derecho y se aplasta (perspectiva)
     const cx = 190, cy = floorY + 30;
-    ellipse(g, cx, cy, 52, 15, mix(k.shirt, '#000', 0.25));
-    ellipse(g, cx, cy, 48, 13, k.shirt);
-    ellipse(g, cx, cy, 40, 10, k.alt2 && k.alt2 !== k.shirt ? k.alt2 : dark(k.shirt, 0.25));
-    const sh = team.short;
-    pxText(g, sh, cx - Math.round(pxTextW(sh, 2) / 2), cy - 5, ink === '#ffffff' && (k.alt2 || '').toLowerCase() === '#ffffff' ? '#1d2230' : ink, 2);
+    const alt = k.alt2 && k.alt2 !== k.shirt ? k.alt2 : dark(k.shirt, 0.3);
+    ellipse(g, cx, cy, 52, 15, mix(alt, fl[1], 0.35));
+    ellipse(g, cx, cy, 49, 13.5, mix(k.shirt, fl[1], 0.25));
+    ellipse(g, cx, cy, 46, 12, mix(alt, fl[1], 0.35));
+    ellipse(g, cx, cy, 44, 11, mix(k.shirt, fl[1], 0.3));
+    const cc = canvas(64, 80), cg = cc.getContext('2d');
+    crest(cg, 32, 38, k, team.short, 2);
+    g.save(); g.globalAlpha = 0.85;
+    g.drawImage(cc, cx - 22, cy - 10, 44, 20);
+    g.restore();
     // luz cálida de los tubos sobre la pared
     g.save(); g.globalCompositeOperation = 'screen';
     for (const lx of [60, 190, 320]) {
@@ -275,6 +286,11 @@ export class Locker {
 
   // ---------- primer plano: las manos atan los cordones ----------
   drawClose(g, W, H, t) {
+    this.close.draw(g, W, H, t);
+    vignette(g, W, H);
+  }
+
+  drawCloseOld(g, W, H, t) {
     const k = this.kit, pk = this.people[0].kit;
     const gy = Math.round(H * 0.8);                     // el piso
     const fl = ramp(mix(k.shirt, '#1a1d26', 0.78)), wood = ramp('#9a6a3c');

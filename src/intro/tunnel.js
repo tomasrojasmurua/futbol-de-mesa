@@ -8,7 +8,7 @@ import { lookOf, kitFor, paint } from './cast.js';
 import { rgb, mix, dark, ramp, clamp, lerp, ease, seeded, fillPoly, line, drawSprite, canvas, ellipse, tinted, crest } from './common.js';
 import { vignette } from './locker.js';
 
-const NEAR = 9, FAR = 10, KID = 15; // escalas
+const NEAR = 8, FAR = 9, KID = 12; // escalas
 const FR = 6;                         // cuadros por paso
 const SPEED = 64;                     // px por segundo
 const EXIT = 520;                     // dónde termina el túnel
@@ -44,8 +44,9 @@ export class Tunnel {
     this.types = types;
     for (const [id, [kit, sc, opt]] of Object.entries(types)) for (let f = 0; f < FR; f++) cast.want(`tun-${id}`, f, at, () => paint(walk(f / FR, opt), kit, 'side', sc));
     // las dos filas (x de partida; adelante el árbitro)
-    this.near = [['rf', 340], ['h0', 292, true], ['h1', 244, true], ['ht', 198], ['h0', 154], ['h1', 110], ['ht', 66], ['h0', 22]];
-    this.far = [['a0', 314], ['a1', 270], ['a0', 226], ['a1', 182], ['a0', 138], ['a1', 94], ['a0', 50]];
+    // (bien separados: la fila de atrás camina en los huecos de la de adelante)
+    this.near = [['rf', 352], ['h1', 286, true], ['h1', 220, true], ['ht', 154], ['h0', 88], ['ht', 22]];
+    this.far = [['a1', 320], ['a0', 254], ['a1', 188], ['a0', 122], ['a1', 56]];
     this.bg = null;
   }
 
@@ -53,8 +54,8 @@ export class Tunnel {
     const W = TW, cv = canvas(W, H), g = cv.getContext('2d');
     const k = this.o.kits, st = this.st;
     const floorY = this.floorY = Math.round(H * 0.82);
-    const ceilB = Math.round(H * 0.34), wallB = floorY - 30;
-    this.farY = floorY - 18;
+    const ceilB = Math.round(H * 0.3), wallB = floorY - 58;
+    this.farY = floorY - 40;
     // techo de hormigón con vigas y lámparas con rejilla
     g.fillStyle = '#2b2e36'; g.fillRect(0, 0, W, ceilB);
     for (let y = 0; y < ceilB; y += 6) { g.fillStyle = '#30333c'; g.fillRect(0, y, W, 1); }
@@ -137,8 +138,12 @@ export class Tunnel {
       const img = d.far ? this.shade(s, d.id, d.f) : s.cv;
       drawSprite(g, s, x, d.y, false, img);
       if (d.kid) {
-        const ks = cast.get('tun-kid', d.f, FR);
-        if (ks) drawSprite(g, ks, x + 9, d.y + 3, false);
+        // el chico camina del lado de la cámara, de la mano del jugador
+        const ks = cast.get('tun-kid', (d.f + 3) % FR, FR);
+        if (ks) {
+          g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(Math.round(x - 2), d.y + 7, 20, 2);
+          drawSprite(g, ks, x + 8, d.y + 8, false);
+        }
       }
     }
     // resplandor de la salida: crece al final hasta tapar todo
@@ -157,7 +162,7 @@ export class Tunnel {
   shade(s, id, f) {
     this.dim = this.dim || new Map();
     const key = `${id}#${f}`;
-    if (!this.dim.has(key)) this.dim.set(key, tinted(s.cv, '#b4b8c4'));
+    if (!this.dim.has(key)) this.dim.set(key, tinted(s.cv, '#9296a6'));
     return this.dim.get(key);
   }
 }

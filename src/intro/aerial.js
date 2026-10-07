@@ -365,7 +365,7 @@ export class Aerial {
     const cx = C.x, cz = C.z, camY = C.y, a = C.yaw;
     const fx = Math.sin(a), fz = Math.cos(a);     // hacia adelante (horizontal)
     const rx = -fz, rz = fx;                       // hacia la derecha
-    const f = W * 1.02;
+    const f = W * 1.02 * (C.zoom || 1);
     const hz = H * (C.aim ?? 0.5) - f * Math.tan(C.look);
     this.cam = { cx, cz, camY, fx, fz, rx, rz, f, hz, inside: !!C.inside };
     // cielo y montañas de fondo

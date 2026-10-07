@@ -52,6 +52,7 @@ export class Intro {
       const r = wrap.getBoundingClientRect();
       const H = clamp(Math.round((LW * r.height) / Math.max(1, r.width)), 300, 400);
       if (cv.height !== H) { cv.width = LW; cv.height = H; }
+      this.cast.W = LW; this.cast.H = H;
       cv.style.aspectRatio = `${LW} / ${H}`;
     };
     size();

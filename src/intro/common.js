@@ -11,7 +11,11 @@ export function seeded(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; 
 export function hash2(x, y) { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); }
 
 // ---------- color ----------
-export const rgb = (c) => (Array.isArray(c) ? c : hexRgb(c && c[0] === '#' ? c : '#888888'));
+export const rgb = (c) => {
+  if (Array.isArray(c)) return c;
+  if (typeof c === 'string' && c.startsWith('rgb')) return c.slice(c.indexOf('(') + 1, -1).split(',').slice(0, 3).map(Number);
+  return hexRgb(c && c[0] === '#' ? c : '#888888');
+};
 export const css = (v, a = 1) => (a >= 1 ? `rgb(${v.map((n) => clamp(Math.round(n), 0, 255)).join(',')})` : `rgba(${v.map((n) => clamp(Math.round(n), 0, 255)).join(',')},${a})`);
 export const mixv = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const mulv = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
@@ -22,6 +26,12 @@ export const lum = (c) => { const [r, g, b] = rgb(c); return 0.299 * r + 0.587 *
 export function ramp(c) {
   const v = rgb(c), L = lum(v) / 255;
   return [mixv(mulv(v, 0.42 + L * 0.12), [36, 20, 46], 0.35), mixv(mulv(v, 0.7 + L * 0.06), [56, 36, 74], 0.16), v, mixv(v, [255, 243, 220], 0.26), mixv(v, [255, 250, 240], 0.52)].map((x) => css(x));
+}
+
+// Rampa de piel: sombras rojizas, luces cálidas.
+export function skinRamp(c) {
+  const v = rgb(c);
+  return [mixv(mulv(v, 0.55), [69, 24, 42], 0.3), mixv(mulv(v, 0.8), [122, 46, 60], 0.14), v, mixv(v, [255, 206, 190], 0.2), mixv(v, [255, 226, 214], 0.36)].map((x) => css(x));
 }
 
 // Cielo en franjas (de arriba hacia el horizonte), igual que la previa.

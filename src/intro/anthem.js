@@ -7,15 +7,18 @@ import { LIGHT } from '../matchday.js';
 import { rgb, mix, dark, clamp, lerp, ease, seeded, fillPoly, drawSprite, canvas, ellipse, tinted, paintSky, paintRain } from './common.js';
 import { vignette } from './locker.js';
 
-const SC = 7;           // de cerca (≈123 px de alto)
+const SC = 5;           // de cerca (≈170 px de alto: se ven de las rodillas para arriba)
 
 const HALF = 1.9;       // segundos por fila
 
+// Cómo escucha cada uno el himno: manos juntas adelante, atrás, o la mano en el pecho.
+const LEGS = () => [{ a: 0.08, f: 0, k: 0.06 }, { a: 0.08, f: 0, k: 0.06 }];
 const POSES = {
-  linked: () => ({ legs: [{ a: 0.1, f: 0, k: 0.06 }, { a: 0.1, f: 0, k: 0.06 }], arms: [{ a: 1.5, e: -0.7, f: 0, ef: 0 }, { a: 1.5, e: -0.7, f: 0, ef: 0 }] }),
-  heart: () => ({ legs: [{ a: 0.08, f: 0, k: 0.06 }, { a: 0.08, f: 0, k: 0.06 }], arms: [{ a: 0.14, e: 0.12, f: 0, ef: 0.3 }, { a: 0.3, e: -2.6, f: 0.5 }] }),
-  still: () => ({ legs: [{ a: 0.08, f: 0, k: 0.06 }, { a: 0.08, f: 0, k: 0.06 }], arms: [{ a: 0.05, e: -0.3, f: -0.6, ef: 0 }, { a: 0.05, e: -0.3, f: -0.6, ef: 0 }] }),
+  clasp: () => ({ legs: LEGS(), arms: [{ a: 0.12, e: -0.95, f: 0.25, ef: 0.5 }, { a: 0.12, e: -0.95, f: 0.25, ef: 0.5 }] }),
+  behind: () => ({ legs: LEGS(), arms: [{ a: 0.18, e: -0.3, f: -0.5, ef: -0.4 }, { a: 0.18, e: -0.3, f: -0.5, ef: -0.4 }] }),
+  heart: () => ({ legs: LEGS(), arms: [{ a: 0.07, e: 0.04, f: 0, ef: 0.1 }, { a: 0.3, e: -2.6, f: 0.5 }] }),
 };
+const ORDER = [['clasp', 'heart', 'behind', 'clasp', 'heart'], ['heart', 'behind', 'heart', 'clasp']];
 
 export class Anthem {
   // o: { teams, kits, cast, at, setup }
@@ -26,7 +29,7 @@ export class Anthem {
     this.lines = [0, 1].map((side) => {
       const order = side ? [10, 9, 6, 4] : [9, 10, 7, 4, 2];
       return order.map((i, n) => {
-        const pose = side ? (n % 2 ? 'still' : 'heart') : 'linked';
+        const pose = ORDER[side][n];
         const kit = kitFor(kits[side], lookOf(teams[side], side, i), NUMS[i]);
         const anim = `anthem-${side}-${i}`;
         cast.want(anim, 0, at + side * HALF, () => { const s = paint(POSES[pose](), kit, 'front', SC); return { ...s, cv: tinted(s.cv, tint) }; });
@@ -46,43 +49,61 @@ export class Anthem {
     g.fillStyle = night ? '#20232c' : '#7d838c'; g.fillRect(0, sky, W, 5);
     g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, sky + 5, W, 3);
     for (let x = -(off % 24); x < W; x += 24) { g.fillStyle = night ? '#fff6d0' : '#cfd3da'; g.fillRect(Math.round(x), sky + 1, 4, 2); }
-    // gradas
+    // gradas: la tribuna va fuera de foco (se pinta a la mitad y se agranda, con poco contraste)
     const seat = night ? '#1a1d26' : '#4a4f5a';
-    g.fillStyle = seat; g.fillRect(0, sky + 5, W, standB - sky - 5);
+    const top = sky + 5, sh2 = Math.ceil((standB - top) / 2), sw2 = Math.ceil(W / 2) + 2;
+    const cv = this.blur && this.blur.height === sh2 ? this.blur : (this.blur = canvas(sw2, sh2));
+    const b = cv.getContext('2d');
+    b.fillStyle = seat; b.fillRect(0, 0, sw2, sh2);
     const k0 = kits[side], k1 = kits[1 - side];
     const pal = [k0.shirt, k0.shirt, k0.shirt, k0.alt2 || k0.shirt, '#e8e2d0', '#2c2f38', k1.shirt];
     const skins = ['#e0a77c', '#c68657', '#f1c7a0', '#9c6440'];
-    for (let y = sky + 8, r = 0; y < standB - 3; y += 5, r++) {
-      for (let c = -1; c < W / 4 + 2; c++) {
-        const wx = c * 4 + Math.floor(off / 4) * 4, x = c * 4 - (off % 4) + (r % 2 ? 2 : 0);
+    const o2 = off / 2;
+    for (let y = 1, r = 0; y < sh2 - 1; y += 3, r++) {
+      // cada fila un poco más oscura hacia arriba (lejos de los focos)
+      for (let c = -1; c < sw2 / 2 + 2; c++) {
+        const wx = c + Math.floor(o2 / 2), x = c * 2 - (o2 % 2) + (r % 2);
         const n = wx * 13 + r * 71 + side * 7;
-        if (seeded(n + 9) < 0.06) continue;
-        const col = pal[Math.floor(seeded(n + 1) * pal.length)];
-        const hop = Math.sin(t * 5 + seeded(n + 3) * 6.28) > 0.75 ? -1 : 0;
-        g.fillStyle = col; g.fillRect(Math.round(x), y + 2 + hop, 3, 3);
-        g.fillStyle = skins[Math.floor(seeded(n + 5) * 4)]; g.fillRect(Math.round(x) + 1, y + hop, 2, 2);
-        // brazos arriba de algunos
-        if (seeded(n + 6) < 0.12) { g.fillStyle = skins[0]; g.fillRect(Math.round(x), y - 2 + hop, 1, 2); g.fillRect(Math.round(x) + 3, y - 2 + hop, 1, 2); }
+        if (seeded(n + 9) < 0.05) continue;
+        const hop = Math.sin(t * 5 + seeded(n + 3) * 6.28) > 0.8 ? -1 : 0;
+        b.fillStyle = pal[Math.floor(seeded(n + 1) * pal.length)]; b.fillRect(Math.round(x), y + 1 + hop, 2, 2);
+        b.fillStyle = skins[Math.floor(seeded(n + 5) * 4)]; b.fillRect(Math.round(x), y + hop, 1, 1);
+        if (seeded(n + 6) < 0.1) { b.fillStyle = skins[1]; b.fillRect(Math.round(x) + 1, y - 1 + hop, 1, 1); }
       }
     }
     // banderas grandes que flamean en la tribuna
     for (let i = 0; i < 4; i++) {
-      const fx = Math.round(i * 70 + 20 - (off * 1) % 280);
-      const x0 = ((fx % 280) + 280) % 280 - 40, y0 = sky + 16 + (i % 2) * 22;
+      const x0 = (((Math.round(i * 35 + 10 - o2) % 140) + 140) % 140) - 20, y0 = 5 + (i % 2) * 11;
       const kk = i === 3 ? k1 : k0;
-      for (let x = 0; x < 30; x++) {
-        const wave = Math.round(Math.sin(t * 6 + x * 0.35 + i) * 2);
-        const hh = 18;
-        for (let y = 0; y < hh; y++) {
-          const band = Math.floor((y / hh) * 3);
-          let c = band === 1 ? (kk.alt2 || '#ffffff') : kk.shirt;
-          if (kk.pattern === 'stripes') c = Math.floor(x / 5) % 2 ? (kk.alt2 || '#fff') : kk.shirt;
-          const sh = Math.sin(t * 6 + x * 0.35 + i) > 0.5 ? 0.15 : Math.sin(t * 6 + x * 0.35 + i) < -0.5 ? -0.15 : 0;
-          g.fillStyle = sh > 0 ? mix(c, '#ffffff', 0.18) : sh < 0 ? dark(c, 0.22) : c;
-          g.fillRect(x0 + x, y0 + y + wave, 1, 1);
+      for (let x = 0; x < 15; x++) {
+        const wv = Math.sin(t * 6 + x * 0.7 + i), wave = Math.round(wv);
+        for (let y = 0; y < 9; y++) {
+          let c = Math.floor((y / 9) * 3) === 1 ? (kk.alt2 || '#ffffff') : kk.shirt;
+          if (kk.pattern === 'stripes') c = Math.floor(x / 3) % 2 ? (kk.alt2 || '#fff') : kk.shirt;
+          b.fillStyle = wv > 0.5 ? mix(c, '#ffffff', 0.15) : wv < -0.5 ? dark(c, 0.2) : c;
+          b.fillRect(x0 + x, y0 + y + wave, 1, 1);
         }
       }
-      g.fillStyle = '#8a8f99'; g.fillRect(x0 - 1, y0 - 3, 1, 26);
+    }
+    // neblina: baja el contraste (la tribuna queda atrás, fuera de foco)
+    b.fillStyle = night ? 'rgba(20,24,36,0.32)' : 'rgba(150,156,168,0.22)'; b.fillRect(0, 0, sw2, sh2);
+    // desenfoque: se promedia a la mitad (cada bloque mezcla varias personas) y se agranda
+    const qw = Math.ceil(sw2 / 2), qh = Math.ceil(sh2 / 2);
+    const q = this.blur2 && this.blur2.height === qh ? this.blur2 : (this.blur2 = canvas(qw, qh));
+    const qg = q.getContext('2d');
+    qg.imageSmoothingEnabled = true; qg.imageSmoothingQuality = 'medium';
+    qg.clearRect(0, 0, qw, qh); qg.drawImage(cv, 0, 0, qw, qh);
+    g.save(); g.imageSmoothingEnabled = false;
+    g.imageSmoothingEnabled = true;
+    g.drawImage(q, -(off % 4), top, qw * 4, qh * 4);
+    g.restore();
+    // destellos de los celulares y luces en la tribuna (de noche, como bokeh)
+    if (night) for (let i = 0; i < 14; i++) {
+      const on = Math.sin(t * 3 + i * 7.1) > 0.6;
+      if (!on) continue;
+      const x = Math.round(((seeded(i + side * 40) * W * 1.5 - off * 0.5) % W + W) % W), y = Math.round(top + 4 + seeded(i + 9) * (standB - top - 10));
+      g.fillStyle = 'rgba(255,250,235,0.35)'; g.fillRect(x - 1, y - 1, 4, 4);
+      g.fillStyle = 'rgba(255,252,242,0.8)'; g.fillRect(x, y, 2, 2);
     }
     // carteles LED y el pasto
     g.fillStyle = '#0f1117'; g.fillRect(0, board, W, 9);
@@ -111,11 +132,11 @@ export class Anthem {
     const side = t < HALF ? 0 : 1;
     const u = side ? (t - HALF) / HALF : t / HALF;
     // el fondo se mueve más lento que los jugadores (paralaje)
-    const pan = side ? lerp(150, 0, ease(u)) : lerp(0, 150, ease(u));
+    const gap = 80, line = this.lines[side];
+    const span = 40 + (line.length - 1) * gap + 40 - W;
+    const pan = side ? lerp(span, 0, ease(u)) : lerp(0, span, ease(u));
     this.paintBg(g, W, H, side, t, pan * 0.35);
-    const line = this.lines[side];
-    const gap = side ? 64 : 56;
-    const feet = Math.round(H * 0.9);
+    const feet = Math.round(H * 1.08);
     line.forEach((p, n) => {
       const s = this.o.cast.get(p.anim, 0, 1);
       if (!s) return;
