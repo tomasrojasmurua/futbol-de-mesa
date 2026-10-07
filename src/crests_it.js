@@ -67,14 +67,12 @@ export const CRESTS_IT = {
     rect(g, WH, 8, 11, 2, 12);
     rect(g, WH, 12, 11, 2, 12); rect(g, WH, 18, 11, 2, 12); poly(g, WH, [[12, 11], [14, 11], [16, 17], [18, 11], [20, 11], [16, 22]]);
   } },
-  // Juventus: las dos J blancas, la grande con el gancho hacia la izquierda.
+  // Juventus: el nombre arriba y las dos J negras que forman el escudo, la chica con la barra arriba.
   JUV: { draw(g) {
-    const J = (x, top, w, h) => {
-      rect(g, WH, x, top, w, h);
-      poly(g, WH, [[x, top + h - 1], [x + w, top + h - 1], [x + w - 1, top + h + 4], [x - 3, top + h + 7], [x - 7, top + h + 4], [x - 7, top + h + 1], [x - 3, top + h + 2], [x, top + h - 2]]);
-      rect(g, '#aab0ba', x + w - 1, top, 1, h);
-    };
-    J(8, 2, 4, 15); J(18, 2, 5, 19);
+    poly(g, WH, [[3, 2], [24, 2], [24, 22], [20, 29], [13.5, 32.6], [7, 29], [3, 22]]);
+    word(g, 'JUVE', 6, 3, BK);
+    poly(g, BK, [[4, 10], [13, 10], [13, 21], [11, 25], [4, 27.5], [4, 25.5], [8, 24], [10, 21], [10, 12], [4, 12]]);
+    poly(g, BK, [[17, 10], [21, 10], [21, 21], [18, 27], [9, 31], [9, 29], [15, 25.5], [17, 21]]);
   } },
   // Lazio: águila dorada de alas abiertas sobre el escudo celeste y blanco.
   LAZ: { draw(g) {
