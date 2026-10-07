@@ -155,4 +155,48 @@ export const CRESTS_AR = {
     rect(g, WH, 6, 12, 15, 7); word(g, 'IAC', 8, 13, RED);
     g.restore();
   } },
+  // Atlético Tucumán: estrella dorada, franjas celestes y blancas y la banda con C.A.T.
+  ATU: { draw(g) {
+    const GD = '#9a7b2c', SB = '#79b6e0';
+    star(g, GD, 13.5, 3.6, 3.6);
+    const S = (i) => [[3 + i, 8 + i], [24 - i, 8 + i], [24 - i, 21], [20 - i * 0.6, 27 - i * 0.4], [13.5, 32.6 - i], [7 + i * 0.6, 27 - i * 0.4], [3 + i, 21]];
+    poly(g, GD, S(0)); poly(g, WH, S(1.2)); clipPoly(g, S(1.2));
+    vstripes(g, [SB, WH, SB, WH, SB, WH, SB], 3, 24, 8, 34);
+    poly(g, WH, [[0, 27], [0, 19], [28, 9], [28, 17]]);
+    poly(g, GD, [[0, 18.2], [28, 8.2], [28, 9.4], [0, 19.4]]); poly(g, GD, [[0, 26.2], [28, 16.2], [28, 17.4], [0, 27.4]]);
+    word(g, 'CAT', 8, 16, GD);
+    g.restore();
+  } },
+  // Barracas Central: franjas rojas y blancas, el arco con la cruz y el laurel.
+  BAC: { draw(g) {
+    const R = '#e2001a', GL = '#0f9a3a';
+    [-1, 1].forEach((d) => { for (let i = 0; i < 6; i++) { const a = 0.2 + i * 0.28, x = 13.5 + d * (7.6 + 3.6 * Math.sin(a)), y = 12.5 - 8.6 * Math.sin(a * 1.3) * 0.9 - i * 0.2; poly(g, GL, [[x, y - 1.6], [x + d * 1, y], [x, y + 1.6], [x - d * 0.8, y]]); } });
+    ring(g, R, 13.5, 14, 7, 1.1); rect(g, WH, 7, 14, 14, 2);
+    clipCirc(g, 6.2, 13.5, 14); rect(g, WH, 6, 6, 16, 8); rect(g, R, 13, 6, 1, 9); rect(g, R, 8, 10, 11, 1);
+    px(g, R, 9, 7, 10, 7, 9, 8, 16, 7, 17, 7, 17, 8, 9, 12, 10, 12, 9, 13, 16, 12, 17, 12, 17, 13);
+    g.restore();
+    const S = (i) => [[2 + i, 18], [5 + i * 0.4, 14 + i * 0.4], [22 - i * 0.4, 14 + i * 0.4], [25 - i, 18], [23.4 - i, 20], [23.4 - i, 24], [22 - i * 0.6, 28], [13.5, 33.2 - i], [5 + i * 0.6, 28], [3.6 + i, 24], [3.6 + i, 20]];
+    poly(g, R, S(0)); poly(g, WH, S(1.2)); clipPoly(g, S(1.2));
+    vstripes(g, alt(WH, R, 9), 3, 24, 13, 34);
+    g.restore();
+    poly(g, R, [[10.6, 14], [16.4, 14], [13.5, 17.6]]); poly(g, WH, [[11.8, 14], [15.2, 14], [13.5, 16.2]]);
+  } },
+  // Central Córdoba: franjas negras y blancas con el círculo ACC.
+  CCO: { draw(g) {
+    const S = [[2, 8], [4, 8], [8, 10], [10, 8], [10, 2], [17, 2], [17, 8], [19, 10], [23, 8], [25, 8], [25, 20], [21, 27], [13.5, 33.4], [6, 27], [2, 20]];
+    poly(g, WH, S); clipPoly(g, S);
+    rect(g, BK, 0, 0, 28, 34); rect(g, WH, 11, 3, 5, 31); rect(g, WH, 5, 11, 4, 15); rect(g, WH, 18, 11, 4, 15);
+    poly(g, WH, [[5, 26], [9, 26], [9, 29], [7, 27.5]]); poly(g, WH, [[18, 26], [22, 26], [20, 27.5], [18, 29]]);
+    g.restore();
+    circ(g, BK, 13.5, 18, 7.6); circ(g, WH, 13.5, 18, 6.8); circ(g, BK, 13.5, 18, 6); circ(g, WH, 13.5, 18, 5.2);
+    word(g, 'ACC', 8, 15, BK);
+  } },
+  // Deportivo Riestra: escudo blanco de doble borde con la franja negra y las letras A.F.B.C.
+  RIE: { draw(g) {
+    const S = (i) => [[2 + i, 6 + i], [10 + i, 4 + i], [13.5, 2 + i], [17 - i, 4 + i], [25 - i, 6 + i], [25 - i, 20], [21 - i, 27 - i * 0.4], [13.5, 33 - i], [6 + i, 27 - i * 0.4], [2 + i, 20]];
+    poly(g, BK, S(0)); poly(g, WH, S(1)); poly(g, BK, S(2)); poly(g, WH, S(3)); clipPoly(g, S(3));
+    rect(g, BK, 0, 13, 28, 8); word(g, 'RIE', 8, 15, WH);
+    word(g, 'A', 6, 7, BK); word(g, 'F', 16, 7, BK); word(g, 'B', 8, 22, BK); word(g, 'C', 15, 22, BK);
+    g.restore();
+  } },
 };
