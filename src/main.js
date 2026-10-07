@@ -1033,8 +1033,12 @@ function cpuPrematch(awayId = pickCpuOpponent()) {
   });
 }
 
+// El rival de la IA sale del mismo mundo que tu equipo: si eliges una
+// selección, te toca otra selección; si eliges un club, te toca otro club.
 function pickCpuOpponent() {
-  const pool = TEAMS.filter((t) => t.id !== myTeamId);
+  const mine = teamById(myTeamId).group === 'Selecciones';
+  const same = TEAMS.filter((t) => t.id !== myTeamId && (t.group === 'Selecciones') === mine);
+  const pool = same.length ? same : TEAMS.filter((t) => t.id !== myTeamId);
   return pool[Math.floor(Math.random() * pool.length)].id;
 }
 
