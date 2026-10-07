@@ -90,12 +90,14 @@ export const CRESTS_AR = {
     g.restore();
     [[3, 27], [8, 30], [13.5, 31], [19, 30], [24, 27]].forEach(([x, y]) => star(g, '#d4202c', x, y, 2));
   } },
-  // Racing: escudo celeste y blanco con RACING arriba.
+  // Racing: escudo celeste con borde azul marino, RAC arriba y las tres barras blancas.
   RAC: { draw(g) {
-    poly(g, '#27337a', SHIELD(0)); clipPoly(g, SHIELD(1.4));
-    vstripes(g, alt('#69b4e6', WH, 6), 0, 28, 0, 34);
-    rect(g, '#69b4e6', 0, 0, 28, 9); word(g, 'RAC', 8, 3, WH);
-    g.restore();
+    const N = '#00263f', C = '#009ddf';
+    poly(g, N, [[2, 2], [25, 2], [25, 23], [22, 27], [18, 29], [13.5, 32], [9, 29], [5, 27], [2, 23]]);
+    poly(g, C, [[3.4, 3.4], [23.6, 3.4], [23.6, 22.6], [21, 25.6], [17.6, 27.4], [13.5, 30], [9.4, 27.4], [6, 25.6], [3.4, 22.6]]);
+    word(g, 'RAC', 8, 6, WH);
+    rect(g, WH, 5, 13, 4, 11); rect(g, WH, 12, 13, 4, 14); rect(g, WH, 19, 13, 4, 11);
+    px(g, C, 13, 27);
   } },
   // River Plate: escudo blanco con la banda roja y CARP.
   RIV: { draw(g) {
