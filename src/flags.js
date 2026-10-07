@@ -185,7 +185,7 @@ const FLAGS = {
 // Bandera de cada grupo de equipos.
 export const GROUP_FLAG = {
   'Primera de Chile': 'cl', 'Liga Profesional': 'ar', 'Brasileirão': 'br', 'Liga MX': 'mx', LaLiga: 'es',
-  'Premier League': 'en', 'Serie A': 'it', Bundesliga: 'de', 'Ligue 1': 'fr', 'Primeira Liga': 'pt',
+  'Premier League': 'en', 'Serie A': 'it', Bundesliga: 'de', 'Ligue 1': 'fr', 'Primeira Liga': 'pt', 'J1 League': 'jpn',
   'Otros clubes': 'world', Selecciones: 'world',
 };
 

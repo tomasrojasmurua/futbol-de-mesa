@@ -340,6 +340,7 @@ const LEAGUE_ART = {
   de: { name: 'Bundesliga', art: 'plate' },
   fr: { name: 'Ligue 1', art: 'hex' },
   pt: { name: 'Primeira Liga', art: 'cup', o: { mat: 'silver', base: 'wood', band: 'red' } },
+  jp: { name: 'J1 League', art: 'cup', o: { mat: 'silver', base: 'black', band: 'red', handles: false, w: 8.4, top: 11 } },
 };
 export const TROPHY_LIST = [
   ...COMPS.map((c) => ({ id: c.id, name: c.name, art: c.art })),
@@ -376,8 +377,9 @@ export const ROOM_W = 200;
 export const ROOM_ROWS = [
   ['lib', 'ucl', 'wc', 'uel', 'sud'],
   ['ca', 'calc', 'euro'],
-  ['lg_cl', 'lg_ar', 'lg_br', 'lg_mx', 'lg_pt'],
-  ['lg_es', 'lg_en', 'lg_it', 'lg_de', 'lg_fr'],
+  ['lg_cl', 'lg_ar', 'lg_br', 'lg_mx'],
+  ['lg_es', 'lg_en', 'lg_it', 'lg_de'],
+  ['lg_fr', 'lg_pt', 'lg_jp'],
 ];
 export function paintRoom(cv, won, kit) {
   const W = ROOM_W, TOP = 46, SHELF = 66, H = TOP + SHELF * ROOM_ROWS.length + 58;
