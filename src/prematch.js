@@ -5,7 +5,8 @@
 import { P4 } from './players.js';
 import { p4Kit } from './playerkit.js';
 import { teamById, kitsClash, hexRgb } from './teams.js';
-import { STADIUMS, stadiumFor } from './stadiums.js';
+import { STADIUMS, stadiumFor, stadiumCountry, COUNTRIES, CONTINENTS } from './stadiums.js';
+import { flagUrl } from './flags.js';
 import { LENGTHS } from './game.js';
 import { LEVELS } from './host.js';
 import { TIMES, WEATHERS, weatherLabel, LIGHT } from './matchday.js';
@@ -371,16 +372,32 @@ export function openPrematch(o) {
     const pick = b.closest('[data-stadium]');
     if (pick) { st.setup.stadium = pick.dataset.stadium; closeList(); renderOpts(); layout(); changed(); return; }
     if (b.id === 'pre-list-close') closeList();
+    if (b.dataset.country) openList(b.dataset.country);
+    if (b.hasAttribute('data-countries')) openList();
   };
-  // Todos los estadios en una lista, para no pasar uno por uno.
-  const openList = () => {
+  // Todos los estadios, separados por continente y país (como los equipos).
+  const openList = (country) => {
     const box = $('#pre-list');
-    const row = (id) => { const s = STADIUMS[id]; return `<button data-stadium="${id}" class="${id === st.setup.stadium ? 'on' : ''}"><b>${s.name}</b><small>${s.city || ''}</small></button>`; };
-    box.innerHTML = `<header><b>Elige el estadio</b><button id="pre-list-close" aria-label="Cerrar">✕</button></header><div>
-      <h4>De los equipos</h4>${stadia.slice(0, 2).map(row).join('')}
-      <h4>Todos los estadios</h4>${stadia.slice(2).map(row).join('')}</div>`;
+    const cur = st.setup.stadium;
+    const row = (id) => { const sd = STADIUMS[id]; return `<button data-stadium="${id}" class="${id === cur ? 'on' : ''}"><b>${sd.name}</b><small>${sd.city || ''}</small></button>`; };
+    const flag = (c) => `<img class="pre-flag" src="${flagUrl(COUNTRIES[c][0])}" alt="">`;
+    if (country) {
+      const ids = stadia.filter((id) => stadiumCountry(id) === country);
+      box.innerHTML = `<header><button data-countries aria-label="Volver">◂</button>${flag(country)}<b>${country}</b><button id="pre-list-close" aria-label="Cerrar">✕</button></header><div>${ids.map(row).join('')}</div>`;
+    } else {
+      const count = {};
+      for (const id of stadia) { const c = stadiumCountry(id); if (c) count[c] = (count[c] || 0) + 1; }
+      const mineC = stadiumCountry(cur);
+      const groups = CONTINENTS.map((k) => {
+        const cs = Object.keys(count).filter((c) => COUNTRIES[c][1] === k).sort((x, y) => x.localeCompare(y, 'es'));
+        return cs.length ? `<h4>${k}</h4><div class="pre-countries">${cs.map((c) => `<button data-country="${c}" class="${c === mineC ? 'on' : ''}">${flag(c)}<b>${c}</b><small>${count[c]}</small></button>`).join('')}</div>` : '';
+      }).join('');
+      box.innerHTML = `<header><b>Elige el estadio</b><button id="pre-list-close" aria-label="Cerrar">✕</button></header><div>
+        <h4>De los equipos</h4>${stadia.slice(0, 2).map(row).join('')}${groups}</div>`;
+    }
     box.hidden = false;
-    const on = box.querySelector('[data-stadium].on');
+    box.querySelector('div').scrollTop = 0;
+    const on = country && box.querySelector('[data-stadium].on');
     if (on) on.scrollIntoView({ block: 'center' });
   };
   const closeList = () => { $('#pre-list').hidden = true; };

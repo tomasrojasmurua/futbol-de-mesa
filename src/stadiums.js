@@ -115,3 +115,28 @@ for (const l of LEAGUES) {
 export function stadiumFor(teamId) {
   return STADIUMS[teamId] || S('Estadio', '', {});
 }
+
+// País y continente de cada estadio, para buscarlo en la lista de la previa.
+// flag: la bandera en pixel art de flags.js (si no hay, la del mundo).
+export const COUNTRIES = {
+  Argentina: ['ar', 'América'], Bolivia: ['bol', 'América'], Brasil: ['br', 'América'], Canadá: ['can', 'América'],
+  Chile: ['cl', 'América'], Colombia: ['col', 'América'], Ecuador: ['ecu', 'América'], 'Estados Unidos': ['usa', 'América'],
+  México: ['mx', 'América'], Paraguay: ['par', 'América'], Perú: ['per', 'América'], Uruguay: ['uru', 'América'], Venezuela: ['ven', 'América'],
+  Alemania: ['de', 'Europa'], Bélgica: ['bel', 'Europa'], Croacia: ['cro', 'Europa'], Dinamarca: ['den', 'Europa'], Escocia: ['world', 'Europa'],
+  España: ['es', 'Europa'], Francia: ['fr', 'Europa'], Inglaterra: ['en', 'Europa'], Italia: ['it', 'Europa'], 'Países Bajos': ['ned', 'Europa'],
+  Portugal: ['pt', 'Europa'], Suiza: ['sui', 'Europa'], Turquía: ['world', 'Europa'],
+  Marruecos: ['mar', 'África'], Senegal: ['sen', 'África'],
+  'Corea del Sur': ['kor', 'Asia'], Japón: ['jpn', 'Asia'],
+};
+export const CONTINENTS = ['América', 'Europa', 'África', 'Asia'];
+// Clubes que no están en ninguna liga del modo carrera.
+const CLUB_COUNTRY = { pen: 'Uruguay', nac: 'Uruguay', atn: 'Colombia', uni: 'Perú', ali: 'Perú', aja: 'Países Bajos', psv: 'Países Bajos', cel: 'Escocia', gal: 'Turquía' };
+const NATION_COUNTRY = {
+  arg: 'Argentina', chi: 'Chile', bra: 'Brasil', uru: 'Uruguay', col: 'Colombia', per: 'Perú', mex: 'México', esp: 'España', fra: 'Francia',
+  ger: 'Alemania', eng: 'Inglaterra', ita: 'Italia', por: 'Portugal', ned: 'Países Bajos', cro: 'Croacia', jpn: 'Japón', ecu: 'Ecuador',
+  par: 'Paraguay', ven: 'Venezuela', bol: 'Bolivia', usa: 'Estados Unidos', bel: 'Bélgica', mar: 'Marruecos', sen: 'Senegal',
+  kor: 'Corea del Sur', sui: 'Suiza', den: 'Dinamarca', can: 'Canadá',
+};
+const BY_COUNTRY = { ...CLUB_COUNTRY, ...NATION_COUNTRY };
+for (const l of LEAGUES) for (const id of l.teams) if (!BY_COUNTRY[id]) BY_COUNTRY[id] = l.country;
+export const stadiumCountry = (id) => BY_COUNTRY[id] || null;

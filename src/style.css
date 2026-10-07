@@ -645,3 +645,12 @@ body.watching .cards .duel-card { pointer-events: none; }
 .pre-list [data-stadium] small { color: var(--mute); font-size: 15px; white-space: nowrap; }
 .pre-list [data-stadium].on { background: var(--gold); color: #14171f; }
 .pre-list [data-stadium].on small { color: #3a3000; }
+.pre-list header { gap: 10px; }
+.pre-list header b { flex: 1; }
+.pre-list header [data-countries] { color: var(--gold); }
+.pre-flag { width: 27px; height: 18px; image-rendering: pixelated; box-shadow: 0 0 0 1px #0c0f15; flex: none; }
+.pre-countries { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pre-countries button { display: flex; align-items: center; gap: 7px; padding: 7px 7px; border: 0; background: #1d2230; box-shadow: 0 0 0 2px #0c0f15; color: var(--ink); text-align: left; min-width: 0; }
+.pre-countries button b { flex: 1; min-width: 0; font-weight: 400; font-size: 17px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pre-countries button small { color: var(--mute); font-size: 15px; }
+.pre-countries button.on { box-shadow: 0 0 0 2px var(--gold); }
