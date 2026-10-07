@@ -22,7 +22,6 @@ const SHORT = {
   arquero: 'Menos chances de recibir un gol',
   capitan: 'Más chances de seguir con la pelota',
   crack: 'Más chances de seguir con la pelota',
-  lluvia: 'Menos chances de anotar',
   errordt: 'Menos chances de contragolpear',
   iluminacion: 'Más chances de anotar',
   chilena: (e) => (e.role === 'def' ? 'Menos chances de atajar' : 'Más chances de gol aunque le atajen'),
@@ -106,7 +105,7 @@ function helpsHolder(e) {
 export const VIEW_MINE = 0, VIEW_THEIRS = 1, VIEW_NEUTRAL = 2;
 
 // La frase, el cuándo y los dados de la carta, contados desde ese lado.
-// both: la carta es para los dos equipos (la Lluvia).
+// both: la carta es para los dos equipos.
 // dice = false: solo la frase y el cuándo (la carta grande); los dados quedan
 // para la ficha y para la tirada.
 export function cardBodyHtml(id, view, both, dice = true) {

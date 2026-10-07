@@ -1,6 +1,6 @@
 // Situaciones de juego: dos mazos de cartas que le pasan cosas al partido.
 //
-// - Mazo de PARTIDO (57 cartas, 20 situaciones): se roba en cuatro momentos
+// - Mazo de PARTIDO (55 cartas, 19 situaciones): se roba en cuatro momentos
 //   fijos (al 40% y al 80% de cada tiempo, en una salida). A quién le toca lo
 //   decide la jugada: el que tiene la pelota, el que defiende, el que va
 //   perdiendo o ganando, o los dos.
@@ -8,8 +8,8 @@
 //   que la cometió (el tiro libre, al que la recibió).
 //
 // Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los dados.
-// Cada carta dura una tirada del dado que nombra (y vence al terminar el tiempo);
-// la Lluvia, todo el partido, también en la tanda de penales.
+// Cada carta dura una tirada del dado que nombra (y vence al terminar el tiempo).
+// La lluvia ya no es carta: es el clima que se elige antes del partido y solo se ve.
 // Las copias de cada carta definen qué tan seguido sale.
 
 // Los cuatro dados del partido.
@@ -43,7 +43,7 @@ const F = (spec) => spec.split(' ').flatMap((x) => { const [k, n] = x.split(':')
 
 // who: poss (tiene la pelota) | def (no la tiene) | losing | winning | both.
 // tie: a quién le toca si van empatados (poss o def).
-// Todas duran una sola tirada del dado que nombran, salvo la Lluvia (todo el partido).
+// Todas duran una sola tirada del dado que nombran.
 export const CARDS = {
   hinchada: { deck: 'partido', copies: 3, who: 'losing', tie: 'poss', title: 'Ánimo de la hinchada',
     text: 'En su próximo remate que supere al arquero, todo es gol: ni palo ni afuera.',
@@ -72,9 +72,6 @@ export const CARDS = {
   crack: { deck: 'partido', copies: 3, who: 'poss', title: 'Genialidad del crack',
     text: 'En su próximo ataque que le adivinen, tres caras pasan a favor de su equipo.',
     fx: [fx('att', S, F('foul steal advance:3 counter')), fx('att', U, F('corner foul shoot:3 counter'))] },
-  lluvia: { deck: 'partido', copies: 2, who: 'both', title: 'Lluvia',
-    text: 'Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera».',
-    fx: [fx('att', 'shotBeat', F('post wide:2 goal:3'), Infinity)] },
   errordt: { deck: 'partido', copies: 2, who: 'winning', tie: 'poss', title: 'Error del DT',
     text: 'En su próxima defensa acertada pierde la contra y el rival sigue la jugada con 3 caras.',
     fx: [fx('def', S, F('foul steal:2 advance:3')), fx('def', U, F('corner foul steal shoot:3'))] },
@@ -231,7 +228,7 @@ export function foul(s, ev, A, D, rng) {
 }
 
 // Las cartas de una jugada vencen al terminar cada tiempo: solo siguen las que
-// duran todo el partido (la Lluvia y la roja).
+// duran todo el partido (la roja).
 export function expireOneUse(s) {
   if (!s.sit) return;
   s.sit.fx = s.sit.fx.filter((e) => e.uses === null);
@@ -267,10 +264,7 @@ export function afterPlay(s, ev, halfLen, rng) {
   else if (c.who === 'losing') sides = [lead === null ? tie : 1 - lead];
   else if (c.who === 'winning') sides = [lead === null ? tie : lead];
   else sides = [c.who === 'poss' ? P : R];
-  // Si ya está lloviendo, una segunda Lluvia no cambia nada.
-  const already = id === 'lluvia' && sit.rain;
-  if (id === 'lluvia') sit.rain = true;
-  for (const side of already ? [] : sides) {
+  for (const side of sides) {
     for (const e of c.fx) sit.fx.push({ ...e, uses: e.uses === Infinity ? null : e.uses, side, card: id, inst: `${id}-${sit.drawn}-${side}` });
   }
   ev.card = { deck: 'partido', id, side: sides.length > 1 ? -1 : sides[0] };
@@ -293,7 +287,7 @@ export function activeEffects(state) {
 }
 
 // Cartas que se juegan en la jugada que viene (para avisar antes de decidir).
-// Las que duran todo el partido (Lluvia, roja) no se avisan en cada jugada.
+// Las que duran todo el partido (la roja) no se avisan en cada jugada.
 const PLAY_DICE = {
   build: ['buildDef', 'buildWin'],
   attack: ['attackDef', 'attackWin', 'dribbleWin'],

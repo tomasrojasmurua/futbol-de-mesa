@@ -35,10 +35,6 @@
   <section id="screen-play" class="screen">
     <header class="bar"><button class="back" data-back>◂</button><h2>¿Cómo quieres jugar?</h2></header>
     <div class="play-list">
-      <div class="len-row" id="len-row">
-        <small>Duración</small>
-        <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
-      </div>
       <button id="btn-cpu" class="mode"><canvas data-icon="ball"></canvas><span><b>Partido rápido</b><small>Contra la IA</small></span><i>▸</i></button>
       <button id="btn-career" class="mode"><canvas data-icon="cup"></canvas><span><b>Carrera</b><small>10 ligas reales</small></span><i>▸</i></button>
       <button id="btn-cup" class="mode"><canvas data-icon="bracket"></canvas><span><b>Torneo</b><small>Mundial, Champions, Libertadores y más</small></span><i>▸</i></button>
@@ -61,6 +57,33 @@
     <header class="bar"><button class="back" id="teams-back">◂</button><h2 id="teams-title">Elige la liga</h2></header>
     <div id="team-groups" class="league-list"></div>
     <div id="team-grid" class="team-grid" hidden></div>
+  </section>
+
+  <!-- PREVIA DEL PARTIDO -->
+  <section id="screen-pre" class="screen">
+    <header class="bar"><button class="back" id="pre-back">◂</button><h2 id="pre-title">Previa del partido</h2></header>
+    <div class="pre">
+      <div class="pre-stage">
+        <canvas id="pre-scene" aria-hidden="true"></canvas>
+        <div class="pre-side" data-side="0">
+          <div class="pre-name"><b class="pre-team"></b><small class="pre-role"></small></div>
+          <div class="pre-fig"></div>
+          <div class="pre-kits"></div>
+        </div>
+        <div id="pre-opts" class="pre-opts"></div>
+        <div class="pre-side" data-side="1">
+          <div class="pre-name"><b class="pre-team"></b><small class="pre-role"></small></div>
+          <div class="pre-fig"></div>
+          <div class="pre-kits"></div>
+        </div>
+        <div id="pre-list" class="pre-list" hidden></div>
+      </div>
+      <div class="pre-foot">
+        <p id="pre-msg" class="pre-msg"></p>
+        <button id="pre-start" class="btn primary play">¡A la cancha!</button>
+        <p id="pre-wait" class="waiting"></p>
+      </div>
+    </div>
   </section>
 
   <!-- SALA -->

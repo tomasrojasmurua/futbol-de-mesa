@@ -95,8 +95,10 @@ export function d6(rng = Math.random) {
   return 1 + Math.floor(rng() * 6);
 }
 
-export function newMatch({ home, away, callerSide = 1, length = 'normal', shootout = true, cards = true }) {
+export function newMatch({ home, away, callerSide = 1, length = 'normal', shootout = true, cards = true, setup = null }) {
   return {
+    // Lo que se eligió en la previa: estadio, hora, clima y camisetas (solo se ve).
+    setup,
     // Situaciones de juego (mazos de partido y disciplina). null = sin cartas.
     sit: cards ? newSituations() : null,
     shootout,
@@ -299,7 +301,7 @@ export function resolvePlay(state, att, def, rng = Math.random) {
       if (s.score[0] === s.score[1] && s.shootout !== false) {
         // Empate: tanda de penales. Patea primero el que no sacó al inicio.
         ev.shootoutStart = true;
-        // a la tanda solo llega lo que dura todo el partido (la Lluvia)
+        // a la tanda solo llega lo que dura todo el partido
         expireOneUse(s);
         s.situation = 'shootout'; s.shotKind = 'penal';
         s.poss = 1 - s.kickoff;

@@ -115,23 +115,6 @@ const CARDART = (() => {
       for (const [y, w] of [[22, 10], [30, 14], [38, 8]]) g.fillRect(p.dx - w - 2, p.dy + y, w, 1);
       vignette(g);
     },
-    // Lluvia: noche gris, gotas cruzadas y charcos que brillan
-    lluvia(g) {
-      stadium(g, { flashes: 0, seed: 5 });
-      g.fillStyle = 'rgba(30,45,70,.42)'; g.fillRect(0, 0, W, H);
-      line(g, 41, 0.45);
-      const R = rng(9);
-      // charcos con el reflejo de los focos
-      for (const [x, y, w] of [[16, 50, 14], [70, 54, 18], [44, 46, 9]]) { g.fillStyle = 'rgba(150,175,205,.35)'; g.beginPath(); g.ellipse(x, y, w, 1.6, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(230,240,255,.55)'; g.fillRect(x - w / 3, y, w / 3, 1); }
-      const pl = S(P4.POSES.runFront(0.3, 0.8), HOME, 'front');
-      shadow(g, 52, 57, 9);
-      put(g, pl, 52, 57);
-      // pelo mojado y gotas que saltan de los pies
-      g.fillStyle = 'rgba(200,220,240,.8)'; for (let i = 0; i < 8; i++) g.fillRect(44 + R() * 18, 52 + R() * 5, 1, 1);
-      // lluvia en dos capas
-      for (let i = 0; i < 140; i++) { const x = R() * (W + 20) - 10, y = R() * H, l = 3 + R() * 4; g.fillStyle = R() < 0.4 ? 'rgba(220,232,250,.6)' : 'rgba(170,190,220,.35)'; for (let k = 0; k < l; k++) g.fillRect(Math.round(x - k * 0.35), Math.round(y + k), 1, 1); }
-      vignette(g, 0.55);
-    },
     // Lesión: el jugador en el pasto agarrándose la pierna y el médico que llega con el maletín
     lesion(g) {
       stadium(g, { flashes: 2, seed: 21 });
