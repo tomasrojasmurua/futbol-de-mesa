@@ -7,13 +7,12 @@ import { LEAGUES } from './leagues/index.js';
 // letters: texto en la tribuna · sky: cielo de la escena del remate
 // features: andes (cordillera de fondo), arch (arco de Wembley), tower (Torre de
 // los Homenajes), bombonera (un lateral vertical), kop (una cabecera entera del
-// local), trusses (vigas rojas de San Siro), dome (techo de rombos), ring (techo
-// circular blanco)
+// local), trusses (vigas rojas de San Siro), dome (techo de rombos)
 const S = (name, city, o) => ({ name, city, seats: ['#2c313d', '#3a404d'], track: null, roof: null, shape: 'rect', mow: 'stripes', letters: '', sky: 'night', features: [], ...o });
 
 const MONUMENTAL = S('Más Monumental', 'Buenos Aires', { seats: ['#d8132b', '#f2f2f2'], shape: 'round', letters: 'RIVER' });
 const NACIONAL_CL = S('Estadio Nacional', 'Santiago', { seats: ['#8f939b', '#b8bcc4'], track: '#c8552c', shape: 'round', sky: 'dusk', features: ['andes'], letters: 'CHILE' });
-const MARACANA = S('Maracanã', 'Río de Janeiro', { seats: ['#f2c230', '#2f6fc1'], shape: 'round', roof: '#eef1f4', features: ['ring'], letters: 'MARACANA' });
+const MARACANA = S('Maracanã', 'Río de Janeiro', { seats: ['#f2c230', '#2f6fc1'], shape: 'round', roof: '#eef1f4', letters: 'MARACANA' });
 const SAN_SIRO = S('San Siro', 'Milán', { seats: ['#d24a2a', '#2c56a8'], roof: '#5d636c', features: ['trusses'], mow: 'checks' });
 const OLIMPICO = S('Stadio Olimpico', 'Roma', { seats: ['#2c56a8', '#f2f2f2'], track: '#c8552c', roof: '#eef1f4', shape: 'round', letters: 'ITALIA' });
 const LUZ = S('Estádio da Luz', 'Lisboa', { seats: ['#c8102e', '#f2f2f2'], roof: '#c9ced6', letters: 'BENFICA' });
@@ -52,7 +51,7 @@ export const STADIUMS = {
   ars: S('Emirates Stadium', 'Londres', { seats: ['#ef0107', '#f2f2f2'], roof: '#eef1f4', shape: 'round', letters: 'ARSENAL' }),
   che: S('Stamford Bridge', 'Londres', { seats: ['#034694', '#f2f2f2'], roof: '#8a9099', letters: 'CHELSEA' }),
   bay: S('Allianz Arena', 'Múnich', { seats: ['#dc052d', '#7a7f88'], roof: '#dc052d', shape: 'round', features: ['dome'], letters: 'FC BAYERN' }),
-  psg: S('Parc des Princes', 'París', { seats: ['#004170', '#da291c'], roof: '#a3a9b1', shape: 'round', features: ['ring'], letters: 'ICI C EST PARIS' }),
+  psg: S('Parc des Princes', 'París', { seats: ['#004170', '#da291c'], roof: '#a3a9b1', shape: 'round', letters: 'ICI C EST PARIS' }),
   juv: S('Allianz Stadium', 'Turín', { seats: ['#f2f2f2', '#1a1a1a'], roof: '#e3e6ea', letters: 'JUVENTUS' }),
   int: { ...SAN_SIRO, letters: 'INTER' },
   mil: { ...SAN_SIRO, letters: 'MILAN' },
@@ -81,7 +80,7 @@ export const STADIUMS = {
   per: S('Estadio Nacional', 'Lima', { seats: ['#d91023', '#f2f2f2'], track: '#b8452a', sky: 'dusk', letters: 'PERU' }),
   mex: AZTECA,
   esp: S('La Cartuja', 'Sevilla', { seats: ['#c60b1e', '#ffc400'], track: '#c8552c', roof: '#e3e6ea', shape: 'round', sky: 'dusk', letters: 'ESPANA' }),
-  fra: S('Stade de France', 'Saint-Denis', { seats: ['#0055a4', '#ef4135'], roof: '#c9ced6', shape: 'round', features: ['ring'], letters: 'ALLEZ LES BLEUS' }),
+  fra: S('Stade de France', 'Saint-Denis', { seats: ['#0055a4', '#ef4135'], roof: '#c9ced6', shape: 'round', letters: 'ALLEZ LES BLEUS' }),
   ger: S('Olympiastadion', 'Berlín', { seats: ['#5d636c', '#8a9099'], track: '#2f5fb3', roof: '#d9dde3', shape: 'round', letters: 'DEUTSCHLAND' }),
   eng: S('Wembley', 'Londres', { seats: ['#c8102e', '#f2f2f2'], roof: '#c9ced6', features: ['arch'], letters: 'ENGLAND' }),
   ita: OLIMPICO,

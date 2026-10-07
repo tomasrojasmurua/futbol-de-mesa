@@ -1883,10 +1883,6 @@ export class Renderer {
       g.fillStyle = 'rgba(0,0,0,0.25)';
       g.fillRect(b, b, WW - 2 * b, 1); g.fillRect(b, WH - b - 1, WW - 2 * b, 1);
     }
-    if (st.features.includes('ring')) {
-      g.strokeStyle = '#f4f6f8'; g.lineWidth = 2;
-      g.beginPath(); g.ellipse(WW / 2, WH / 2, WW / 2 - 6, WH / 2 - 6, 0, 0, Math.PI * 2); g.stroke();
-    }
     if (st.features.includes('trusses')) {
       // torres cilíndricas en las esquinas y vigas rojas sobre el techo
       g.fillStyle = '#b3261e';
