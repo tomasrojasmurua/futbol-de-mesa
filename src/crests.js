@@ -5,6 +5,7 @@
 import { hexRgb as rgb } from './teams.js';
 import { W, H, BK, WH, poly, rect, circ, ell, px, clip, word, art, SHIELD } from './crestkit.js';
 import { CRESTS2 } from './crests2.js';
+import { CRESTS3 } from './crests3.js';
 
 const CRESTS = {
   // Colo-Colo: el cacique de perfil con su penacho, en un escudo blanco y negro.
@@ -189,7 +190,7 @@ const CRESTS = {
   },
 };
 
-const ALL = { ...CRESTS, ...CRESTS2 };
+const ALL = { ...CRESTS3, ...CRESTS, ...CRESTS2 };
 const cache = new Map();
 
 // Paleta → los píxeles quedan exactamente en los colores del club (sin mezclas).

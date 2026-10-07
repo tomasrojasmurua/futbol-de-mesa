@@ -685,7 +685,6 @@ body.watching .cards .duel-card { pointer-events: none; }
 
 /* Escudos de clubes en lugar de la camiseta */
 .kit-swatch.crest { box-shadow: none; image-rendering: pixelated; width: 24px; height: 29px; }
-.hud .kit-swatch.crest { width: 20px; height: 24px; box-shadow: none; }
 .champ .kit-swatch.crest { width: 34px; height: 41px; }
 .next-match .vsrow .kit-swatch.crest { width: 34px; height: 41px; }
 .lg-players .kit-swatch.crest, .league-table .kit-swatch.crest { width: 17px; height: 21px; }

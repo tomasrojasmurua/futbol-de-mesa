@@ -707,7 +707,7 @@ class MatchView {
     const order = this.mySide === 0 ? [0, 1] : [1, 0];
     order.forEach((side, k) => {
       $(`#hud-n${k}`).textContent = teams[side].short;
-      { const sw = $(`#hud-sw${k}`), tm = teamById(state.teams[side]), u = crestUrl(tm); sw.classList.toggle('crest', !!u); sw.style.background = u ? crestBg(u) : swatchCss(this.kits[side]); }
+      $(`#hud-sw${k}`).style.background = swatchCss(this.kits[side]);
       $(`#hud-s${k}`).textContent = state.score[side];
     });
     $('#hud-min').textContent = state.pens ? 'PENALES' : (state.half === 1 ? '1T ' : '2T ') + fmtMinute(Math.max(state.minute, state.half === 2 ? 45 : 0), state.half);
