@@ -115,23 +115,6 @@ const CARDART = (() => {
       for (const [y, w] of [[22, 10], [30, 14], [38, 8]]) g.fillRect(p.dx - w - 2, p.dy + y, w, 1);
       vignette(g);
     },
-    // Lluvia: noche gris, gotas cruzadas y charcos que brillan
-    lluvia(g) {
-      stadium(g, { flashes: 0, seed: 5 });
-      g.fillStyle = 'rgba(30,45,70,.42)'; g.fillRect(0, 0, W, H);
-      line(g, 41, 0.45);
-      const R = rng(9);
-      // charcos con el reflejo de los focos
-      for (const [x, y, w] of [[16, 50, 14], [70, 54, 18], [44, 46, 9]]) { g.fillStyle = 'rgba(150,175,205,.35)'; g.beginPath(); g.ellipse(x, y, w, 1.6, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(230,240,255,.55)'; g.fillRect(x - w / 3, y, w / 3, 1); }
-      const pl = S(P4.POSES.runFront(0.3, 0.8), HOME, 'front');
-      shadow(g, 52, 57, 9);
-      put(g, pl, 52, 57);
-      // pelo mojado y gotas que saltan de los pies
-      g.fillStyle = 'rgba(200,220,240,.8)'; for (let i = 0; i < 8; i++) g.fillRect(44 + R() * 18, 52 + R() * 5, 1, 1);
-      // lluvia en dos capas
-      for (let i = 0; i < 140; i++) { const x = R() * (W + 20) - 10, y = R() * H, l = 3 + R() * 4; g.fillStyle = R() < 0.4 ? 'rgba(220,232,250,.6)' : 'rgba(170,190,220,.35)'; for (let k = 0; k < l; k++) g.fillRect(Math.round(x - k * 0.35), Math.round(y + k), 1, 1); }
-      vignette(g, 0.55);
-    },
     // Lesión: el jugador en el pasto agarrándose la pierna y el médico que llega con el maletín
     lesion(g) {
       stadium(g, { flashes: 2, seed: 21 });
@@ -314,28 +297,6 @@ const CARDART = (() => {
       // rayos detrás del puño
       g.fillStyle = 'rgba(255,230,140,.6)';
       for (let a = 0; a < 6.28; a += 0.5) g.fillRect(Math.round(h[up][0] + Math.cos(a) * 6), Math.round(h[up][1] + Math.sin(a) * 6), 1, 1);
-      vignette(g);
-    },
-    // Decisión polémica: el árbitro dibuja la pantalla del VAR y señala el punto penal
-    polemica(g) {
-      stadium(g, { flashes: 10, seed: 111 });
-      line(g, 41, 0.6);
-      // monitor del VAR al costado
-      g.fillStyle = '#000'; g.fillRect(78, 26, 20, 15); g.fillStyle = '#0e1622'; g.fillRect(79, 27, 18, 11);
-      g.fillStyle = '#2f8f4e'; g.fillRect(80, 32, 16, 5); g.fillStyle = '#d8dce6'; g.fillRect(84, 30, 1, 3); g.fillRect(90, 31, 1, 3); g.fillStyle = '#ff4040'; g.fillRect(87, 33, 2, 1);
-      g.fillStyle = '#6a7084'; g.fillRect(87, 41, 2, 14); g.fillRect(83, 54, 10, 2);
-      g.fillStyle = 'rgba(120,200,255,.18)'; g.fillRect(79, 27, 18, 2);
-      // árbitro con el rectángulo dibujado en el aire
-      const ref = S({ legs: [{ a: 0.12, f: 0, k: 0.08 }, { a: 0.14, f: 0.1, k: 0.1 }], arms: [{ a: 1.95, e: 1.0, f: 0.6, ef: 0.4 }, { a: 1.95, e: 1.0, f: 0.6, ef: 0.4 }] }, REF, 'front', 20);
-      shadow(g, 42, 58, 9); const r = put(g, ref, 42, 58);
-      const h = ref.hand.map(r.map);
-      const x0 = Math.min(h[0][0], h[1][0]) - 2, x1 = Math.max(h[0][0], h[1][0]) + 2, y0 = Math.min(h[0][1], h[1][1]) - 7, y1 = y0 + 12;
-      g.fillStyle = 'rgba(255,255,255,.9)';
-      g.fillRect(x0, y0, x1 - x0 + 1, 1); g.fillRect(x0, y1, x1 - x0 + 1, 1); g.fillRect(x0, y0, 1, y1 - y0); g.fillRect(x1, y0, 1, y1 - y0);
-      g.fillStyle = 'rgba(160,210,255,.25)'; g.fillRect(x0 + 1, y0 + 1, x1 - x0 - 1, y1 - y0 - 1);
-      // signos de pregunta en la tribuna
-      const q = '010101001010000010';
-      for (const [qx, qy] of [[14, 8], [64, 6]]) { g.fillStyle = '#ffd23f'; for (let i = 0; i < 18; i++) if (q[i] === '1') g.fillRect(qx + (i % 3), qy + Math.floor(i / 3), 1, 1); }
       vignette(g);
     },
     // Error del DT: se toma la cabeza mientras el rival se va de contra

@@ -1,4 +1,4 @@
-// Calcciopoli · jugadores ilustrados.
+// Calciopoli · jugadores ilustrados.
 // Cada cuadro se pinta grande, como una ilustración (siluetas con músculo,
 // sombreado en bandas duras, pliegues), se reduce a píxeles con una paleta
 // corta y después se terminan a mano los detalles finos píxel por píxel

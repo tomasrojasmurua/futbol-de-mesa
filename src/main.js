@@ -14,7 +14,13 @@ import { rollDice, tossCoin, coinFaceUrl } from './dice.js';
 import { playerName } from './squads.js';
 import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
+import { playTitleIntro } from './titleintro.js';
 import { paintFlag, GROUP_FLAG, teamFlag, flagUrl } from './flags.js';
+import { paintMap } from './maps.js';
+import { defaultSetup, dayLine } from './matchday.js';
+import { openPrematch } from './prematch.js';
+import { Intro } from './intro/index.js';
+import { crestOf } from './crests.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
@@ -25,6 +31,13 @@ let myTeamId = 'rac';
 try { myTeamId = localStorage.getItem('fdm-team') || 'rac'; } catch { /* sin storage */ }
 let myLength = 'normal';
 try { myLength = LENGTHS[localStorage.getItem('fdm-len')] ? localStorage.getItem('fdm-len') : 'normal'; } catch { /* sin storage */ }
+let myLevel = 'normal';
+try { myLevel = LEVELS[localStorage.getItem('fdm-level')] ? localStorage.getItem('fdm-level') : 'normal'; } catch { /* sin storage */ }
+function saveLength(len) {
+  if (!LENGTHS[len]) return;
+  myLength = len;
+  try { localStorage.setItem('fdm-len', len); } catch { /* sin storage */ }
+}
 
 function show(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
@@ -46,20 +59,28 @@ export function swatchCss(kit) {
   return `linear-gradient(transparent 70%, ${shorts} 70%), ${top}`;
 }
 
-// Muestra de un equipo: su camiseta, o la bandera si es una selección.
+// Muestra de un equipo: la bandera si es selección, su escudo si lo tiene, o su camiseta.
 const isNation = (t) => t && t.group === 'Selecciones' && teamFlag(t.id);
+const crestUrls = {};
+function crestUrl(t) {
+  if (!t || isNation(t)) return null;
+  if (!(t.short in crestUrls)) { const c = crestOf(t.short); crestUrls[t.short] = c ? c.toDataURL() : null; }
+  return crestUrls[t.short];
+}
+const crestBg = (u) => `url(${u}) center / contain no-repeat`;
 function swatchAttrs(t) {
-  return isNation(t) ? `class="kit-swatch flag" style="background:url(${flagUrl(teamFlag(t.id))}) center / 100% 100%"` : `${swatchAttrs(t)}`;
+  const u = crestUrl(t);
+  if (u) return `class="kit-swatch crest" style="background:${crestBg(u)}"`;
+  return isNation(t) ? `class="kit-swatch flag" style="background:url(${flagUrl(teamFlag(t.id))}) center / 100% 100%"` : `class="kit-swatch" style="background:${swatchCss(t.kit)}"`;
 }
 function paintSwatch(el, t) {
+  const u = crestUrl(t);
   el.classList.toggle('flag', !!isNation(t));
-  el.style.background = isNation(t) ? `url(${flagUrl(teamFlag(t.id))}) center / 100% 100%` : swatchCss(t.kit);
+  el.classList.toggle('crest', !!u);
+  el.style.background = u ? crestBg(u) : isNation(t) ? `url(${flagUrl(teamFlag(t.id))}) center / 100% 100%` : swatchCss(t.kit);
 }
 
 function paintMyTeam() {
-  const t = teamById(myTeamId);
-  $('#my-team-name').textContent = t.name;
-  paintSwatch($('#my-swatch'), t);
   paintHome();
 }
 
@@ -92,9 +113,24 @@ addEventListener('resize', () => { if ($('#screen-trophies')?.classList.contains
 const teamGroups = () => [...new Set(TEAMS.map((t) => t.group))];
 const longName = (t) => Math.max(...t.name.split(' ').map((w) => w.length)) > 10;
 
+// Cada modo lleva a elegir el equipo antes de jugar; `teamNext` es lo que
+// sigue al elegirlo (empezar el partido, crear la sala…).
+let teamNext = () => {};
+let teamFrom = 'screen-play';
+let teamTaken = new Set();
+
+// `taken`: equipos que ya eligieron otros jugadores de la liga.
+function pickTeam(next, from = 'screen-play', taken = []) {
+  teamNext = next;
+  teamFrom = from;
+  teamTaken = new Set(taken);
+  buildTeamGrid();
+  show('screen-teams');
+}
+
 function buildTeamGrid() {
   $('#teams-title').textContent = 'Elige la liga';
-  $('#teams-back').onclick = () => show('screen-play');
+  $('#teams-back').onclick = () => show(teamFrom);
   $('#team-grid').hidden = true;
   const list = $('#team-groups');
   list.hidden = false;
@@ -105,7 +141,7 @@ function buildTeamGrid() {
     const b = document.createElement('button');
     b.className = 'league-btn flag-btn' + (mine?.group === g ? ' saved' : '');
     b.append(paintFlag(document.createElement('canvas'), GROUP_FLAG[g]));
-    b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${teams.length} equipos</small>${mine?.group === g ? `<em>Tu equipo: ${mine.name}</em>` : ''}`);
+    b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${teams.length} equipos</small>${mine?.group === g ? `<em>Último equipo: ${mine.name}</em>` : ''}`);
     b.onclick = () => buildGroupTeams(g);
     list.appendChild(b);
   }
@@ -124,11 +160,13 @@ function buildGroupTeams(g) {
     b.className = 'team-btn' + (t.id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
     b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
     paintSwatch(b.querySelector('.kit-swatch'), t);
+    b.disabled = teamTaken.has(t.id);
     b.onclick = () => {
       myTeamId = t.id;
       try { localStorage.setItem('fdm-team', t.id); } catch { /* sin storage */ }
       paintMyTeam();
-      show('screen-play');
+      show(teamFrom);
+      teamNext();
     };
     grid.appendChild(b);
   }
@@ -171,15 +209,15 @@ const HELP = `
 <h3>Situaciones de juego</h3>
 <p>Dos mazos de cartas traen lo impredecible de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras del dado, y los dos ven la carta y el dado cambiado.</p>
 <ul>
-<li><b>Mazo de partido</b> (60 cartas, 21 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Decisión polémica, Remate de primera, Defensa sólida o Despeje en la línea. Casi todas duran una jugada y, si no se usan, vencen al terminar el tiempo; la Lluvia dura el resto del partido, tanda de penales incluida. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
+<li><b>Mazo de partido</b> (55 cartas, 19 situaciones): sale cuatro veces por partido, dos por tiempo. Por ejemplo, Genialidad del crack, Lesión, Fortuna de arquero, Remate de primera, Defensa sólida o Despeje en la línea. Duran una jugada y, si no se usan, vencen al terminar el tiempo. A quién le toca depende de la jugada: quién tiene la pelota, quién va perdiendo o los dos.</li>
 <li><b>Mazo de disciplina</b>: sale con cada falta. Advertencia del árbitro (sigue el partido), amarilla (la segunda es roja), tiro libre directo (solo con faltas en el último tercio; en la salida el árbitro solo advierte) o roja (con uno menos, al defender una cara «recupera» pasa a falta o córner). Hay un mazo para cada duración, así que en cualquier partido sale más o menos una roja cada 5 partidos.</li>
 </ul>
 <h3>Duración</h3>
-<p>En el menú eliges partido <b>corto</b> (unos 3 a 5 minutos), <b>normal</b> (5 a 8) o <b>largo</b> (10 a 14). En una sala manda la duración de quien la crea.</p>
+<p>Después de elegir equipo llegas a la <b>previa del partido</b>: ahí eliges partido <b>corto</b> (unos 3 a 5 minutos), <b>normal</b> (5 a 8) o <b>largo</b> (10 a 14). En una sala manda la previa de quien la crea.</p>
 <h3>Empate y penales</h3>
 <p>Si el partido termina empatado, se define por penales: cinco por lado y, si siguen iguales, muerte súbita. Cada penal es un duelo de remate contra arquero, con el mismo dado si el arquero no adivina.</p>
 <h3>Estadio</h3>
-<p>Juegas de local en una versión pixelada del estadio de tu equipo. Al final ves los goleadores, la figura del partido y las estadísticas.</p>
+<p>En la previa eliges el estadio (de entrada, el del local), la hora (mañana, tarde o noche), el clima (soleado, nublado o lluvia) y la camiseta de cada equipo: titular o de recambio. Nada de eso cambia el juego, solo cómo se ve. Al final ves los goleadores, la figura del partido y las estadísticas.</p>
 <h3>Torneo</h3>
 <p>Eliminación directa de 8 o 16 equipos contra la IA, entre clubes o entre selecciones según tu equipo. Los empates se definen por penales y la IA se pone más difícil en cada ronda. El torneo queda guardado en tu celular para seguirlo después.</p>
 <h3>Modo carrera</h3>
@@ -239,7 +277,7 @@ const QUESTIONS = {
 // ---------- tutorial ----------
 // Consejos que aparecen la primera vez que pasa cada cosa en el partido guiado.
 const COACH = {
-  welcome: ['¡Bienvenido a Calcciopoli!', 'Cada jugada es un duelo: tú y tu rival eligen una carta al mismo tiempo, sin ver la del otro. Si el que defiende adivina, corta la jugada. Este es un partido corto contra una IA fácil y sin reloj: tómate tu tiempo.'],
+  welcome: ['¡Bienvenido a Calciopoli!', 'Cada jugada es un duelo: tú y tu rival eligen una carta al mismo tiempo, sin ver la del otro. Si el que defiende adivina, corta la jugada. Este es un partido corto contra una IA fácil y sin reloj: tómate tu tiempo.'],
   toss: ['El sorteo', 'Elige cara o sello. Quien gana el sorteo saca primero.'],
   'build-att': ['La salida', 'Tienes la pelota. Elige por dónde sales: izquierda, centro o derecha. Si el rival cierra esa zona, casi siempre te la quita. Si no, llegas al último tercio.'],
   'build-def': ['Defender la salida', 'El rival sale jugando. Elige qué zona cierras. Si adivinas por dónde sale, casi siempre recuperas la pelota.'],
@@ -254,7 +292,7 @@ const COACH = {
   'shootout-att': ['Penales', 'Cinco por lado y luego muerte súbita. Es el mismo duelo: pateador contra arquero.'],
   'shootout-def': ['Penales', 'Cinco por lado y luego muerte súbita. Elige hacia dónde se tira tu arquero.'],
   dice: ['El dado', 'Cuando alguien adivina, o cuando le ganas al arquero, un dado decide el detalle. Arriba ves sus caras: cuántas hay de cada resultado. Las reglas son las mismas para los dos.'],
-  card: ['Situación de juego', 'Cuatro veces por partido sale una carta que cambia caras del dado por una jugada, como una lesión o un tiro colocado. La Lluvia dura todo el partido. Toca la ficha sobre la cancha para ver qué hace.'],
+  card: ['Situación de juego', 'Cuatro veces por partido sale una carta que cambia caras del dado por una jugada, como una lesión o un tiro colocado. Toca la ficha sobre la cancha para ver qué hace.'],
   disciplina: ['La falta', 'Con cada falta el árbitro saca una carta: advertencia, amarilla, tiro libre o roja. Con una roja, el equipo juega con uno menos el resto del partido.'],
 };
 
@@ -284,7 +322,7 @@ function headline(state, teams, winner) {
   return { kicker: diff === 1 ? 'Por la mínima' : 'Victoria clara', title: `${N(w)} vence a ${N(l)}` };
 }
 
-function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadium, tutorial }) {
+function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadium, day, tutorial }) {
   const [a, b] = state.score;
   const st = state.stats;
   const h = headline(state, teams, winner);
@@ -294,8 +332,7 @@ function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadiu
   // Bajada: la figura y lo que marcó el partido.
   const bits = [];
   if (mvp) bits.push(`${name(mvp.side, mvp.i)} (${teams[mvp.side].short}) fue la figura: ${mvpLine(mvp)}.`);
-  const rain = log.find((l) => l.id === 'lluvia');
-  if (rain) bits.push(`Se jugó bajo la lluvia desde el ${fmtMinute(rain.minute, rain.half)}.`);
+  if (day && day.weather === 'rain') bits.push(`Se jugó bajo la lluvia${day.time === 'night' ? ', de noche' : ''}.`);
   [0, 1].forEach((side) => { if (st.reds && st.reds[side]) bits.push(`${teams[side].name} terminó con ${st.reds[side] === 1 ? 'uno' : st.reds[side]} menos.`); });
   const goalList = (side) => (state.goals || []).filter((g) => g.side === side)
     .map((g) => `<li><b>${fmtMinute(g.minute, g.half)}</b> ${name(side, g.i)}${g.kind === 'penal' ? ' (p)' : ''}${g.assist != null ? `<small>asist. ${name(side, g.assist)}</small>` : ''}</li>`).join('') || '<li class="none">Sin goles</li>';
@@ -311,11 +348,11 @@ function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadiu
   const pens = state.pens ? `<p class="np-pens">Penales: ${state.pens.goals[0]} - ${state.pens.goals[1]}</p>` : '';
   return `<article class="np">
     <div class="np-stamp">${tutorial ? 'Tutorial completado' : res}</div>
-    <header class="np-mast"><h1>El Calcciopolitano</h1>
+    <header class="np-mast"><h1>El Calciopolitano</h1>
       <p><span>${date}</span><span>${stadium ? stadium.name : 'Edición deportiva'}</span><span>$ 500</span></p></header>
     <p class="np-kicker">${h.kicker}</p>
     <h2 class="np-title">${h.title}</h2>
-    <div class="np-score"><div><b>${teams[0].short}</b><small>${teams[0].name}</small></div><strong>${a} - ${b}</strong><div><b>${teams[1].short}</b><small>${teams[1].name}</small></div></div>
+    <div class="np-score"><div><i ${swatchAttrs(teams[0])}></i><b>${teams[0].short}</b><small>${teams[0].name}</small></div><strong>${a} - ${b}</strong><div><i ${swatchAttrs(teams[1])}></i><b>${teams[1].short}</b><small>${teams[1].name}</small></div></div>
     ${pens}
     <p class="np-lead">${bits.join(' ')}</p>
     <div class="np-cols">
@@ -334,8 +371,12 @@ function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadiu
 class MatchView {
   // spectator: sólo mira (la liga, cuando no te toca jugar). endButtons: botones
   // propios para el cuadro final.
-  constructor({ mySide, send, isHost, onRematch, spectator = false, endButtons = null, tutorial = false }) {
+  // intro: antes del partido pasa la película de la previa; peer: avisa al otro
+  // celular (en una sala, si uno salta la película, se salta en los dos).
+  constructor({ mySide, send, isHost, onRematch, spectator = false, endButtons = null, tutorial = false, intro = false, peer = null }) {
     this.mySide = mySide;
+    this.introOn = intro;
+    this.peer = peer;
     this.tutorial = tutorial;
     this.coachSeen = new Set();
     this.spectator = spectator;
@@ -382,8 +423,8 @@ class MatchView {
   joinLive(state) {
     this.state = state;
     const teams = state.teams.map(teamById);
-    this.kits = matchKits(teams[0], teams[1]);
-    renderer.setup(teams, this.kits, this.mySide);
+    this.kits = matchKits(teams[0], teams[1], state.setup && state.setup.kits);
+    renderer.setup(teams, this.kits, this.mySide, state.setup);
     renderer.kickoffNow(state.poss);
     this.paintHud(state);
     this.paintPens(state);
@@ -397,8 +438,8 @@ class MatchView {
     this.state = state;
     if (ev.type === 'start') {
       const teams = state.teams.map(teamById);
-      this.kits = matchKits(teams[0], teams[1]);
-      renderer.setup(teams, this.kits, this.mySide);
+      this.kits = matchKits(teams[0], teams[1], state.setup && state.setup.kits);
+      renderer.setup(teams, this.kits, this.mySide, state.setup);
       renderer.kickoffNow(0);
       this.paintHud(state);
       this.paintPens(state);
@@ -406,7 +447,9 @@ class MatchView {
       this.lastSeq = -1;
       const st = renderer.stadium;
       const len = state.length && state.length !== 'normal' ? ` Partido ${LENGTHS[state.length].label.toLowerCase()}.` : '';
-      this.feed(`¡Bienvenidos! Se juega en ${st.name}${st.city ? `, ${st.city}` : ''}.${len}`);
+      this.feed(`¡Bienvenidos! Se juega en ${st.name}${st.city ? `, ${st.city}` : ''}, en ${dayLine(renderer.day)}.${len}`);
+      if (this.introOn) await this.playIntro(teams);
+      if (this.dead) return;
       return this.promptToss(state);
     }
     if (ev.type === 'toss') {
@@ -473,7 +516,7 @@ class MatchView {
     else if (card.deck === 'disciplina' && card.id !== 'freekick') who = `${playerName(t.id, card.player)} (${t.short})`;
     else who = this.spectator ? t.name : card.side === this.mySide ? `${t.name} (tú)` : `${t.name} (rival)`;
     // Para quién es buena noticia: las tarjetas son malas para quien las recibe,
-    // y lluvia, lesión y error del DT son malas para el equipo al que le tocan.
+    // y lesión y error del DT son malas para el equipo al que le tocan.
     const bad = card.deck === 'disciplina' ? card.id !== 'freekick' : ['lesion', 'errordt'].includes(card.id);
     const good = bad ? card.side !== this.mySide : card.side === this.mySide;
     const title = card.second ? 'Segunda amarilla: ¡roja!' : info.title;
@@ -523,7 +566,6 @@ class MatchView {
 
   // Efectos que siguen activos (cartas por usar y expulsados), sobre la cancha.
   paintFx(state) {
-    if (renderer) renderer.rain = !!(state.sit && state.sit.rain);
     const el = $('#fxbar');
     if (!el) return;
     const shorts = state.teams.map((id) => teamById(id).short);
@@ -547,7 +589,7 @@ class MatchView {
     if (id === 'red') tip.innerHTML = fxTipHtml(this.state, info, id, side, `${team.name}${mine}`);
     else {
       // La misma lectura que la carta: desde tu lado y con a quién ayuda.
-      const both = id === 'lluvia';
+      const both = side < 0;
       const view = this.spectator ? VIEW_NEUTRAL : both || side === this.mySide ? VIEW_MINE : VIEW_THEIRS;
       const helps = ['lesion', 'errordt'].includes(id) ? side !== this.mySide : side === this.mySide;
       const tag = this.spectator ? `<em>${team.name}</em>` : both ? '<em>Para los dos equipos</em>' : `<em class="${helps ? 'g' : 'r'}">${helps ? '▲ A tu favor' : '▼ En tu contra'} · ${side === this.mySide ? 'te salió a ti' : 'le salió al rival'}</em>`;
@@ -813,7 +855,7 @@ class MatchView {
     const band = document.createElement('div');
     band.className = 'cardbands';
     for (const c of cards) {
-      const both = c.id === 'lluvia';
+      const both = c.side < 0;
       const mine = c.side === this.mySide;
       const bad = c.id === 'red' || ['lesion', 'errordt'].includes(c.id);
       const tone = this.spectator || both ? 'amb' : (bad ? !mine : mine) ? 'fav' : 'con';
@@ -886,7 +928,7 @@ class MatchView {
       const top = ratings.filter((x) => x.p[key] > 0).sort((x, y) => y.p[key] - x.p[key])[0];
       return top ? `<li><span>${label}</span><b>${name(top.side, top.i)} (${teams[top.side].short})</b><i>${top.p[key]}</i></li>` : '';
     };
-    const html = newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadium: renderer && renderer.stadium, tutorial: this.tutorial });
+    const html = newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadium: renderer && renderer.stadium, day: renderer && renderer.day, tutorial: this.tutorial });
     if (this.endButtons) { modal(html, this.endButtons(state), 'news'); return; }
     const btns = [];
     if (this.onRematch) btns.push(['Revancha', 'primary', () => { this.onRematch(); }]);
@@ -894,7 +936,26 @@ class MatchView {
     modal(html, btns, 'news');
   }
 
+  // La película de la previa (estadio, camarín, túnel, himnos y banderas).
+  async playIntro(teams) {
+    if (this.skipPending || params.get('film') === '0') return;
+    this.intro = new Intro({
+      teams, kits: this.kits, setup: renderer.day, mySide: this.mySide,
+      cue: (c) => audio.intro(c),
+      onSkip: () => this.peer && this.peer({ t: 'intro-skip' }),
+    });
+    try { await this.intro.play(); } catch (e) { console.error(e); }
+    this.intro = null;
+  }
+
+  // El otro celular saltó la película.
+  skipIntro() {
+    if (this.intro) this.intro.skip(false);
+    else if (!this.state || this.state.phase === 'toss') this.skipPending = true;
+  }
+
   destroy() {
+    if (this.intro) this.intro.finish(true);
     this.dead = true; this.stopTimer(); this.queue = [];
     document.body.classList.remove('watching');
     if (this.dismissCard) this.dismissCard();
@@ -939,6 +1000,7 @@ let view = null;
 let session = null; // { cleanup }
 
 function leaveMatch() {
+  closeSalaPre();
   cupPlaying = false;
   careerPlaying = false;
   paintCupButton();
@@ -957,6 +1019,20 @@ function leaveMatch() {
   show('screen-menu');
 }
 
+// Partido rápido: elegido el equipo, la previa con el rival que tocó.
+function cpuPrematch(awayId = pickCpuOpponent()) {
+  openPrematch({
+    home: myTeamId, away: awayId, setup: defaultSetup(myTeamId, awayId), length: myLength, level: myLevel, showLevel: true,
+    onBack: () => show('screen-play'),
+    onStart: ({ setup, length, level }) => {
+      saveLength(length);
+      myLevel = level;
+      try { localStorage.setItem('fdm-level', level); } catch { /* sin storage */ }
+      startCpu(level, awayId, setup);
+    },
+  });
+}
+
 // El rival de la IA sale del mismo mundo que tu equipo: si eliges una
 // selección, te toca otra selección; si eliges un club, te toca otro club.
 function pickCpuOpponent() {
@@ -967,14 +1043,14 @@ function pickCpuOpponent() {
 }
 
 let lastHost = null;
-function startCpu(level = 'normal', awayId = pickCpuOpponent()) {
+function startCpu(level = 'normal', awayId = pickCpuOpponent(), setup = null) {
   audio.unlock();
   let host, cpu;
   const deliver = (m) => setTimeout(() => { view && view.onMessage(m); cpu.onMessage(m); }, 0);
-  host = new Host({ home: myTeamId, away: awayId, callerSide: 0, broadcast: deliver, length: myLength });
+  host = new Host({ home: myTeamId, away: awayId, callerSide: 0, broadcast: deliver, length: myLength, setup });
   cpu = new Cpu(1, (m) => host.receive(1, m), level);
   lastHost = host;
-  view = new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId); } });
+  view = new MatchView({ mySide: 0, isHost: true, intro: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId, setup); } });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `Contra la IA (${LEVELS[level].label}). ¡Bienvenidos al estadio!`;
   host.start();
@@ -998,7 +1074,7 @@ function startTutorial() {
   host.start();
 }
 
-function startHostGame(conn, guestTeam) {
+function startHostGame(conn, guestTeam, homeTeam = myTeamId, setup = null, length = myLength) {
   let host, n = 0, lastMsg = null;
   const deliver = (m) => {
     lastMsg = { ...m, n: ++n };
@@ -1006,7 +1082,7 @@ function startHostGame(conn, guestTeam) {
     setTimeout(() => view && view.onMessage(m), 0);
   };
   const begin = () => {
-    host = new Host({ home: myTeamId, away: guestTeam, callerSide: 1, broadcast: deliver, length: myLength });
+    host = new Host({ home: homeTeam, away: guestTeam, callerSide: 1, broadcast: deliver, length, setup });
     host.start();
   };
   const rematch = () => {
@@ -1016,10 +1092,11 @@ function startHostGame(conn, guestTeam) {
     begin();
     return false;
   };
-  const makeView = () => new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: rematch });
+  const makeView = () => new MatchView({ mySide: 0, isHost: true, intro: true, peer: (m) => conn.send(m), send: (m) => host.receive(0, m), onRematch: rematch });
   view = makeView();
   conn.on('message', (m) => {
     if (m.t === 'quit') { onRivalQuit(); return; }
+    if (m.t === 'intro-skip') { if (view) view.skipIntro(); return; }
     if (m.t === 'choice' || m.t === 'call') host.receive(1, m);
     // El rival volvió de una desconexión corta: le reenviamos el último estado.
     if (m.t === 'sync' && lastMsg && lastMsg.n > (m.n || 0)) conn.send(lastMsg);
@@ -1059,38 +1136,121 @@ function onRivalQuit() {
 }
 
 function onDisconnect() {
-  if (!view) return;
+  if (!view) {
+    if (sala) { sala.closed = true; renderSala(); }
+    return;
+  }
   view.destroy();
   modal('<h2>Conexión perdida</h2><p>Se cortó la conexión con tu rival. Pueden crear una sala nueva.</p>', [['Volver al menú', 'primary', () => leaveMatch()]]);
 }
 
+// Sala 1 vs 1: los dos entran, eligen su equipo en la sala y el anfitrión
+// arma la previa (duración, estadio, hora y clima) cuando ambos eligieron. En la
+// previa cada uno elige su camiseta y el anfitrión empieza el partido.
+let sala = null;
+let pre = null; // la previa abierta en la sala
+
+function closeSalaPre() { if (pre) { pre.close(); pre = null; } }
+
+const playerRow = (team, tags) => {
+  const tg = tags ? `<small>${tags}</small>` : '';
+  if (!team) return `<li class="choosing"><span class="kit-swatch"></span><b>Eligiendo equipo…</b>${tg}</li>`;
+  const t = teamById(team);
+  return `<li><span ${swatchAttrs(t)}></span><b>${t.name}</b>${tg}</li>`;
+};
+
+function renderSala() {
+  const s = sala;
+  if (!s) return;
+  const mine = s.isHost ? s.home : s.away;
+  $('#lobby-title').textContent = s.isHost ? 'Sala creada' : 'Sala 1 vs 1';
+  $('#lobby-code-box').hidden = !s.isHost || s.joined;
+  $('#lobby-players').innerHTML = playerRow(s.home, s.isHost ? 'tú, anfitrión' : 'anfitrión')
+    + (s.joined ? playerRow(s.away, s.isHost ? 'rival' : 'tú') : '<li class="empty">Esperando al rival…</li>');
+  const ready = s.joined && s.home && s.away && !s.closed;
+  $('#lobby-team').hidden = !!s.closed;
+  $('#lobby-team').textContent = mine ? 'Cambiar equipo' : 'Elegir tu equipo';
+  $('#lobby-start').hidden = !(ready && (s.isHost || s.pre));
+  $('#lobby-start').textContent = s.isHost ? 'Previa del partido' : 'Ver la previa';
+  let wait = '';
+  if (s.closed) wait = '';
+  else if (!s.joined) wait = 'Esperando al rival…';
+  else if (!ready) wait = 'Esperando que ambos elijan equipo…';
+  else if (!s.isHost && !s.pre) wait = 'Esperando que el anfitrión arme la previa…';
+  $('#lobby-wait').innerHTML = wait ? `<span class="ball-spin"></span> ${wait}` : '';
+  $('#lobby-msg').textContent = s.closed ? (s.isHost ? 'Tu rival salió de la sala. Crea una sala nueva.' : 'Se cerró la sala.') : '';
+}
+
 function createOnline() {
   audio.unlock();
-  show('screen-lobby');
   $('#room-code').textContent = '·····';
-  $('#lobby-msg').textContent = '';
   let conn = null;
+  const s = sala = { isHost: true, home: null, away: null, joined: false };
+  const sync = () => {
+    if (!conn) return;
+    conn.send({ t: 'sala', home: s.home, away: s.away });
+    if (s.pre) conn.send({ t: 'pre', open: true, ...s.pre });
+  };
   const room = createRoom({
     onReady: (code, broker) => {
       $('#room-code').textContent = code;
       const url = `${location.origin}${location.pathname}?sala=${code}&b=${broker}`;
       $('#btn-share').onclick = async () => {
-        const text = `¡Te desafío a un partido de Calcciopoli! Entra con el código ${code}`;
+        const text = `¡Te desafío a un partido de Calciopoli! Entra con el código ${code}`;
         try {
-          if (navigator.share) await navigator.share({ title: 'Calcciopoli', text, url });
+          if (navigator.share) await navigator.share({ title: 'Calciopoli', text, url });
           else { await navigator.clipboard.writeText(`${text}: ${url}`); $('#lobby-msg').textContent = 'Enlace copiado.'; }
         } catch { /* cancelado */ }
       };
     },
-    onGuest: (c, hello) => {
+    onGuest: (c) => {
       conn = c;
+      s.joined = true;
       c.on('close', onDisconnect);
-      if (!view) startHostGame(c, teamById(hello.team).id);
+      c.on('message', (m) => {
+        if (view || sala !== s) return;
+        if (m.t === 'team' && teamById(m.team)?.id === m.team) {
+          // Si el rival cambia de equipo, la previa se vuelve a armar.
+          if (m.team !== s.away && s.pre) { s.pre = null; closeSalaPre(); show('screen-lobby'); conn.send({ t: 'pre', open: false }); }
+          s.away = m.team; renderSala(); sync();
+        }
+        if (m.t === 'kit' && s.pre && (m.kit === 0 || m.kit === 1)) {
+          s.pre.setup.kits[1] = m.kit;
+          if (pre) pre.update({ side: 1, kit: m.kit });
+          sync();
+        }
+        if (m.t === 'sync' || m.t === 'reconnected') sync();
+      });
+      sync();
+      renderSala();
     },
     onError: (e) => { $('#lobby-msg').textContent = errorText(e); },
   });
-  session = { cleanup: () => { if (conn) conn.close(); room.destroy(); }, send: (m) => conn && conn.send(m) };
+  session = { cleanup: () => { if (conn) conn.close(); room.destroy(); if (sala === s) sala = null; }, send: (m) => conn && conn.send(m) };
+  $('#lobby-team').onclick = () => pickTeam(() => {
+    if (s.home !== myTeamId) s.pre = null;
+    s.home = myTeamId; renderSala(); sync();
+  }, 'screen-lobby');
+  $('#lobby-start').onclick = () => {
+    if (view || !conn || !s.home || !s.away) return;
+    if (!s.pre) s.pre = { setup: defaultSetup(s.home, s.away), length: myLength };
+    pre = openPrematch({
+      home: s.home, away: s.away, setup: s.pre.setup, length: s.pre.length, kitSides: [true, false],
+      onChange: (st) => { s.pre = { setup: st.setup, length: st.length }; sync(); },
+      onBack: () => { pre = null; s.pre = null; conn.send({ t: 'pre', open: false }); renderSala(); show('screen-lobby'); },
+      onStart: (st) => {
+        pre = null;
+        if (view || !conn) return;
+        saveLength(st.length);
+        s.pre = null;
+        startHostGame(conn, s.away, s.home, st.setup, st.length);
+      },
+    });
+    sync();
+  };
   $('#btn-cancel').onclick = () => leaveMatch();
+  renderSala();
+  show('screen-lobby');
 }
 
 function errorText(e) {
@@ -1113,24 +1273,61 @@ function joinOnline(code) {
   let lastN = 0;
   const hint = Number(new URLSearchParams(location.search).get('b')) || 0;
   const j = joinRoom(code, {
-    team: myTeamId,
+    team: null,
     brokerHint: hint,
     onOpen: (c, welcome) => {
       conn = c;
       $('#menu-msg').textContent = '';
       $('#btn-join').disabled = false;
       if (welcome && welcome.mode === 'league') { joinLeague(c, welcome, j); return; }
+      const s = sala = { isHost: false, home: null, away: null, joined: true };
+      $('#lobby-team').onclick = () => pickTeam(() => { s.away = myTeamId; renderSala(); c.send({ t: 'team', team: myTeamId }); }, 'screen-lobby');
+      // La previa del anfitrión: el invitado la ve y elige su camiseta.
+      const openGuestPre = () => {
+        if (!s.pre || view) return;
+        pre = openPrematch({
+          home: s.home, away: s.away, setup: s.pre.setup, length: s.pre.length, canEdit: false, kitSides: [false, true],
+          waitText: 'Esperando que el anfitrión empiece el partido…',
+          onChange: (st) => { s.pre.setup.kits[1] = st.setup.kits[1]; c.send({ t: 'kit', kit: st.setup.kits[1] }); },
+          onBack: () => { pre = null; s.preHidden = true; renderSala(); show('screen-lobby'); },
+        });
+      };
+      $('#lobby-start').onclick = () => { s.preHidden = false; openGuestPre(); };
+      $('#btn-cancel').onclick = () => leaveMatch();
+      renderSala();
+      show('screen-lobby');
       c.on('close', onDisconnect);
       c.on('message', (m) => {
         if (m.t === 'quit') { onRivalQuit(); return; }
         if (m.t === 'reconnected') { c.send({ t: 'sync', n: lastN }); return; }
+        if (m.t === 'pre') {
+          if (view || sala !== s) return;
+          if (!m.open) { s.pre = null; s.preHidden = false; closeSalaPre(); renderSala(); show('screen-lobby'); return; }
+          const mine = s.pre ? s.pre.setup.kits[1] : null;
+          s.pre = { setup: { ...m.setup, kits: [...m.setup.kits] }, length: m.length };
+          if (mine != null) s.pre.setup.kits[1] = mine;
+          if (pre && pre.alive) pre.update({ setup: s.pre.setup, length: s.pre.length });
+          else if (!pre && !s.preHidden) openGuestPre();
+          renderSala();
+          return;
+        }
+        if (m.t === 'sala') {
+          if (view || sala !== s) return;
+          s.home = m.home;
+          // Si el aviso llega antes que mi elección, no borra el equipo que acabo de elegir.
+          if (m.away || !s.away) s.away = m.away;
+          renderSala();
+          return;
+        }
+        if (m.t === 'intro-skip') { if (view) view.skipIntro(); return; }
         if (m.t !== 'state') return;
         if (m.n && m.n <= lastN) return; // repetido
         if (m.n) lastN = m.n;
         if (m.ev && m.ev.type === 'start') {
+          closeSalaPre();
           if (view) view.destroy();
           closeModal();
-          view = new MatchView({ mySide: 1, isHost: false, send: (x) => c.send(x), onRematch: null });
+          view = new MatchView({ mySide: 1, isHost: false, intro: true, peer: (x) => c.send(x), send: (x) => c.send(x), onRematch: null });
         }
         view && view.onMessage(m);
       });
@@ -1141,7 +1338,7 @@ function joinOnline(code) {
       j.destroy();
     },
   });
-  session = { cleanup: () => { if (conn) conn.close(); j.destroy(); }, send: (m) => conn && conn.send(m) };
+  session = { cleanup: () => { if (conn) conn.close(); j.destroy(); sala = null; }, send: (m) => conn && conn.send(m) };
 }
 
 // ---------- liga ----------
@@ -1157,7 +1354,7 @@ const teamOfPlayer = (id) => {
 function createLeague() {
   audio.unlock();
   const guests = new Map();
-  league = { isHost: true, me: 'h', players: [{ id: 'h', team: myTeamId }], length: 'short', live: [], lastByMid: {}, table: null, partial: null, lh: null, guests };
+  league = { isHost: true, me: 'h', players: [{ id: 'h', team: null }], length: 'short', live: [], lastByMid: {}, table: null, partial: null, lh: null, guests };
   const lg = league;
   // Entrega a un jugador: al anfitrión en el mismo celular, al resto por la sala.
   const sendTo = (id, msg) => {
@@ -1173,6 +1370,13 @@ function createLeague() {
   lg.up = (m) => lg.lh && lg.lh.receive('h', m);
   const lobby = () => lg.players.forEach((p) => sendTo(p.id, { t: 'lg', kind: 'lobby', players: lg.players, length: lg.length }));
   lg.lobby = lobby;
+  // Cada jugador con un equipo distinto: si otro ya lo tomó, no cambia.
+  const setLeagueTeam = (id, team) => {
+    const p = lg.players.find((x) => x.id === id);
+    if (p && teamById(team)?.id === team && !lg.players.some((x) => x.id !== id && x.team === team)) p.team = team;
+    lobby();
+  };
+  lg.setTeam = setLeagueTeam;
   const gone = (id) => {
     if (!guests.has(id)) return;
     if (lg.lh) { lg.lh.leave(id); return; }
@@ -1187,25 +1391,20 @@ function createLeague() {
       $('#lg-code').textContent = code;
       const url = `${location.origin}${location.pathname}?sala=${code}&b=${broker}`;
       $('#lg-share').onclick = async () => {
-        const text = `¡Súmate a mi liga de Calcciopoli! Entra con el código ${code}`;
+        const text = `¡Súmate a mi liga de Calciopoli! Entra con el código ${code}`;
         try {
-          if (navigator.share) await navigator.share({ title: 'Calcciopoli', text, url });
+          if (navigator.share) await navigator.share({ title: 'Calciopoli', text, url });
           else { await navigator.clipboard.writeText(`${text}: ${url}`); $('#lg-msg').textContent = 'Enlace copiado.'; }
         } catch { /* cancelado */ }
       };
     },
-    onGuest: (conn, hello) => {
+    onGuest: (conn) => {
       const id = conn.guestId;
-      // Cada jugador con un equipo distinto: si ya está tomado, se le asigna otro.
-      let team = teamById(hello.team).id;
-      const used = new Set(lg.players.map((p) => p.team));
-      if (used.has(team)) {
-        const free = TEAMS.filter((t) => !used.has(t.id));
-        team = free[Math.floor(Math.random() * free.length)].id;
-      }
+      // Cada uno elige su equipo ya dentro de la sala.
       guests.set(id, { conn, n: 0, hist: [] });
-      lg.players.push({ id, team });
+      lg.players.push({ id, team: null });
       conn.on('message', (m) => {
+        if (m.t === 'team' && !lg.lh) { setLeagueTeam(id, m.team); return; }
         if (m.t === 'sync') { guests.get(id)?.hist.filter((x) => x.n > (m.n || 0)).forEach((x) => conn.send(x)); return; }
         if (m.t === 'reconnected') { guests.get(id)?.hist.slice(-10).forEach((x) => conn.send(x)); return; }
         if (m.t === 'quit') { gone(id); return; }
@@ -1231,7 +1430,7 @@ function createLeague() {
 
 function startLeague() {
   const lg = league;
-  if (!lg || !lg.isHost || lg.lh || lg.players.length < 2) return;
+  if (!lg || !lg.isHost || lg.lh || lg.players.length < 2 || lg.players.some((p) => !p.team)) return;
   lg.room.lock();
   lg.lh = new LeagueHost({ players: lg.players, length: lg.length, send: lg.sendTo });
   lg.lh.start();
@@ -1343,19 +1542,40 @@ function renderLobby() {
   $('#lg-code-box').hidden = !lg.isHost;
   $('#lg-title').textContent = lg.isHost ? 'Liga creada' : 'Liga';
   $('#lg-players').innerHTML = lg.players.map((p, k) => {
-    const t = teamById(p.team);
     const tags = [p.id === lg.me ? 'tú' : '', k === 0 ? 'anfitrión' : ''].filter(Boolean).join(', ');
-    return `<li><span ${swatchAttrs(t)}></span><b>${t.name}</b>${tags ? `<small>${tags}</small>` : ''}</li>`;
+    return playerRow(p.team, tags);
   }).join('') + Array.from({ length: 4 - lg.players.length }, () => '<li class="empty">Lugar libre</li>').join('');
   document.querySelectorAll('#lg-len [data-len]').forEach((b) => {
     b.classList.toggle('on', b.dataset.len === lg.length);
     b.disabled = !lg.isHost;
   });
+  const me = lg.players.find((p) => p.id === lg.me);
+  $('#lg-team').textContent = me && me.team ? 'Cambiar equipo' : 'Elegir tu equipo';
   const n = lg.players.length;
-  $('#lg-start').hidden = !lg.isHost;
-  $('#lg-start').disabled = n < 2;
-  $('#lg-start').textContent = n < 2 ? 'Empezar liga' : `Empezar liga (${n} jugadores)`;
-  $('#lg-wait').innerHTML = `<span class="ball-spin"></span> ${lg.isHost ? (n < 4 ? 'Esperando jugadores…' : 'Liga completa.') : 'Esperando que el anfitrión empiece la liga…'}`;
+  const ready = n >= 2 && lg.players.every((p) => p.team);
+  $('#lg-start').hidden = !lg.isHost || !ready;
+  $('#lg-start').textContent = `Empezar liga (${n} jugadores)`;
+  const wait = n < 2 ? 'Esperando jugadores…'
+    : !ready ? 'Esperando que todos elijan equipo…'
+      : lg.isHost ? (n < 4 ? 'Pueden entrar más jugadores.' : 'Liga completa.') : 'Esperando que el anfitrión empiece la liga…';
+  $('#lg-wait').innerHTML = `${ready && lg.isHost ? '' : '<span class="ball-spin"></span> '}${wait}`;
+}
+
+// Elegir (o cambiar) el equipo propio dentro de la liga.
+function pickLeagueTeam() {
+  const lg = league;
+  if (!lg || lg.lh || lg.round != null) return;
+  const taken = lg.players.filter((p) => p.id !== lg.me && p.team).map((p) => p.team);
+  pickTeam(() => {
+    if (league !== lg) return;
+    if (lg.isHost) lg.setTeam('h', myTeamId);
+    else {
+      const me = lg.players.find((p) => p.id === lg.me);
+      if (me) me.team = myTeamId;
+      renderLobby();
+      lg.up({ t: 'team', team: myTeamId });
+    }
+  }, 'screen-league', taken);
 }
 
 function renderTable() {
@@ -1462,28 +1682,68 @@ function cupMenu() {
   const won = loadTrophies();
   const times = (id) => (won[id] || []).length;
   for (const comp of COMPS) add(comp, `${comp.size} equipos`, `${comp.sub}${times(comp.id) ? ` · ganada ${times(comp.id)} ${times(comp.id) === 1 ? 'vez' : 'veces'}` : ''}`, '', () => pickCupTeam(comp));
-  add(FREE_CUP, '8 o 16', `${FREE_CUP.sub}${times('calc') ? ` · ganada ${times('calc')} ${times('calc') === 1 ? 'vez' : 'veces'}` : ''}`, '', () => freeCupMenu());
+  add(FREE_CUP, '8 o 16', `${FREE_CUP.sub}${times('calc') ? ` · ganada ${times('calc')} ${times('calc') === 1 ? 'vez' : 'veces'}` : ''}`, '', () => pickTeam(() => freeCupMenu(), 'screen-cups'));
   list.scrollTop = 0;
   show('screen-cups');
 }
 
-// Los equipos que juegan esa copa; el tuyo aparece marcado si está.
+// Selecciones por confederación, en el orden en que se muestran, con el mapa de su región.
+const CONFED = [
+  ['Sudamérica', 'sa', ['arg', 'bra', 'uru', 'col', 'chi', 'per', 'ecu', 'par', 'ven', 'bol']],
+  ['Norte y Centroamérica', 'na', ['mex', 'usa', 'can']],
+  ['Europa', 'eu', ['esp', 'fra', 'ger', 'eng', 'ita', 'por', 'ned', 'cro', 'bel', 'sui', 'den']],
+  ['África', 'af', ['mar', 'sen']],
+  ['Asia', 'as', ['jpn', 'kor']],
+];
+
+// Equipos de esa copa como en la selección de equipo, en dos pasos: los clubes
+// por liga con su bandera y las selecciones por confederación con el mapa de su
+// región. Si la copa es de un solo grupo (la Eurocopa), va directo a los equipos.
 function pickCupTeam(comp) {
-  $('#cup-team-title').textContent = comp.name;
+  const pool = new Set(comp.pool);
+  const teams = TEAMS.filter((t) => pool.has(t.id));
+  const groups = teams.every((t) => t.group === 'Selecciones')
+    ? CONFED.map(([name, map, ids]) => ({ name, ids: ids.filter((id) => pool.has(id)), paint: (cv) => paintMap(cv, map) })).filter((g) => g.ids.length)
+    : [...new Set(teams.map((t) => t.group))].map((name) => ({ name, ids: teams.filter((t) => t.group === name).map((t) => t.id), paint: (cv) => paintFlag(cv, GROUP_FLAG[name]) }));
   const grid = $('#cup-team-grid');
-  grid.innerHTML = '';
-  const ids = [...comp.pool].sort((a, b) => teamById(a).name.localeCompare(teamById(b).name, 'es'));
-  if (ids.includes(myTeamId)) { ids.splice(ids.indexOf(myTeamId), 1); ids.unshift(myTeamId); }
-  for (const id of ids) {
-    const t = teamById(id);
-    const b = document.createElement('button');
-    b.className = 'team-btn' + (id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
-    b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
-    paintSwatch(b.querySelector('.kit-swatch'), t);
-    b.onclick = () => confirmCup(comp, id);
-    grid.appendChild(b);
+  const list = $('#cup-team-groups');
+  const groupTeams = (g) => {
+    $('#cup-team-title').textContent = g.name;
+    $('#cup-team-back').onclick = groups.length > 1 ? cupGroups : cupMenu;
+    list.hidden = true;
+    grid.hidden = false;
+    grid.innerHTML = '';
+    for (const id of g.ids) {
+      const t = teamById(id);
+      const b = document.createElement('button');
+      b.className = 'team-btn' + (id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
+      b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
+      paintSwatch(b.querySelector('.kit-swatch'), t);
+      b.onclick = () => confirmCup(comp, id);
+      grid.appendChild(b);
+    }
+    grid.scrollTop = 0;
+  };
+  function cupGroups() {
+    $('#cup-team-title').textContent = comp.name;
+    $('#cup-team-back').onclick = cupMenu;
+    grid.hidden = true;
+    list.hidden = false;
+    list.innerHTML = '';
+    const mine = teams.find((t) => t.id === myTeamId);
+    for (const g of groups) {
+      const has = mine && g.ids.includes(mine.id);
+      const b = document.createElement('button');
+      b.className = 'league-btn flag-btn' + (has ? ' saved' : '');
+      b.append(g.paint(document.createElement('canvas')));
+      b.insertAdjacentHTML('beforeend', `<b>${g.name}</b><small>${g.ids.length} ${g.ids.length === 1 ? 'equipo' : 'equipos'}</small>${has ? `<em>Último equipo: ${mine.name}</em>` : ''}`);
+      b.onclick = () => groupTeams(g);
+      list.appendChild(b);
+    }
+    list.scrollTop = 0;
   }
-  grid.scrollTop = 0;
+  if (groups.length > 1) cupGroups();
+  else groupTeams({ ...groups[0], name: comp.name });
   show('screen-cup-teams');
 }
 
@@ -1563,15 +1823,24 @@ function showCup() {
 function playCupMatch() {
   const m = myMatch(cup);
   const rival = m.a === cup.me ? m.b : m.a;
+  openPrematch({
+    home: cup.me, away: rival, setup: defaultSetup(cup.me, rival), length: cup.length,
+    title: ROUND_NAMES[teamsLeft(cup)],
+    onBack: () => showCup(),
+    onStart: ({ setup, length }) => { cup.length = length; saveCup(); startCupMatch(rival, setup); },
+  });
+}
+
+function startCupMatch(rival, setup) {
   const level = levelFor(teamsLeft(cup));
   audio.unlock();
   let host, cpu;
   const deliver = (x) => setTimeout(() => { view && view.onMessage(x); cpu.onMessage(x); }, 0);
-  host = new Host({ home: cup.me, away: rival, callerSide: 0, broadcast: deliver, length: cup.length });
+  host = new Host({ home: cup.me, away: rival, callerSide: 0, broadcast: deliver, length: cup.length, setup });
   cpu = new Cpu(1, (x) => host.receive(1, x), level);
   lastHost = host;
   cupPlaying = true;
-  view = new MatchView({ mySide: 0, isHost: true, send: (x) => host.receive(0, x), endButtons: (state) => [['Continuar', 'primary', () => cupAfterMatch(resultOf(state, cup.me, rival))]] });
+  view = new MatchView({ mySide: 0, isHost: true, intro: true, send: (x) => host.receive(0, x), endButtons: (state) => [['Continuar', 'primary', () => cupAfterMatch(resultOf(state, cup.me, rival))]] });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `${ROUND_NAMES[teamsLeft(cup)]} contra ${teamById(rival).name}.`;
   host.start();
@@ -1602,7 +1871,7 @@ function confirmQuitCup() {
 }
 
 // ---------- sala de trofeos ----------
-const HOW_TO = { calc: 'Gana un torneo libre (Copa Calcciopoli) en Torneo.' };
+const HOW_TO = { calc: 'Gana un torneo libre (Copa Calciopoli) en Torneo.' };
 function trophyHint(id) {
   if (HOW_TO[id]) return HOW_TO[id];
   const comp = COMPS.find((c) => c.id === id);
@@ -1671,9 +1940,13 @@ function showCareerPick() {
   for (const l of LEAGUES) {
     const c = saved[l.id];
     const b = document.createElement('button');
-    b.className = 'league-btn';
+    b.className = 'league-btn cup-btn';
     const sub = c ? `${teamById(c.me).name} · Temporada ${c.season} · ${seasonOver(c) ? 'terminada' : `fecha ${c.round + 1} de ${totalRounds(c)}`}` : `${l.teams.length} equipos`;
-    b.innerHTML = `<b>${l.name}</b><small>${l.country}</small><em>${sub}</em>`;
+    const cv = trophyCanvas(`lg_${l.id}`);
+    const img = document.createElement('canvas');
+    img.width = cv.width; img.height = cv.height; img.getContext('2d').drawImage(cv, 0, 0);
+    b.append(img);
+    b.insertAdjacentHTML('beforeend', `<b>${l.name}</b><small>${l.country}</small><em>${sub}</em>`);
     if (c) b.classList.add('saved');
     b.onclick = () => {
       if (!c) { pickCareerTeam(l); return; }
@@ -1705,14 +1978,14 @@ function pickCareerTeam(l) {
 }
 
 function careerOptions(l, me) {
-  const opt = { double: false, level: 'normal', length: 'short' };
+  const opt = { double: false, level: myLevel, length: myLength };
   const row = (key, label, items) => `<div class="len-row opt-row" data-key="${key}"><small>${label}</small>${items.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join('')}</div>`;
   const n = l.teams.length - 1;
   modal(`<h2>${teamById(me).name}</h2>
     <p>Temporada de ${l.name} contra la IA. En la liga no hay penales: el empate da un punto.</p>
     ${row('double', 'Ruedas', [['0', `Solo ida (${n})`], ['1', `Ida y vuelta (${n * 2})`]])}
     ${row('level', 'IA', Object.entries(LEVELS).map(([k, v]) => [k, v.label]))}
-    ${row('length', 'Partidos', Object.entries(LENGTHS).map(([k, v]) => [k, v.label]))}`,
+    <p class="note">La duración, el estadio, la hora y el clima se eligen antes de cada partido.</p>`,
   [['Empezar temporada', 'primary', () => {
     career = newCareer({ league: l, me, ...opt });
     saveCareer();
@@ -1782,15 +2055,26 @@ function showCareer() {
 function playCareerMatch() {
   const c = career;
   const m = myFixture(c);
+  openPrematch({
+    home: m.h, away: m.a, setup: defaultSetup(m.h, m.a), length: c.length, level: c.level, showLevel: true,
+    title: `Fecha ${c.round + 1}`,
+    onBack: () => showCareer(),
+    onStart: ({ setup, length, level }) => { c.length = length; c.level = level; saveCareer(); startCareerMatch(setup); },
+  });
+}
+
+function startCareerMatch(setup) {
+  const c = career;
+  const m = myFixture(c);
   const mySide = m.h === c.me ? 0 : 1;
   audio.unlock();
   let host, cpu;
   const deliver = (x) => setTimeout(() => { view && view.onMessage(x); cpu.onMessage(x); }, 0);
-  host = new Host({ home: m.h, away: m.a, callerSide: mySide, broadcast: deliver, length: c.length, shootout: false });
+  host = new Host({ home: m.h, away: m.a, callerSide: mySide, broadcast: deliver, length: c.length, shootout: false, setup });
   cpu = new Cpu(1 - mySide, (x) => host.receive(1 - mySide, x), c.level);
   lastHost = host;
   careerPlaying = true;
-  view = new MatchView({ mySide, isHost: true, send: (x) => host.receive(mySide, x), endButtons: (state) => [['Continuar', 'primary', () => careerAfterMatch(resultFrom(state))]] });
+  view = new MatchView({ mySide, isHost: true, intro: true, send: (x) => host.receive(mySide, x), endButtons: (state) => [['Continuar', 'primary', () => careerAfterMatch(resultFrom(state))]] });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `${leagueOf(c).name}, fecha ${c.round + 1}.`;
   host.start();
@@ -1818,24 +2102,11 @@ function confirmQuitCareer() {
 
 // ---------- arranque ----------
 paintMyTeam();
-buildTeamGrid();
-$('#btn-team').onclick = () => { buildTeamGrid(); show('screen-teams'); };
 document.querySelectorAll('[data-back]').forEach((b) => (b.onclick = () => show(b.dataset.back || 'screen-menu')));
 $('#btn-play').onclick = () => show('screen-play');
 $('#btn-room').onclick = () => { const o = $('#room-opts'); o.hidden = !o.hidden; $('#btn-room').classList.toggle('open', !o.hidden); };
 document.querySelectorAll('canvas[data-icon]').forEach((c) => paintIcon(c, c.dataset.icon));
-$('#btn-cpu').onclick = () => modal(`<h2>Contra la IA</h2>
-  <p><b>Fácil:</b> tiene mañas y repite jugadas; si lo lees, le ganas.</p>
-  <p><b>Normal:</b> juega suelto y de vez en cuando se anticipa.</p>
-  <p><b>Difícil:</b> estudia tus patrones y te los castiga. No repitas jugadas.</p>`,
-  [...Object.entries(LEVELS).map(([id, l]) => [l.label, id === 'normal' ? 'primary' : '', () => startCpu(id)]), ['Volver', 'ghost', () => {}]]);
-const paintLength = () => document.querySelectorAll('#len-row [data-len]').forEach((b) => b.classList.toggle('on', b.dataset.len === myLength));
-document.querySelectorAll('#len-row [data-len]').forEach((b) => (b.onclick = () => {
-  myLength = b.dataset.len;
-  try { localStorage.setItem('fdm-len', myLength); } catch { /* sin storage */ }
-  paintLength();
-}));
-paintLength();
+$('#btn-cpu').onclick = () => pickTeam(() => cpuPrematch());
 $('#btn-quit').onclick = () => confirmQuit();
 $('#btn-create').onclick = () => createOnline();
 $('#btn-league').onclick = () => createLeague();
@@ -1847,6 +2118,7 @@ $('#btn-trophies').onclick = () => showTrophies();
 { const ic = $('#trophy-icon'), t = trophyCanvas('wc'); ic.width = t.width; ic.height = t.height; ic.getContext('2d').drawImage(t, 0, 0); }
 paintCupButton();
 $('#lg-start').onclick = () => startLeague();
+$('#lg-team').onclick = () => pickLeagueTeam();
 $('#lg-leave').onclick = () => leaveLeague();
 document.querySelectorAll('#lg-len [data-len]').forEach((b) => (b.onclick = () => {
   if (!league || !league.isHost || league.lh) return;
@@ -1877,12 +2149,17 @@ homeMute.onclick = () => { audio.unlock(); audio.setMuted(!audio.isMuted()); pai
 const params = new URLSearchParams(location.search);
 if (params.get('sala')) {
   $('#join-code').value = params.get('sala').toUpperCase();
-  $('#menu-msg').textContent = 'Elige tu equipo y toca «Unirse».';
+  $('#menu-msg').textContent = 'Toca «Unirse» para entrar a la sala.';
   $('#room-opts').hidden = false; $('#btn-room').classList.add('open');
   show('screen-play');
 }
-if (LENGTHS[params.get('largo')]) { myLength = params.get('largo'); paintLength(); }
+if (LENGTHS[params.get('largo')]) myLength = params.get('largo');
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
+// Al abrir el juego en la portada, la entrada animada antes de JUGAR (?intro=0 la omite).
+// La portada viene oculta desde el HTML para que no se vea un instante antes.
+if (params.get('intro') !== '0' && $('#screen-menu').classList.contains('active')) {
+  try { playTitleIntro($('#screen-menu'), $('#logo-art')); } catch (e) { console.warn('entrada', e); $('#screen-menu').classList.remove('intro'); }
+} else $('#screen-menu').classList.remove('intro');
 
 // Para pruebas automáticas.
 window.__fdm = { get career() { return career; }, get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon, cupResult: (r) => cupAfterMatch(r) };

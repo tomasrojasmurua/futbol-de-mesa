@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
   <meta name="theme-color" content="#14171f" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Calcciopoli" />
+  <meta name="apple-mobile-web-app-title" content="Calciopoli" />
   <meta name="description" content="Lee la jugada, gana el mano a mano y grita el gol. Fútbol para 2 jugadores." />
-  <title>Calcciopoli</title>
+  <title>Calciopoli</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,11 +18,12 @@
 </head>
 <body>
   <!-- MENÚ -->
-  <section id="screen-menu" class="screen active">
+  <!-- "intro": la portada parte oculta hasta que corre la entrada animada (src/titleintro.js) -->
+  <section id="screen-menu" class="screen active intro">
     <canvas id="title-art" aria-hidden="true"></canvas>
     <div class="home">
       <div class="home-hero">
-        <h1 class="logo"><canvas id="logo-art" role="img" aria-label="Calcciopoli"></canvas><span class="name">CALCCIOPOLI</span></h1>
+        <h1 class="logo"><canvas id="logo-art" role="img" aria-label="Calciopoli"></canvas><span class="name">CALCIOPOLI</span></h1>
         <p class="tag">Lee la jugada, gana el mano a mano y grita el gol.</p>
       </div>
       <div class="home-actions">
@@ -35,17 +37,8 @@
   <section id="screen-play" class="screen">
     <header class="bar"><button class="back" data-back>◂</button><h2>¿Cómo quieres jugar?</h2></header>
     <div class="play-list">
-      <button id="btn-team" class="team-pick">
-        <span class="kit-swatch" id="my-swatch"></span>
-        <span><small>Tu equipo</small><b id="my-team-name">Racing Club</b></span>
-        <span class="chev">▸</span>
-      </button>
-      <div class="len-row" id="len-row">
-        <small>Duración</small>
-        <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
-      </div>
       <button id="btn-cpu" class="mode"><canvas data-icon="ball"></canvas><span><b>Partido rápido</b><small>Contra la IA</small></span><i>▸</i></button>
-      <button id="btn-career" class="mode"><canvas data-icon="cup"></canvas><span><b>Carrera</b><small>10 ligas reales</small></span><i>▸</i></button>
+      <button id="btn-career" class="mode"><canvas data-icon="cup"></canvas><span><b>Carrera</b><small>11 ligas reales</small></span><i>▸</i></button>
       <button id="btn-cup" class="mode"><canvas data-icon="bracket"></canvas><span><b>Torneo</b><small>Mundial, Champions, Libertadores y más</small></span><i>▸</i></button>
       <button id="btn-room" class="mode"><canvas data-icon="duo"></canvas><span><b>Sala 1 vs 1</b><small>Con un amigo, en otro teléfono</small></span><i>▾</i></button>
       <div id="room-opts" class="room-opts" hidden>
@@ -68,15 +61,47 @@
     <div id="team-grid" class="team-grid" hidden></div>
   </section>
 
+  <!-- PREVIA DEL PARTIDO -->
+  <section id="screen-pre" class="screen">
+    <header class="bar"><button class="back" id="pre-back">◂</button><h2 id="pre-title">Previa del partido</h2></header>
+    <div class="pre">
+      <div class="pre-stage">
+        <canvas id="pre-scene" aria-hidden="true"></canvas>
+        <div class="pre-side" data-side="0">
+          <div class="pre-name"><b class="pre-team"></b><small class="pre-role"></small></div>
+          <div class="pre-fig"><div class="pre-crest"></div></div>
+          <div class="pre-kits"></div>
+        </div>
+        <div id="pre-opts" class="pre-opts"></div>
+        <div class="pre-side" data-side="1">
+          <div class="pre-name"><b class="pre-team"></b><small class="pre-role"></small></div>
+          <div class="pre-fig"><div class="pre-crest"></div></div>
+          <div class="pre-kits"></div>
+        </div>
+        <div id="pre-list" class="pre-list" hidden></div>
+      </div>
+      <div class="pre-foot">
+        <p id="pre-msg" class="pre-msg"></p>
+        <button id="pre-start" class="btn primary play">¡A la cancha!</button>
+        <p id="pre-wait" class="waiting"></p>
+      </div>
+    </div>
+  </section>
+
   <!-- SALA -->
   <section id="screen-lobby" class="screen">
     <div class="menu-inner">
-      <h2 class="h2">Sala creada</h2>
-      <p>Comparte este código con tu rival:</p>
-      <div id="room-code" class="room-code">·····</div>
-      <button id="btn-share" class="btn primary">Compartir enlace</button>
-      <p class="waiting"><span class="ball-spin"></span> Esperando al rival…</p>
-      <button id="btn-cancel" class="btn ghost">Cancelar</button>
+      <h2 class="h2" id="lobby-title">Sala creada</h2>
+      <div id="lobby-code-box" class="lg-code-box">
+        <p>Comparte este código con tu rival:</p>
+        <div id="room-code" class="room-code">·····</div>
+        <button id="btn-share" class="btn primary">Compartir enlace</button>
+      </div>
+      <ul id="lobby-players" class="lg-players"></ul>
+      <button id="lobby-team" class="btn">Elegir tu equipo</button>
+      <button id="lobby-start" class="btn primary" hidden>Empezar partido</button>
+      <p id="lobby-wait" class="waiting"></p>
+      <button id="btn-cancel" class="btn ghost">Salir</button>
       <p id="lobby-msg" class="msg"></p>
     </div>
   </section>
@@ -91,6 +116,7 @@
         <button id="lg-share" class="btn primary">Compartir enlace</button>
       </div>
       <ul id="lg-players" class="lg-players"></ul>
+      <button id="lg-team" class="btn">Elegir tu equipo</button>
       <div class="len-row" id="lg-len">
         <small>Duración</small>
         <button data-len="short">Corto</button><button data-len="normal">Normal</button><button data-len="long">Largo</button>
@@ -132,6 +158,7 @@
   </section>
   <section id="screen-cup-teams" class="screen">
     <header class="bar"><button class="back" id="cup-team-back">◂</button><h2 id="cup-team-title">Elige tu equipo</h2></header>
+    <div id="cup-team-groups" class="league-list" hidden></div>
     <div id="cup-team-grid" class="team-grid"></div>
   </section>
 

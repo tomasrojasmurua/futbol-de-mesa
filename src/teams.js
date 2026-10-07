@@ -112,15 +112,24 @@ function colorDist(a, b) {
   return Math.hypot(r1 - r2, g1 - g2, b1 - b2);
 }
 
-// Elige las camisetas del partido: si chocan los colores, la visita usa su alternativa.
-export function matchKits(home, away) {
-  const h = home.kit;
-  let a = away.kit;
-  const clash = Math.min(colorDist(h.shirt, a.shirt), colorDist(h.shirt, a.alt2) + 60, colorDist(h.alt2, a.shirt) + 60);
-  if (clash < 120) a = away.away;
-  if (colorDist(h.shirt, a.shirt) < 90) a = { shirt: '#222222', alt2: '#888888', pattern: 'plain', shorts: '#222222' };
+// Qué camiseta usa cada uno si nadie elige (0 = titular, 1 = recambio): el
+// local con la primera y la visita con la segunda.
+export function autoKits() {
+  return [0, 1];
+}
+
+// ¿Se confunden las dos camisetas en la cancha?
+export function kitsClash(a, b) { return colorDist(a.shirt, b.shirt) < 70; }
+
+// Las camisetas del partido. pick: [local, visita] con 0 = titular y 1 = recambio;
+// sin pick se eligen solas (y si igual chocan, la visita sale de negro).
+export function matchKits(home, away, pick) {
+  const [ph, pa] = pick || autoKits(home, away);
+  const h = ph ? home.away : home.kit;
+  let a = pa ? away.away : away.kit;
+  if (!pick && colorDist(h.shirt, a.shirt) < 90) a = { shirt: '#222222', alt2: '#888888', pattern: 'plain', shorts: '#222222' };
   return [
-    { ...h, gk: '#2fbf4a' },
+    { ...h, gk: h.shirt === '#2fbf4a' || colorDist(h.shirt, '#2fbf4a') < 90 ? '#1b6fd6' : '#2fbf4a' },
     { ...a, gk: h.shirt === '#ffdf00' || colorDist(a.shirt, '#f2b705') < 120 ? '#9b30d9' : '#f2b705' },
   ];
 }

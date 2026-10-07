@@ -1,4 +1,4 @@
-// Calcciopoli · trofeos y sala de trofeos.
+// Calciopoli · trofeos y sala de trofeos.
 // Las copas se pintan píxel por píxel como sólidos de revolución: para cada
 // píxel se calcula la normal del metal y se ilumina con un estudio (luz arriba
 // a la izquierda, reflejo del cielo y del piso), y el brillo se reduce a una
@@ -238,7 +238,7 @@ const ART = {
     lathe(b, cx, [[3, 6.2, 'silver'], [5, 5.6, 'silver'], [14, 5.2, 'silver'], [20, 3.8, 'silver'], [26, 2.4, 'silver'], [H - 10, 2, 'silver'], [H - 6, 5, 'silver']]);
     for (const s of [-1, 1]) tube(b, [[cx + s * 5, 6], [cx + s * 7.4, 7], [cx + s * 7.2, 11], [cx + s * 5, 12]], 0.8, 'silver', 3);
   },
-  // Copa Calcciopoli: dorada con una pelota encima.
+  // Copa Calciopoli: dorada con una pelota encima.
   calc(b) {
     const cx = b.W / 2, H = b.H;
     lathe(b, cx, [[H - 8, 5.6, 'black'], [H - 1, 7.8, 'black']], { linear: true });
@@ -315,18 +315,18 @@ const SA_TOP = ['river', 'boca', 'rac', 'ind', 'slo', 'est', 'vel', 'ar_tal', 'a
 const byGroup = (g) => TEAMS.filter((t) => t.group === g).map((t) => t.id);
 const SA_ALL = [...byGroup('Primera de Chile'), ...byGroup('Liga Profesional'), ...byGroup('Brasileirão'), 'pen', 'nac', 'atn', 'ali', 'uni'];
 
-// Copas con cuadro de 16 (o de 8 si no hay equipos para más).
+// Copas con cuadro de 16 u 8 equipos (la Europa League y la Sudamericana son de 8).
 export const COMPS = [
   { id: 'ucl', name: 'Champions League', sub: 'Los grandes de Europa', art: 'ucl', pool: CLUB_EU_TOP, size: 16 },
-  { id: 'uel', name: 'Europa League', sub: 'Clubes de Europa', art: 'uel', pool: CLUB_EU_2, size: 16 },
+  { id: 'uel', name: 'Europa League', sub: 'Clubes de Europa', art: 'uel', pool: CLUB_EU_2, size: 8 },
   { id: 'lib', name: 'Copa Libertadores', sub: 'Los grandes de Sudamérica', art: 'lib', pool: SA_TOP, size: 16 },
-  { id: 'sud', name: 'Copa Sudamericana', sub: 'Clubes de Sudamérica', art: 'sud', pool: SA_ALL.filter((id) => !SA_TOP.slice(0, 10).includes(id)), size: 16 },
+  { id: 'sud', name: 'Copa Sudamericana', sub: 'Clubes de Sudamérica', art: 'sud', pool: SA_ALL.filter((id) => !SA_TOP.slice(0, 10).includes(id)), size: 8 },
   { id: 'wc', name: 'Copa del Mundo', sub: 'Selecciones de todo el mundo', art: 'world', pool: byGroup('Selecciones'), size: 16 },
   { id: 'ca', name: 'Copa América', sub: 'Selecciones de América', art: 'ca', pool: ['arg', 'chi', 'bra', 'uru', 'col', 'per', 'ecu', 'par', 'ven', 'bol', 'mex', 'usa', 'can'], size: 8 },
   { id: 'euro', name: 'Eurocopa', sub: 'Selecciones de Europa', art: 'euro', pool: ['esp', 'fra', 'ger', 'eng', 'ita', 'por', 'ned', 'cro', 'bel', 'sui', 'den'], size: 8 },
 ];
 // El torneo libre de siempre.
-export const FREE_CUP = { id: 'calc', name: 'Copa Calcciopoli', sub: 'Torneo libre: tú eliges con quién', art: 'calc' };
+export const FREE_CUP = { id: 'calc', name: 'Copa Calciopoli', sub: 'Torneo libre: tú eliges con quién', art: 'calc' };
 
 // Trofeos de liga (modo carrera).
 const LEAGUE_ART = {
@@ -340,6 +340,7 @@ const LEAGUE_ART = {
   de: { name: 'Bundesliga', art: 'plate' },
   fr: { name: 'Ligue 1', art: 'hex' },
   pt: { name: 'Primeira Liga', art: 'cup', o: { mat: 'silver', base: 'wood', band: 'red' } },
+  jp: { name: 'J1 League', art: 'cup', o: { mat: 'silver', base: 'black', band: 'red', handles: false, w: 8.4, top: 11 } },
 };
 export const TROPHY_LIST = [
   ...COMPS.map((c) => ({ id: c.id, name: c.name, art: c.art })),
@@ -376,8 +377,9 @@ export const ROOM_W = 200;
 export const ROOM_ROWS = [
   ['lib', 'ucl', 'wc', 'uel', 'sud'],
   ['ca', 'calc', 'euro'],
-  ['lg_cl', 'lg_ar', 'lg_br', 'lg_mx', 'lg_pt'],
-  ['lg_es', 'lg_en', 'lg_it', 'lg_de', 'lg_fr'],
+  ['lg_cl', 'lg_ar', 'lg_br', 'lg_mx'],
+  ['lg_es', 'lg_en', 'lg_it', 'lg_de'],
+  ['lg_fr', 'lg_pt', 'lg_jp'],
 ];
 export function paintRoom(cv, won, kit) {
   const W = ROOM_W, TOP = 46, SHELF = 66, H = TOP + SHELF * ROOM_ROWS.length + 58;

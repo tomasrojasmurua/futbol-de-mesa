@@ -5,7 +5,7 @@
 import { hexRgb } from './teams.js';
 import { playerName } from './squads.js';
 import { Cutscene, text as pxText, textW as pxTextW } from './cutscene.js';
-import { stadiumFor } from './stadiums.js';
+import { cleanSetup, stadiumWith, LIGHT } from './matchday.js';
 import { P4 } from './players.js';
 const FAR_BALLS = new Map();
 import { p4Kit, HAIR_STYLES } from './playerkit.js';
@@ -225,15 +225,19 @@ export class Renderer {
     return [MX + x * S, MY + y * S];
   }
 
-  setup(teams, kits, mySide) {
+  setup(teams, kits, mySide, setup) {
     this.teams = teams;
     this.kits = kits;
     this.mySide = mySide;
     this.spriteCache.clear();
-    this.stadium = stadiumFor(teams[0].id);
+    // La previa: estadio, hora y clima (solo cambian cómo se ve).
+    this.day = cleanSetup(setup, teams[0].id, teams[1].id);
+    this.stadium = stadiumWith(this.day);
+    this.rain = this.day.weather === 'rain';
     this.noCrowd = [];
     this.bg = this.buildBackground();
     this.overlay = this.buildOverlay();
+    this.buildLight();
     this.buildCrowd();
     this.boards = this.buildBoards();
     for (let s = 0; s < 2; s++) {
@@ -1883,10 +1887,6 @@ export class Renderer {
       g.fillStyle = 'rgba(0,0,0,0.25)';
       g.fillRect(b, b, WW - 2 * b, 1); g.fillRect(b, WH - b - 1, WW - 2 * b, 1);
     }
-    if (st.features.includes('ring')) {
-      g.strokeStyle = '#f4f6f8'; g.lineWidth = 2;
-      g.beginPath(); g.ellipse(WW / 2, WH / 2, WW / 2 - 6, WH / 2 - 6, 0, 0, Math.PI * 2); g.stroke();
-    }
     if (st.features.includes('trusses')) {
       // torres cilíndricas en las esquinas y vigas rojas sobre el techo
       g.fillStyle = '#b3261e';
@@ -2080,13 +2080,7 @@ export class Renderer {
     const [X, Y] = this.px(p.x, p.y);
     const x = Math.round(X), y = Math.round(Y);
     const lift = Math.round((p.z || 0) * S * 0.9);
-    // sombras (una principal y dos suaves por los focos)
-    const sw = p.pose || p.dive || p.fallen > 0 ? 11 : 7;
-    const sa = Math.max(0.12, 0.3 - lift * 0.02);
-    g.fillStyle = `rgba(0,0,0,${sa})`;
-    g.fillRect(x - (sw >> 1), y - 1, sw, 2);
-    g.fillStyle = 'rgba(0,0,0,0.08)';
-    g.fillRect(x - 6, y, 5, 1); g.fillRect(x + 2, y, 5, 1);
+    this.drawShadow(g, x, y, p.pose || p.dive || p.fallen > 0 ? 11 : 7, lift);
 
     let facing = p.facing, fx = p.fx;
     if (this.mySide === 1) { facing = -facing; fx = -fx; }
@@ -2153,15 +2147,151 @@ export class Renderer {
     g.drawImage(im, X - (im.width >> 1) + 1, Y - im.height + 1 - bz);
   }
 
+  // ---------- luz del día y clima ----------
+  // Dos capas del tamaño del estadio, armadas una vez por partido: una que
+  // oscurece y tiñe (multiplicar: sombra de la tribuna, atardecer, noche) y otra
+  // que ilumina (pantalla: los focos y su reflejo en los charcos).
+  buildLight() {
+    const { time, weather } = this.day;
+    const mk = () => { const c = document.createElement('canvas'); c.width = WW; c.height = WH; return c; };
+    const shade = mk(), glow = mk();
+    const m = shade.getContext('2d'), l = glow.getContext('2d');
+    const gx0 = MX - 10, gy0 = MY - 10, gw = PW * S + 20, gh = PL * S + 20;
+    const sun = weather === 'clear' && time !== 'night';
+    const night = time === 'night';
+    // tono general: tribunas y cancha
+    const BASE = LIGHT[time][weather];
+    m.fillStyle = BASE[0]; m.fillRect(0, 0, WW, WH);
+    m.fillStyle = BASE[1]; m.fillRect(gx0, gy0, gw, gh);
+    if (sun) {
+      // Sombra dura de la tribuna sobre el pasto: de mañana el sol viene del
+      // este (cae a la izquierda), de tarde del oeste, más bajo y más larga.
+      const left = time === 'morning';
+      const reach = left ? 0.17 : 0.3;
+      const col = left ? '#a4b2d2' : '#9f8fbb';
+      m.fillStyle = col;
+      for (let y = 0; y < WH; y++) {
+        // el borde no es recto: las cabeceras y el techo lo quiebran un poco
+        const bend = Math.round(Math.sin(y * 0.021) * 3 + (y / WH) * (left ? 6 : -10));
+        const edge = Math.round(PW * S * reach) + bend;
+        if (left) {
+          const x1 = MX + edge;
+          m.fillRect(0, y, x1, 1);
+          // penumbra de un píxel tramada
+          if (y % 2) m.fillRect(x1, y, 1, 1);
+        } else {
+          const x0 = MX + PW * S - edge;
+          m.fillRect(x0, y, WW - x0, 1);
+          if (y % 2) m.fillRect(x0 - 1, y, 1, 1);
+        }
+      }
+      if (!left) {
+        // el sol de la tarde dora lo que sigue iluminado
+        l.fillStyle = 'rgba(70,38,6,0.32)';
+        l.fillRect(0, 0, MX + PW * S * (1 - reach), WH);
+      }
+    }
+    if (night) {
+      // focos en las cuatro esquinas: manchas de luz cálida sobre el pasto
+      const k = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.85 : 0.9;
+      const pool = (x, y, r, a) => {
+        const gr = l.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, `rgba(255,248,214,${a * k})`); gr.addColorStop(0.55, `rgba(255,244,200,${a * 0.45 * k})`); gr.addColorStop(1, 'rgba(255,244,200,0)');
+        l.fillStyle = gr; l.fillRect(x - r, y - r, r * 2, r * 2);
+      };
+      for (const [x, y] of [[MX - 6, MY - 6], [MX + PW * S + 6, MY - 6], [MX - 6, MY + PL * S + 6], [MX + PW * S + 6, MY + PL * S + 6]]) pool(x, y, 150, 0.14);
+    }
+    if (weather === 'rain') {
+      // charcos donde el pasto está gastado: brillan con la luz que haya
+      const shine = night ? 'rgba(170,190,235,0.32)' : 'rgba(150,165,190,0.22)';
+      const hi = night ? 'rgba(255,248,220,0.55)' : 'rgba(220,230,245,0.4)';
+      const spots = [[PW / 2 - 4, 4, 9], [PW / 2 + 5, 6.5, 6], [PW / 2 + 3, PL - 4, 10], [PW / 2 - 6, PL - 6.5, 5], [PW / 2 + 2, PL / 2 + 1, 7], [12, 30, 5], [55, 72, 6]];
+      for (const [u, v, w] of spots) {
+        const cx = Math.round(MX + u * S), cy = Math.round(MY + v * S), hw = Math.round(w * S / 2);
+        for (let dy = -2; dy <= 2; dy++) {
+          const span = Math.round(hw * Math.sqrt(1 - (dy / 2.6) ** 2));
+          l.fillStyle = shine; l.fillRect(cx - span, cy + dy, span * 2, 1);
+        }
+        l.fillStyle = hi; l.fillRect(cx - Math.round(hw / 3), cy - 1, Math.round(hw / 2), 1);
+      }
+    }
+    this.shade = shade; this.glow = glow;
+    this.gray = weather !== 'clear';
+    this.splash = weather === 'rain' ? Array.from({ length: 70 }, () => ({ x: gx0 + Math.random() * gw, y: gy0 + Math.random() * gh, t: Math.random() })) : null;
+  }
+
+  applyLight(g, now) {
+    if (!this.shade) return;
+    g.save();
+    if (this.gray) {
+      // cielo cubierto: la luz pareja le quita color a todo
+      g.globalCompositeOperation = 'saturation';
+      g.fillStyle = 'rgba(128,128,128,0.3)'; g.fillRect(0, 0, WW, WH);
+    }
+    g.globalCompositeOperation = 'multiply';
+    g.drawImage(this.shade, 0, 0);
+    g.globalCompositeOperation = 'screen';
+    g.drawImage(this.glow, 0, 0);
+    g.restore();
+    if (this.day.time === 'night') {
+      // las torres de iluminación en las esquinas del estadio
+      for (const [x, y] of [[3, 3], [WW - 11, 3], [3, WH - 7], [WW - 11, WH - 7]]) {
+        g.fillStyle = '#1a1d26'; g.fillRect(x - 1, y - 1, 10, 6);
+        for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#fff6c8' : '#ffffff'; g.fillRect(x + i * 2, y + j * 2, 1, 1); }
+      }
+    }
+    if (this.splash) {
+      // gotas que rebotan en el pasto: una coronita de un instante
+      const t = (now || 0) / 1000;
+      for (const d of this.splash) {
+        const f = (t * 1.7 + d.t) % 1;
+        if (f > 0.16) continue;
+        if (f < 0.02) { d.x = MX - 10 + Math.random() * (PW * S + 20); d.y = MY - 10 + Math.random() * (PL * S + 20); }
+        const x = Math.round(d.x), y = Math.round(d.y);
+        g.fillStyle = 'rgba(225,235,250,0.75)';
+        if (f < 0.06) g.fillRect(x, y - 1, 1, 1);
+        else { g.fillRect(x - 1, y, 1, 1); g.fillRect(x + 1, y, 1, 1); g.fillStyle = 'rgba(225,235,250,0.35)'; g.fillRect(x, y - 1, 1, 1); }
+      }
+    }
+  }
+
+  // La sombra de cada jugador según la luz: de noche, una principal y dos suaves
+  // por los focos; con sol, una sola y larga hacia el lado contrario; nublado,
+  // apenas una mancha bajo los pies.
+  drawShadow(g, x, y, sw, lift) {
+    const day = this.day || { time: 'night', weather: 'clear' };
+    const sa = Math.max(0.12, 0.3 - lift * 0.02);
+    if (day.time === 'night') {
+      g.fillStyle = `rgba(0,0,0,${sa})`;
+      g.fillRect(x - (sw >> 1), y - 1, sw, 2);
+      g.fillStyle = 'rgba(0,0,0,0.08)';
+      g.fillRect(x - 6, y, 5, 1); g.fillRect(x + 2, y, 5, 1);
+      return;
+    }
+    if (day.weather !== 'clear') {
+      g.fillStyle = `rgba(0,0,0,${sa * 0.75})`;
+      g.fillRect(x - (sw >> 1) + 1, y - 1, sw - 2, 2);
+      return;
+    }
+    // sol bajo: de mañana la sombra va hacia el oeste (derecha), de tarde al este
+    const dir = day.time === 'morning' ? 1 : -1;
+    const len = (day.time === 'morning' ? 7 : 10) + Math.round(lift * 0.6);
+    g.fillStyle = `rgba(0,0,0,${sa})`;
+    g.fillRect(x - (sw >> 1), y - 1, sw, 2);
+    g.fillStyle = `rgba(0,0,0,${sa * 0.8})`;
+    if (dir > 0) g.fillRect(x + (sw >> 1), y - 2 + (lift ? 1 : 0), len, 2);
+    else g.fillRect(x - (sw >> 1) - len, y - 2 + (lift ? 1 : 0), len, 2);
+  }
+
   // Lluvia sobre la transmisión: tono gris azulado y gotas en diagonal.
   drawRain(c, Wd, Hd, now) {
-    c.fillStyle = 'rgba(35,50,80,0.3)'; c.fillRect(0, 0, Wd, Hd);
+    c.fillStyle = 'rgba(35,50,80,0.12)'; c.fillRect(0, 0, Wd, Hd);
     if (!this.drops || this.drops.w !== Wd) {
-      this.drops = Array.from({ length: Math.round(Wd * Hd / 1600) }, () => ({ x: Math.random(), y: Math.random(), v: 0.8 + Math.random() * 0.6, l: 8 + Math.random() * 10 }));
+      this.drops = Array.from({ length: Math.round(Wd * Hd / 2600) }, () => ({ x: Math.random(), y: Math.random(), v: 0.8 + Math.random() * 0.6, l: 8 + Math.random() * 10 }));
       this.drops.w = Wd;
     }
     const t = (now || 0) / 1000, u = Math.max(1, Wd / 600);
-    c.strokeStyle = 'rgba(215,228,245,0.7)'; c.lineWidth = Math.max(1.2, u * 1.3);
+    c.strokeStyle = 'rgba(215,228,245,0.45)'; c.lineWidth = Math.max(1, u);
     c.beginPath();
     for (const d of this.drops) {
       const y = ((d.y + t * d.v * 1.6) % 1) * (Hd + 40) - 20;
@@ -2216,6 +2346,7 @@ export class Renderer {
         g.fillStyle = b.owner.side === this.mySide ? '#ffe14a' : '#ffffff';
         g.fillRect(X - 2, Y, 5, 1); g.fillRect(X - 1, Y + 1, 3, 1); g.fillRect(X, Y + 2, 1, 1);
       }
+      this.applyLight(g, now);
       if (this.flash > 0) { g.fillStyle = `rgba(255,255,255,${this.flash * 0.5})`; g.fillRect(0, 0, WW, WH); }
     }
     // cámara

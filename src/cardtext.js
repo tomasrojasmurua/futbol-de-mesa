@@ -58,21 +58,6 @@ export const CARD_TEXT = {
       R('shotBeat', 'goal', ['Si le ganan a tu arquero', 'Si le ganas al arquero', 'Si le ganan al arquero'], GOAL_RIVAL),
     ],
   },
-  lluvia: {
-    mine: ['Llueve hasta el final: a los dos les cuesta más acertar al arco.', 'Todos los remates del partido, tuyos y del rival'],
-    theirs: ['Llueve hasta el final: a los dos les cuesta más acertar al arco.', 'Todos los remates del partido, tuyos y del rival'],
-    neutral: ['Llueve hasta el final: a los dos les cuesta más acertar al arco.', 'Todos los remates del partido'],
-    rows: [R('shotBeat', 'goal', ['Cada remate que le gane al arquero', 'Cada remate que le gane al arquero', 'Cada remate que le gane al arquero'], ['Gol', 'Gol', 'Gol'])],
-  },
-  polemica: {
-    mine: ['El árbitro te puede regalar un penal.', 'Tu próximo ataque en el último tercio'],
-    theirs: ['El árbitro le puede regalar un penal al rival.', 'Su próximo ataque en el último tercio'],
-    neutral: ['El árbitro puede regalar un penal.', 'Su próximo ataque en el último tercio'],
-    rows: [
-      R('attackDef', 'penalty', KEEP_IF_GUESSED, ['Penal', 'Penal', 'Penal']),
-      R('dribbleWin', 'penalty', ['Si ganas la gambeta', 'Si te gana la gambeta', 'Si gana la gambeta'], ['Penal', 'Penal', 'Penal']),
-    ],
-  },
   primera: {
     mine: ['Aunque te adivinen el ataque, puedes rematar igual.', 'Tu próximo ataque en el último tercio'],
     theirs: ['Aunque le adivines el ataque, puede rematar igual.', 'Su próximo ataque en el último tercio'],

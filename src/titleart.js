@@ -1,5 +1,5 @@
 // Portada del menú: pasto de cancha visto desde arriba, con franjas de corte y
-// el mismo grano que el pasto de las animaciones, y el logo de Calcciopoli
+// el mismo grano que el pasto de las animaciones, y el logo de Calciopoli
 // (pelota y nombre) pintado en pixel art. Todo se pinta en píxeles grandes y se
 // escala sin suavizar.
 import { P4 } from './players.js';
@@ -64,26 +64,34 @@ const GLYPHS = {
   O: ['.#####.', '#######', '##...##', '##...##', '##...##', '##...##', '##...##', '#######', '.#####.'],
   P: ['######.', '#######', '##...##', '##...##', '#######', '######.', '##.....', '##.....', '##.....'],
 };
-export function paintLogo(cv) {
-  const text = 'CALCCIOPOLI';
+export const LOGO_TEXT = 'CALCIOPOLI';
+// `ball: false` deja el lugar de la pelota vacío y `only: i` pinta sólo la
+// letra i, en su lugar: la animación de entrada arma el logo con esas piezas.
+export function paintLogo(cv, { ball = true, only = null } = {}) {
+  const text = LOGO_TEXT;
   const rows = GLYPHS.C.length;
   const tw = [...text].reduce((w, ch) => w + GLYPHS[ch][0].length + 1, -1);
   const mask = new Uint8Array(tw * rows);
   let gx = 0;
-  for (const ch of text) { const gl = GLYPHS[ch]; gl.forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') mask[y * tw + gx + x] = 1; })); gx += gl[0].length + 1; }
+  [...text].forEach((ch, i) => {
+    const gl = GLYPHS[ch];
+    if (only === null || only === i) gl.forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') mask[y * tw + gx + x] = 1; }));
+    gx += gl[0].length + 1;
+  });
   const m = { width: tw, height: rows };
   const on = (x, y) => x >= 0 && y >= 0 && x < tw && y < rows && mask[y * tw + x] === 1;
-  let y0 = m.height, y1 = 0;
-  for (let y = 0; y < m.height; y++) for (let x = 0; x < m.width; x++) if (on(x, y)) { y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const y0 = 0, y1 = rows - 1;
   const th = y1 - y0 + 1;
   const BR = 16, ballS = Math.ceil(BR * 2) + 2, gap = 4, EX = 2; // EX: relieve hacia abajo
   const W = tw + 2 + EX, top = ballS + gap, H = top + th + 2 + EX + 1;
   cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
   // pelota con su sombra
-  const cx = W / 2;
-  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(Math.round(cx - BR * 0.75), ballS - 1, Math.round(BR * 1.5), 2);
-  g.drawImage(P4.ball(BR, 0), Math.round(cx - ballS / 2), 0);
+  const cx = W / 2, ballX = Math.round(cx - ballS / 2);
+  if (ball) {
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(Math.round(cx - BR * 0.75), ballS - 1, Math.round(BR * 1.5), 2);
+    g.drawImage(P4.ball(BR, 0), ballX, 0);
+  }
   // letras
   const ox = 1, oy = top + 1 - y0;
   const px = (x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
@@ -106,9 +114,10 @@ export function paintLogo(cv) {
     else if (!on(x - 1, y) && y - y0 < th * 0.6) px(ox + x, oy + y, '#ffeaa0');
   }
   // destello en la primera C
+  if (only !== null && only !== 0) return { W, H, BR, ballS, ballX, top };
   const sx = ox + 2, sy = oy + y0 + 1;
   px(sx, sy - 2, '#ffffff'); px(sx - 1, sy - 1, 'rgba(255,255,255,.6)'); px(sx + 1, sy - 1, 'rgba(255,255,255,.6)'); px(sx, sy - 1, '#ffffff');
-  return { W, H };
+  return { W, H, BR, ballS, ballX, top };
 }
 
 // Íconos de los modos, en pixel art (cada letra es un color).
