@@ -64,30 +64,40 @@ export class Intro {
     window.addEventListener('resize', size);
     return new Promise((resolve) => {
       this.resolve = resolve;
-      this.t = 0; this.cued = 0;
+      this.t = 0; this.cued = 0; this.waited = 0;
       let last = performance.now();
       const loop = (now) => {
         if (this.done) return;
-        const dt = Math.min(0.1, (now - last) / 1000);
-        last = now;
-        // si el estadio todavía no está armado, la película espera en el título
-        if (this.t < 1.0 || this.aerial.ready) this.t += dt;
-        else this.t = Math.min(this.t, 1.0);
-        const t = this.t;
-        while (this.cued < CUES.length && t >= CUES[this.cued][0]) { this.o.cue && this.o.cue(CUES[this.cued][1]); this.cued++; }
-        const t0 = performance.now();
-        try { this.frame(t); } catch (e) { console.error(e); }
-        // con lo que sobra del cuadro se arma lo que viene
-        const used = performance.now() - t0;
-        const budget = t < 1.0 ? 22 : Math.max(4, 13 - used * 0.5);
-        if (!this.aerial.ready) this.aerial.buildStep(budget);
-        else this.cast.warm(budget);
-        if (t >= INTRO_LEN) { this.finish(false); return; }
+        try {
+          const dt = Math.min(0.1, (now - last) / 1000);
+          last = now;
+          // si el estadio todavía no está armado, la película espera en el título
+          if (this.t < 1.0 || this.aerial.ready) this.t += dt;
+          else { this.t = Math.min(this.t, 1.0); this.waited += dt; }
+          const t = this.t;
+          while (this.cued < CUES.length && t >= CUES[this.cued][0]) { this.cue(CUES[this.cued][1]); this.cued++; }
+          const t0 = performance.now();
+          try { this.frame(t); } catch (e) { console.error(e); }
+          // con lo que sobra del cuadro se arma lo que viene
+          const used = performance.now() - t0;
+          const budget = t < 1.0 ? 22 : Math.max(4, 13 - used * 0.5);
+          if (!this.aerial.ready) this.aerial.buildStep(budget);
+          else this.cast.warm(budget);
+          // si el estadio no se arma nunca (celular lento), se sigue sin la película
+          if (t >= INTRO_LEN || this.waited > 12) { this.finish(false); return; }
+        } catch (e) {
+          console.error(e);
+          this.finish(true);
+          return;
+        }
         requestAnimationFrame(loop);
       };
       requestAnimationFrame(loop);
     });
   }
+
+  // El sonido nunca debe romper la película.
+  cue(name) { try { this.o.cue && this.o.cue(name); } catch (e) { console.error(e); } }
 
   frame(t) {
     const g = this.g, W = this.cv.width, H = this.cv.height;
@@ -174,11 +184,13 @@ export class Intro {
   finish(skipped) {
     if (this.done) return;
     this.done = true;
-    this.o.cue && this.o.cue('stop');
+    // Primero se despeja la pantalla y se libera el partido: si el sonido o
+    // cualquier otra cosa falla (iPhone), la película no puede quedar tapando la cancha.
     window.removeEventListener('resize', this.onResize);
     const wrap = this.wrap;
     wrap.classList.add('out');
     setTimeout(() => wrap.remove(), 350);
     this.resolve && this.resolve(skipped ? 'skipped' : 'done');
+    this.cue('stop');
   }
 }
