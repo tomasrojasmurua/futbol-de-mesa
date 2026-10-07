@@ -638,6 +638,10 @@ const P4 = (() => {
     } finally { STY.fat = 1; STY.small = false; M.head = head0; }
     const blk = Math.max(1, Math.round(scale * res));
     const cv = pixelate(info.cv, blk, info.pal, [0, 0, Math.round(W * res), Math.round(HH * res)], small);
+    // El lienzo grande de trabajo se libera ya: en iPhone Safari los lienzos tirados siguen
+    // ocupando memoria hasta que pasa el recolector, y al pasarse del tope los lienzos
+    // del partido (cancha, animaciones) quedaban en blanco.
+    info.cv.width = info.cv.height = 0;
     const box = [0, 0, W, HH];
     finish(cv, info, pose, kit, scale, box);
     const mid = lerp2(pose.N, pose.H0, 0.5);
