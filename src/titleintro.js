@@ -27,7 +27,7 @@ export function skipTitleIntro() { if (running) running(); }
 
 export function playTitleIntro(screen, logoEl) {
   if (running) running();
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { screen.classList.remove('intro'); return; }
   // Se mide con las letras ya cargadas, para que el logo no se mueva al final.
   screen.classList.add('intro');
   const fonts = document.fonts ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();

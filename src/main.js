@@ -2112,9 +2112,10 @@ if (params.get('sala')) {
 if (LENGTHS[params.get('largo')]) myLength = params.get('largo');
 if (params.get('demo') === 'cpu') startCpu(params.get('nivel') || 'normal');
 // Al abrir el juego en la portada, la entrada animada antes de JUGAR (?intro=0 la omite).
+// La portada viene oculta desde el HTML para que no se vea un instante antes.
 if (params.get('intro') !== '0' && $('#screen-menu').classList.contains('active')) {
-  try { playTitleIntro($('#screen-menu'), $('#logo-art')); } catch (e) { console.warn('entrada', e); }
-}
+  try { playTitleIntro($('#screen-menu'), $('#logo-art')); } catch (e) { console.warn('entrada', e); $('#screen-menu').classList.remove('intro'); }
+} else $('#screen-menu').classList.remove('intro');
 
 // Para pruebas automáticas.
 window.__fdm = { get career() { return career; }, get cup() { return cup; }, get view() { return view; }, get league() { return league; }, get renderer() { return renderer; }, get host() { return lastHost; }, randomChoice, icon, cupResult: (r) => cupAfterMatch(r) };

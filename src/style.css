@@ -43,7 +43,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .home-foot .sound.off { opacity: .45; text-decoration: line-through; }
 /* Entrada de la portada (src/titleintro.js): focos, letras, pelota, y recién ahí JUGAR */
 #intro-art { position: absolute; z-index: 2; pointer-events: none; image-rendering: pixelated; filter: drop-shadow(0 6px 0 rgba(0,0,0,.35)); }
-#screen-menu.intro #logo-art { visibility: hidden; }
+#screen-menu.intro #logo-art, #screen-menu.intro .logo .name { visibility: hidden; }
 #screen-menu.intro:not(.intro-go) #title-art { filter: brightness(.06); }
 #screen-menu.intro-go #title-art { animation: lights-on 900ms linear both; }
 #screen-menu.intro:not(.intro-in) .tag, #screen-menu.intro:not(.intro-in) .home-actions > * { opacity: 0; pointer-events: none; }
