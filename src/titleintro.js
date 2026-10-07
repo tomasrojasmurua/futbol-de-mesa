@@ -6,6 +6,7 @@
 // idéntico al logo quieto y el cambio no se nota.
 import { P4 } from './players.js';
 import { paintLogo, LOGO_TEXT } from './titleart.js';
+import * as audio from './audio.js';
 
 const LIGHTS = 900;          // focos
 const L0 = 420, LSTEP = 70;  // primera letra y separación entre letras
@@ -31,13 +32,34 @@ export function playTitleIntro(screen, logoEl) {
   // Se mide con las letras ya cargadas, para que el logo no se mueva al final.
   screen.classList.add('intro');
   const fonts = document.fonts ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]) : Promise.resolve();
-  fonts.then(() => { try { start(screen, logoEl); } catch (e) { screen.classList.remove('intro'); throw e; } });
+  const go = () => { try { start(screen, logoEl); } catch (e) { screen.classList.remove('intro'); audio.holdBand(false); throw e; } };
+  audio.holdBand(true);
+  // El navegador no deja sonar nada antes de un toque: si el sonido está
+  // prendido, la entrada espera ese primer toque («Toca para empezar»).
+  fonts.then(() => (audio.isMuted() ? go() : tapToStart(screen, go)));
+}
+
+function tapToStart(screen, go) {
+  const tap = document.createElement('button');
+  tap.id = 'intro-tap'; tap.type = 'button'; tap.textContent = 'TOCA PARA EMPEZAR';
+  screen.appendChild(tap);
+  const begin = (e) => {
+    if (e.type === 'keydown' && !['Enter', ' ', 'Escape'].includes(e.key)) return;
+    e.preventDefault(); e.stopPropagation();
+    screen.removeEventListener('click', begin, true);
+    removeEventListener('keydown', begin, true);
+    tap.remove();
+    audio.unlock();
+    audio.whenRunning(600).then(() => requestAnimationFrame(go));
+  };
+  screen.addEventListener('click', begin, true);
+  addEventListener('keydown', begin, true);
 }
 
 function start(screen, logoEl) {
   const sr = screen.getBoundingClientRect(), lr = logoEl.getBoundingClientRect();
   const k = lr.width / logoEl.width;
-  if (!(k > 0) || !screen.classList.contains('active')) { screen.classList.remove('intro'); return; }
+  if (!(k > 0) || !screen.classList.contains('active')) { screen.classList.remove('intro'); audio.holdBand(false); audio.startBand(1); return; }
 
   // Lienzo que cubre la pantalla con la grilla del logo: el píxel (x, y) del
   // logo cae en (NX + x, NY + y).
@@ -78,7 +100,8 @@ function start(screen, logoEl) {
   const fall = NY + 16;  // las letras caen desde arriba de la pantalla
   const xEnd = ballX, x0 = -NX - ballS - 2, xOver = xEnd + 6;
   const t0 = performance.now();
-  let raf = 0;
+  const hush = audio.introSounds();
+  let raf = 0, ended = false;
 
   function frame() {
     const t = performance.now() - t0;
@@ -126,7 +149,7 @@ function start(screen, logoEl) {
       g.drawImage(ballAt((px - xEnd) / BR), NX + px, NY + py);
     }
     if (t >= SETTLE && !screen.classList.contains('intro-in')) screen.classList.add('intro-in');
-    if (t >= END) { finish(); return; }
+    if (t >= END) { ended = true; finish(); return; }
     raf = requestAnimationFrame(frame);
   }
 
@@ -145,6 +168,9 @@ function start(screen, logoEl) {
     removeEventListener('keydown', onKey, true);
     removeEventListener('resize', finish);
     cv.remove();
+    if (!ended) hush();   // si la saltan, los efectos se cortan; si termina, se apagan solos
+    audio.holdBand(false);
+    audio.startBand(0.15);
     screen.classList.remove('intro', 'intro-go');
     // los botones terminan de aparecer y se limpia la clase
     if (!screen.classList.contains('intro-in')) screen.classList.add('intro-in', 'intro-fast');
