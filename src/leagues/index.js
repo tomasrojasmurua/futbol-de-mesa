@@ -11,5 +11,6 @@ import it from './it.js';
 import de from './de.js';
 import fr from './fr.js';
 import pt from './pt.js';
+import jp from './jp.js';
 
-export const LEAGUES = [cl, ar, br, mx, es, en, it, de, fr, pt];
+export const LEAGUES = [cl, ar, br, mx, es, en, it, de, fr, pt, jp];
