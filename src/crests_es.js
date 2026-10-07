@@ -48,16 +48,22 @@ export const CRESTS_ES = {
     circ(g, '#2f8a3a', 7, 5, 2.4); px(g, RED, 6, 4, 8, 5, 7, 7); rect(g, '#6a3b1e', 7, 7, 1, 3);
     g.restore();
   } },
-  // Barcelona: escudo con la cruz de San Jorge, la senyera, FCB y las franjas blaugrana con el balón.
+  // Barcelona: silueta con las dos muescas arriba y los costados salientes, cruz de San Jorge, senyera, FCB y franjas blaugrana con el balón.
   BAR: { draw(g) {
-    const BL = '#1e4a9a', GA = '#a3123e';
-    poly(g, GOLD, SHIELD(0)); clipPoly(g, SHIELD(1.4));
-    rect(g, WH, 0, 0, 13, 13); rect(g, RED, 6, 0, 2, 13); rect(g, RED, 0, 5, 13, 2);
-    rect(g, GOLD, 13, 0, 15, 13); for (let i = 0; i < 4; i++) rect(g, RED, 15 + i * 3, 0, 1, 13);
-    rect(g, GOLD, 0, 13, 28, 6); word(g, 'FCB', 8, 14, NAVY);
-    vstripes(g, alt(BL, GA, 8), 0, 28, 19, 34);
-    ball(g, 13.5, 25, 3.4);
+    const BL = '#0a4f9e', GA = '#a3204f';
+    const R = [[3.7, 1], [8.6, 3.2], [12, 4.6], [12, 9], [11.2, 12.5], [13, 15.4], [13, 19.2], [11.6, 22], [10.6, 25.5], [8.4, 29], [5, 31.2], [1.8, 32.2], [0, 33]];
+    poly(g, GOLD, [[13.5, 2.8], ...R.map(([dx, y]) => [13.5 + dx, y]), ...R.slice(0, -1).reverse().map(([dx, y]) => [13.5 - dx, y])]);
+    clipPoly(g, [[3.6, 5.2], [23.4, 5.2], [22.8, 12], [4.2, 12]]);
+    rect(g, WH, 0, 0, 14, 14); rect(g, RED, 8, 0, 2, 14); rect(g, RED, 0, 6, 14, 2);
+    rect(g, GOLD, 14, 0, 14, 14); [15, 17, 19, 21].forEach((x) => rect(g, RED, x, 0, 1, 14));
     g.restore();
+    rect(g, GD, 4, 12, 20, 1); rect(g, GD, 4, 19, 20, 1);
+    word(g, 'F', 7, 14, BK); word(g, 'C', 12, 14, BK); word(g, 'B', 17, 14, BK);
+    clipPoly(g, [[3.6, 20.5], [23.4, 20.5], [23, 23], [21.4, 27], [17.4, 30.6], [13.5, 32], [9.6, 30.6], [5.6, 27], [4, 23]]);
+    vstripes(g, alt(BL, GA, 7), 3, 24, 20, 33);
+    g.restore();
+    circ(g, BK, 13.5, 26, 3.6); circ(g, GOLD, 13.5, 26, 2.9);
+    px(g, BK, 12, 25, 13, 26, 14, 26, 15, 27, 14, 24);
   } },
   // Betis: rombo verdiblanco con borde dorado, corona y el monograma RBB.
   BET: { draw(g) {
@@ -174,14 +180,27 @@ export const CRESTS_ES = {
     word(g, 'R', 21, 6, BK); word(g, 'M', 20, 22, BK);
     ring(g, '#2f7a3a', 8.5, 14, 4.2, 1.2); rect(g, GOLD, 7, 11, 3, 5); px(g, '#2f7a3a', 8, 19, 9, 19);
   } },
-  // Real Madrid: corona dorada y el círculo con la banda morada en diagonal.
+  // Real Madrid: corona con casquete rojo y perlas, doble aro dorado, banda azul en diagonal y el monograma MCF.
   RMA: { draw(g) {
-    crown(g, 8, 1, '#5a2a8a');
-    circ(g, GD, 13.5, 21, 11.6); circ(g, GOLD, 13.5, 21, 10.8); circ(g, GD, 13.5, 21, 9.6); circ(g, WH, 13.5, 21, 8.8);
-    clipCirc(g, 8.8, 13.5, 21);
-    g.translate(13.5, 21); g.rotate(Math.PI / 4); rect(g, GD, -14, -3.5, 28, 7); rect(g, '#6a2a98', -14, -2.5, 28, 5); g.restore();
+    const RB = '#2a4d9b', RG = '#edb91a';
+    // corona: cruz, casquete rojo, arco dorado con perlas y la banda de joyas
+    rect(g, RG, 13, 0, 1, 3); rect(g, RG, 12, 1, 3, 1);
+    ell(g, RG, 13.5, 8, 8.6, 6); ell(g, RED, 13.5, 8, 7, 4.6);
+    for (let i = 0; i < 9; i++) { const a = Math.PI + (i * Math.PI) / 8; px(g, WH, Math.round(13.5 + 8.2 * Math.cos(a) - 0.5), Math.round(8 + 5.6 * Math.sin(a) - 0.5)); }
+    poly(g, RG, [[5, 8], [22, 8], [21, 10.4], [6, 10.4]]);
+    px(g, RED, 9, 9, 13, 9, 17, 9); px(g, WH, 7, 9, 11, 9, 15, 9, 19, 9);
+    // aros
+    circ(g, RB, 13.5, 21.5, 12.4); circ(g, RG, 13.5, 21.5, 11.7); circ(g, RB, 13.5, 21.5, 10.1); circ(g, WH, 13.5, 21.5, 9.5);
+    // banda azul en diagonal
+    clipCirc(g, 9.5, 13.5, 21.5);
+    g.translate(13.5, 19); g.rotate(Math.PI / 4); rect(g, RB, -16, -2.8, 32, 5.6); g.restore();
     g.restore();
-    px(g, GOLD, 9, 17, 10, 16, 17, 25, 18, 24);
+    // monograma: M arriba, C a la izquierda y F en el centro
+    g.save(); g.strokeStyle = RG; g.lineWidth = 2; g.lineJoin = 'miter'; g.lineCap = 'butt';
+    g.beginPath(); g.moveTo(7, 17.5); g.lineTo(8.6, 13.6); g.lineTo(13.5, 19.3); g.lineTo(18.4, 13.6); g.lineTo(20, 17.5); g.stroke();
+    g.lineWidth = 2; g.beginPath(); g.arc(12.8, 22.5, 5, 0.9, Math.PI * 2 - 0.9); g.stroke();
+    g.restore();
+    rect(g, RG, 13, 22, 2, 8); rect(g, RG, 13, 22, 4, 2); rect(g, RG, 13, 26, 3, 1);
   } },
   // Real Sociedad: la bandera azul y blanca ondeando, la pelota de cuero y la corona.
   RSO: { draw(g) {
