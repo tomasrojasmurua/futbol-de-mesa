@@ -9,6 +9,7 @@ import { CRESTS3 } from './crests3.js';
 import { CRESTS_CL } from './crests_cl.js';
 import { CRESTS_AR } from './crests_ar.js';
 import { CRESTS_ES } from './crests_es.js';
+import { CRESTS_IT } from './crests_it.js';
 
 const CRESTS = {
   // Colo-Colo: el cacique de perfil con su penacho, en un escudo blanco y negro.
@@ -193,7 +194,7 @@ const CRESTS = {
   },
 };
 
-const ALL = { ...CRESTS3, ...CRESTS, ...CRESTS2, ...CRESTS_CL, ...CRESTS_AR, ...CRESTS_ES };
+const ALL = { ...CRESTS3, ...CRESTS, ...CRESTS2, ...CRESTS_CL, ...CRESTS_AR, ...CRESTS_ES, ...CRESTS_IT };
 const cache = new Map();
 
 // Paleta → los píxeles quedan exactamente en los colores del club (sin mezclas).
