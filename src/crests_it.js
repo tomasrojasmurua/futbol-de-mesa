@@ -113,15 +113,20 @@ export const CRESTS_IT = {
     rect(g, GOLD, 14, 6, 14, 28); [16, 19, 22].forEach((x) => rect(g, NAVY, x, 6, 1, 28));
     g.restore();
   } },
-  // Roma: escudo amarillo con la loba y rojo con el nombre.
+  // Roma: escudo con pico arriba, la loba gris con los gemelos sobre amarillo y ROMA dorado sobre granate.
   ROM: { draw(g) {
-    poly(g, '#f2b01a', SHIELD(0)); clipPoly(g, SHIELD(1.2));
-    rect(g, '#f2b01a', 0, 0, 28, 17);
-    rect(g, '#8a1a2a', 0, 17, 28, 17); word(g, 'ROMA', 6, 19, WH);
-    const W = '#c4c4cc';
-    ell(g, W, 14, 11, 5.2, 2.4); circ(g, W, 8.4, 8.6, 1.8); poly(g, W, [[6, 9], [7.6, 8], [7.6, 10.4]]);
-    rect(g, W, 9, 12, 1, 4); rect(g, W, 11, 13, 1, 3); rect(g, W, 17, 13, 1, 3); rect(g, W, 19, 12, 1, 4); px(g, W, 19, 9, 20, 8);
-    px(g, '#8a6a3a', 12, 15, 15, 15);
+    const S = (i) => [[13.5, 1 + i * 1.2], [25 - i, 5 + i], [25 - i, 19], [22.5 - i, 26 - i], [13.5, 33 - i * 1.6], [4.5 + i, 26 - i], [2 + i, 19], [2 + i, 5 + i]];
+    poly(g, BK, S(0)); clipPoly(g, S(1.2));
+    rect(g, '#f4a916', 0, 0, 28, 17); rect(g, '#8c1a30', 0, 17, 28, 17);
+    word(g, 'ROMA', 6, 20, '#f4a916');
+    const W = '#a9abb0', D = '#6e7078';
+    ell(g, W, 14.5, 9.4, 6.6, 2.3); poly(g, W, [[4, 9.5], [5, 6.6], [8, 5.6], [10.4, 7], [11, 9.6], [8, 11]]);
+    poly(g, D, [[3, 9], [4.6, 8.6], [4.6, 10], [3, 10.2]]); px(g, W, 6, 5, 7, 4, 8, 5);
+    px(g, BK, 6, 8, 5, 10);
+    rect(g, W, 9, 11, 1, 5); rect(g, W, 11, 11, 1, 5); rect(g, W, 18, 11, 1, 5); rect(g, W, 20, 11, 1, 5); rect(g, W, 8, 16, 14, 1);
+    px(g, D, 14, 11, 16, 11, 20, 12, 15, 8, 18, 7);
+    poly(g, W, [[20, 7.5], [22.4, 6], [23, 7], [21, 9]]);
+    circ(g, '#e6b98c', 13.5, 13, 0.9); rect(g, '#e6b98c', 13, 14, 2, 2); circ(g, '#e6b98c', 16.5, 13, 0.9); rect(g, '#e6b98c', 16, 14, 2, 2);
     g.restore();
   } },
   // Sassuolo: escudo negro con tres figuras, franja verde y franjas verdinegras con el balón.
