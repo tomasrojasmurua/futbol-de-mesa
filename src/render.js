@@ -355,11 +355,14 @@ export class Renderer {
   loop(now) {
     const real = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    this.ts = lerp(this.ts, this.tsTarget, Math.min(1, real * 7));
-    this.update(real * this.ts, real);
-    if (this.cv.clientWidth) this.resize();
-    this.draw(now);
-    this.hdWork(7);
+    // Un error en un cuadro no debe frenar el dibujo para siempre (la cancha quedaba negra).
+    try {
+      this.ts = lerp(this.ts, this.tsTarget, Math.min(1, real * 7));
+      this.update(real * this.ts, real);
+      if (this.cv.clientWidth) this.resize();
+      this.draw(now);
+      this.hdWork(7);
+    } catch (e) { console.error(e); }
     requestAnimationFrame((t) => this.loop(t));
   }
 
