@@ -223,4 +223,46 @@ export const CRESTS_AR = {
     word(g, 'S', 9, 14, WH); word(g, 'R', 14, 14, WH);
     rect(g, WH, 7, 8, 14, 0.8); rect(g, WH, 7, 26, 14, 0.8);
   } },
+  // Platense: escudo marrón y blanco con la franja diagonal y CAP.
+  PLA: { draw(g) {
+    const BR = '#4d3a18';
+    poly(g, BR, SHIELD(0)); clipPoly(g, SHIELD(1.7));
+    rect(g, WH, 0, 0, 28, 34);
+    poly(g, BR, [[0, 30], [0, 16], [28, 0], [28, 14]]);
+    word(g, 'CAP', 8, 13, WH);
+    g.restore();
+  } },
+  // San Martín de San Juan: escudo negro con tres franjas verdes y el nombre.
+  SMJ: { draw(g) {
+    const GR = '#3fa83a', K2 = '#151310';
+    poly(g, K2, [[1, 4], [8, 5], [13.5, 2], [19, 5], [26, 4], [26, 20], [22, 27], [13.5, 33.4], [5, 27], [1, 20]]);
+    poly(g, GR, [[5, 18], [8.6, 17.2], [8.6, 24.8], [5, 22]]);
+    poly(g, GR, [[12, 15.4], [16, 14.6], [16, 29.6], [13.5, 31.2], [12, 29.6]]);
+    poly(g, GR, [[19.4, 14.4], [23.4, 13.6], [23.4, 21.8], [19.4, 24.8]]);
+    word(g, 'SAN', 3, 3, WH); word(g, 'MARTIN', 3, 9, WH);
+  } },
+  // Sarmiento: escudo verde con borde blanco y las letras C S A.
+  SAR: { draw(g) {
+    const GR = '#00844a';
+    const S = (i) => [[1 + i, 3 + i], [7, 4.8 + i], [13.5, 5.2 + i], [20, 4.8 + i], [26 - i, 3 + i], [26 - i, 20], [22 - i * 0.6, 27 - i * 0.4], [13.5, 33.4 - i], [5 + i * 0.6, 27 - i * 0.4], [1 + i, 20]];
+    poly(g, GR, S(0)); poly(g, WH, S(1.6)); poly(g, GR, S(3.2));
+    word(g, 'C', 5, 7, WH, 2); word(g, 'S', 16, 7, WH, 2); word(g, 'A', 10, 18, WH, 2);
+  } },
+  // Talleres: escudo azul marino con cuatro franjas blancas y C.A.T.
+  TAL: { draw(g) {
+    const NV = '#050f30', GY = '#dcdcd2';
+    const S = (i) => [[4 + i, 2 + i], [23 - i, 2 + i], [27 - i, 8], [24 - i, 11], [24.4 - i, 14], [26.6 - i, 22], [22, 29.4 - i * 0.4], [13.5, 33 - i], [5, 29.4 - i * 0.4], [0.4 + i, 22], [2.6 + i, 14], [3 + i, 11], [0.5 + i, 8]];
+    poly(g, GY, S(0)); poly(g, NV, S(1.2)); clipPoly(g, S(1.2));
+    [[4.6, 7.2, 28.6], [9.9, 12.5, 29.4], [15.6, 18.2, 29.4], [20.8, 23.4, 28.6]].forEach(([a, b, c]) => poly(g, WH, [[a, 8.2], [b, 8.2], [b, c], [a, c - 0.8]]));
+    g.restore();
+    word(g, 'CAT', 8, 4, WH);
+  } },
+  // Unión (Santa Fe): franjas rojas y blancas con las letras C A U en diagonal.
+  USF: { draw(g) {
+    const RD = '#e0121c';
+    poly(g, RD, SHIELD(0)); poly(g, WH, SHIELD(1)); clipPoly(g, SHIELD(1.8));
+    vstripes(g, alt(WH, RD, 9), 2, 25, 0, 34);
+    rect(g, WH, 0, 11, 28, 10); word(g, 'CAU', 8, 14, RD); rect(g, RD, 0, 11, 28, 1); rect(g, RD, 0, 20, 28, 1);
+    g.restore();
+  } },
 };
