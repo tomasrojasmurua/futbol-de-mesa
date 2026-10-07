@@ -168,4 +168,38 @@ export const CRESTS_BR = {
     word(g, 'EC', 7, 13, WH);
     px(g, WH, 15, 13, 19, 13, 15, 14, 19, 14, 16, 15, 18, 15, 16, 16, 18, 16, 17, 17);
   } },
+  // Ceará: escudo blanquinegro con la banda CEARÁ, las estrellas y las dos barras blancas.
+  CEA: { draw(g) {
+    poly(g, BK, SHIELD(0)); poly(g, WH, SHIELD(1.4)); poly(g, BK, SHIELD(2.6));
+    clipPoly(g, SHIELD(2.6));
+    rect(g, WH, 9, 12, 1, 22); rect(g, WH, 15, 9, 1, 25);
+    poly(g, BK, [[0, 0], [28, 0], [28, 5.5], [0, 18]]);
+    poly(g, WH, [[0, 25], [0, 18], [28, 5.5], [28, 12.5]]);
+    g.restore();
+    [[6, 8], [10, 6], [14, 5], [18, 6], [11, 10]].forEach(([x, y]) => px(g, WH, x, y, x - 1, y, x + 1, y, x, y - 1, x, y + 1));
+    [['C', 5, 16], ['E', 11, 13], ['A', 17, 10]].forEach(([c, x, y]) => word(g, c, x, y, BK));
+  } },
+  // Fortaleza: escudo azul con la banda blanca FORTALEZA, la T blanca entre el triángulo azul y el rojo, y la estrella.
+  FOR: { draw(g) {
+    const B = '#0562ac';
+    star5(g, '#f22b0a', 11, 0);
+    poly(g, B, [[2, 5], [25, 5], [25, 19], [13.5, 33], [2, 19]]); poly(g, WH, [[3, 6], [24, 6], [24, 18.6], [13.5, 31.6], [3, 18.6]]);
+    rect(g, B, 3, 6, 21, 1); rect(g, B, 3, 6, 1, 1);
+    word(g, 'FORT', 6, 8, B);
+    rect(g, B, 3, 14, 21, 1); rect(g, WH, 3, 15, 21, 1);
+    poly(g, B, [[5, 16], [12, 16], [12, 28]]); poly(g, '#f22b0a', [[22, 16], [15, 16], [15, 28]]);
+  } },
+  // Juventude: círculo verde con aro blanco, la pelota en aspas, la elipse JUVENTUDE y las dos estrellas.
+  JVT: { draw(g) {
+    const G = '#139b3c';
+    star5(g, WH, 8, 0); star5(g, '#ffe600', 14, 0);
+    circ(g, G, 14, 19, 13); circ(g, WH, 14, 19, 11.4); circ(g, G, 14, 19, 10.4);
+    poly(g, WH, [[7.5, 18], [4.5, 13.5], [6.5, 10.5], [10.5, 12.5]]);
+    poly(g, WH, [[7.5, 21], [5, 26], [8, 28], [11.5, 25]]);
+    poly(g, WH, [[6.5, 18.5], [4, 20.5], [6.5, 22.5]]);
+    ell(g, WH, 16, 19.5, 8, 3.8, 0);
+    circ(g, '#2e7d32', 8, 19.5, 2);
+    word(g, 'JUV', 12, 17, G);
+    px(g, WH, 10, 10, 12, 8, 15, 7, 18, 8);
+  } },
 };
