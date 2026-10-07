@@ -346,6 +346,102 @@ export function sound(name) {
   }
 }
 
+// ---------- la previa en película ----------
+// Sonidos de la cinemática antes del partido. Todo pasa por su propio bus para
+// poder cortarlo de golpe si se salta la película.
+let introWet = null, introDry = null;
+function introBuses() {
+  if (introWet) return;
+  introWet = ctx.createGain(); introWet.connect(stadiumBus);
+  introDry = ctx.createGain(); introDry.connect(master);
+}
+
+// Tapones sobre baldosas: un golpe seco y agudo por pisada.
+function studs(at, n, gap, vol = 0.18) {
+  for (let i = 0; i < n; i++) {
+    const t = at + i * gap + Math.random() * 0.03;
+    burst({ dur: 0.025, freq: 3200 + Math.random() * 900, type: 'bandpass', q: 3, vol: vol * (0.6 + Math.random() * 0.4), at: t, out: introDry });
+    burst({ dur: 0.05, freq: 500, vol: vol * 0.5, at: t, out: introDry });
+  }
+}
+
+// El himno: la hinchada lo canta (una melodía solemne inventada) con un
+// colchón de bronces que sale de los parlantes.
+function anthem(at) {
+  const t0 = ctx.currentTime + at;
+  const mel = [[67, 0.42, 'a'], [72, 0.62, 'a'], [71, 0.2, 'o'], [72, 0.42, 'a'], [76, 0.42, 'e'], [74, 0.62, 'a'], [72, 0.2, 'o'], [74, 0.42, 'a'], [79, 0.9, 'a']];
+  const notes = mel.map(([m, d, v]) => ({ m: m - 12, d, v, legato: true }));
+  choir(t0, notes, { n: 18, vol: 0.05, out: introWet });
+  choir(t0 + 0.03, notes.map((x) => ({ ...x, m: x.m - 12 })), { n: 12, vol: 0.035, out: introWet });
+  const chords = [[[48, 52, 55], 1.24], [[47, 50, 55], 0.82], [[45, 48, 53], 0.82], [[43, 47, 50, 55], 1.4]];
+  let t = 0;
+  for (const [ns, d] of chords) {
+    for (const m of ns) {
+      const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = mtof(m + 12);
+      f.type = 'lowpass'; f.frequency.value = 900;
+      const s = t0 + t;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.linearRampToValueAtTime(0.018, s + 0.12);
+      g.gain.setValueAtTime(0.018, s + d - 0.1);
+      g.gain.linearRampToValueAtTime(0.0001, s + d + 0.05);
+      o.connect(f).connect(g).connect(introWet);
+      o.start(s); o.stop(s + d + 0.1);
+    }
+    t += d;
+  }
+}
+
+export function intro(cue) {
+  if (!ctx) return;
+  introBuses();
+  const now = ctx.currentTime;
+  switch (cue) {
+    case 'start':
+      introWet.gain.cancelScheduledValues(now); introDry.gain.cancelScheduledValues(now);
+      introWet.gain.setValueAtTime(1, now); introDry.gain.setValueAtTime(1, now);
+      swell(0.06, 0, 0.8);
+      break;
+    case 'locker':
+      // adentro: la hinchada se oye lejos, apagada; tapones, una puerta de casillero
+      swell(0.012, 0, 0.15);
+      studs(0.4, 3, 0.32, 0.12);
+      burst({ dur: 0.12, freq: 220, vol: 0.35, at: 1.4, out: introDry });
+      tone({ freq: 160, dur: 0.18, vol: 0.05, type: 'triangle', at: 1.4, out: introDry });
+      break;
+    case 'laces':
+      for (let i = 0; i < 3; i++) burst({ dur: 0.16, freq: 5200, type: 'highpass', vol: 0.05, at: i * 0.32, out: introDry });
+      break;
+    case 'tunnel':
+      // la fila camina: pisadas que se pisan y el murmullo que crece hacia la salida
+      studs(0, 26, 0.16, 0.13);
+      swell(0.03, 0, 0.3); swell(0.07, 2.4, 0.9);
+      break;
+    case 'emerge':
+      swell(0.12, 0, 0.25); swell(0.07, 2.5, 0.8);
+      applause(0, 3.5, 0.24);
+      choir(now + 0.05, [{ m: 55, d: 1.6, v: 'o', slide: 3, legato: true }], { n: 18, vol: 0.05 });
+      break;
+    case 'anthem':
+      swell(0.035, 0, 0.4);
+      anthem(0.05);
+      break;
+    case 'flags':
+      swell(0.1, 0, 0.3); swell(bedLevel(), 3, 1);
+      applause(0, 3.4, 0.22);
+      break;
+    case 'whistle':
+      whistle(0, 0.6);
+      break;
+    case 'stop':
+      // se saltó la película: se corta lo que estaba sonando y vuelve el murmullo normal
+      introWet.gain.setTargetAtTime(0, now, 0.05); introDry.gain.setTargetAtTime(0, now, 0.05);
+      swell(bedLevel(), 0, 0.4);
+      introWet = introDry = null;
+      break;
+  }
+}
+
 // ---------- portada y menús ----------
 // Fuera del partido suena la banda de la barra (bombos, redoblantes, platillos
 // y trompetas) sobre el murmullo de la hinchada. La banda se calla al empezar
