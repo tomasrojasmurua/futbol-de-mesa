@@ -1,0 +1,24 @@
+# Publica el sitio en Netlify cada vez que algo entra a main.
+# Usa un "build hook" de Netlify guardado como secreto NETLIFY_BUILD_HOOK.
+# Si el secreto no está, el paso no hace nada.
+name: Publicar en Netlify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Avisar a Netlify
+        env:
+          NETLIFY_BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
+        run: |
+          if [ -z "$NETLIFY_BUILD_HOOK" ]; then
+            echo "Falta el secreto NETLIFY_BUILD_HOOK; no se publica."
+            exit 0
+          fi
+          curl -fsS -X POST -d '{}' "$NETLIFY_BUILD_HOOK"
+          echo "Netlify recibió el aviso; el sitio se está publicando."
