@@ -1,7 +1,7 @@
 // Sonidos sintetizados con WebAudio (sin archivos): silbato, patadas y el estadio
 // entero: murmullo de la hinchada y sus reacciones al gol, al palo, a la
 // atajada y a las tarjetas. En el partido, sin banda ni cánticos; la banda y
-// la conversación de la gente suenan sólo en los menús (más abajo).
+// en los menús suena la banda sobre el mismo murmullo (más abajo).
 let ctx = null;
 let muted = false;
 let master = null; // todo pasa por aquí: el botón de silencio lo baja a 0
@@ -99,7 +99,8 @@ function swell(level, at = 0, tau = 0.4) {
   if (!bedGain) return;
   bedGain.gain.setTargetAtTime(level, ctx.currentTime + at, tau);
 }
-const bedLevel = () => (stadiumOn ? 0.055 : 0.03);
+// El murmullo de la hinchada suena igual en el partido y bajo la banda de los menús.
+const bedLevel = () => 0.055;
 
 function burst({ dur = 0.08, freq = 900, q = 1, vol = 0.4, type = 'lowpass', at = 0, out = master }) {
   const src = ctx.createBufferSource();
@@ -206,9 +207,8 @@ function choir(t0, notes, { n = 10, vol = 0.03, out = stadiumBus } = {}) {
 
 let stadiumOn = false;
 
-// Ambiente de estadio: durante el partido el murmullo sube un poco y no hay
-// cánticos ni banda (pedido de Tomás); fuera del partido el murmullo queda
-// suave y suenan la banda y la conversación de los menús.
+// Ambiente de estadio: el murmullo de la hinchada suena siempre; en el partido
+// no hay cánticos ni banda (pedido de Tomás) y en los menús suena la banda.
 export function stadium(on) {
   if (stadiumOn === on) return;
   stadiumOn = on;
@@ -348,9 +348,9 @@ export function sound(name) {
 
 // ---------- portada y menús ----------
 // Fuera del partido suena la banda de la barra (bombos, redoblantes, platillos
-// y trompetas) y mucha conversación de la gente en las tribunas. Se calla al
-// empezar el partido, donde vuelve el murmullo de siempre. Las dos cosas se
-// pintan una vez en un buffer (OfflineAudioContext) y quedan en bucle.
+// y trompetas) sobre el murmullo de la hinchada. La banda se calla al empezar
+// el partido y queda sólo el murmullo. Se pinta una vez en un buffer
+// (OfflineAudioContext) y queda en bucle.
 let menuBus = null;   // todo el ambiente de los menús (pasa por el eco del estadio)
 let bandBus = null;
 let bandBuf = null, bandSrc = null, bandAt = null;
@@ -399,53 +399,6 @@ function normalize(b, rms) {
   const k = rms / Math.sqrt(s / n || 1e-9);
   for (let ch = 0; ch < b.numberOfChannels; ch++) { const d = b.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] *= k; }
   return b;
-}
-
-// Conversación: veintitantas personas que hablan a la vez, cada una con su voz
-// (grave o aguda), frases con entonación, sílabas con vocales que cambian,
-// pausas, y de vez en cuando alguna risa. Repartidas a lo ancho de la tribuna.
-const CHAT_LEN = 14;
-const VOW = Object.values(VOWELS);
-export async function renderChatter(sr) {
-  const c = new OfflineAudioContext(2, Math.ceil(sr * (CHAT_LEN + 1.5)), sr);
-  const noise = mkNoise(c, 3);
-  for (let v = 0; v < 26; v++) {
-    const high = Math.random() < 0.38;
-    const pitch = high ? rnd(185, 240) : rnd(98, 140), fk = high ? 1.17 : 1;
-    const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = pitch;
-    const ns = c.createBufferSource(); ns.buffer = noise; ns.loop = true;
-    const nsg = c.createGain(); nsg.gain.value = 0.35;
-    const mix = c.createGain(); o.connect(mix); ns.connect(nsg).connect(mix);
-    const f1 = c.createBiquadFilter(), f2 = c.createBiquadFilter();
-    f1.type = f2.type = 'bandpass'; f1.Q.value = 5; f2.Q.value = 7;
-    const env = c.createGain(); env.gain.value = 0;
-    const g2 = c.createGain(); g2.gain.value = 0.55;
-    mix.connect(f1).connect(env); mix.connect(f2).connect(g2).connect(env);
-    const far = c.createGain(); far.gain.value = rnd(0.25, 1);
-    const pan = c.createStereoPanner(); pan.pan.value = rnd(-0.85, 0.85);
-    env.connect(far).connect(pan).connect(c.destination);
-    let t = rnd(-1.5, 1.2);
-    while (t < CHAT_LEN + 1.2) {
-      const laugh = Math.random() < 0.07;
-      const end = t + (laugh ? rnd(0.5, 0.9) : rnd(0.7, 2.6));
-      const p0 = pitch * (laugh ? 1.35 : rnd(1.02, 1.18));
-      if (t >= 0) { o.frequency.setValueAtTime(p0, t); o.frequency.linearRampToValueAtTime(pitch * (laugh ? 1.1 : 0.88), end); }
-      while (t < end) {
-        const syl = laugh ? rnd(0.1, 0.13) : rnd(0.08, 0.22);
-        if (t >= 0) {
-          const [a, b] = laugh ? VOWELS.a : VOW[Math.floor(Math.random() * VOW.length)];
-          f1.frequency.setTargetAtTime(a * fk, t, 0.02); f2.frequency.setTargetAtTime(b * fk, t, 0.02);
-          env.gain.setTargetAtTime(rnd(0.45, 1), t, 0.014);
-          env.gain.setTargetAtTime(laugh ? 0.02 : rnd(0.04, 0.2), t + syl * rnd(0.55, 0.8), 0.018);
-        }
-        t += syl;
-      }
-      if (t >= 0) env.gain.setTargetAtTime(0, t, 0.05);
-      t += rnd(0.25, 1.9);
-    }
-    o.start(0); ns.start(0, Math.random() * 2);
-  }
-  return normalize(fold(await c.startRendering(), CHAT_LEN), 0.12);
 }
 
 // La banda: 8 compases a 126 por minuto. Bombo en 3-3-2, redoblante con
@@ -519,13 +472,8 @@ export async function renderBand(sr) {
 function buildMenu() {
   menuBus = ctx.createGain(); menuBus.gain.value = 0;
   menuBus.connect(stadiumBus);
-  bandBus = ctx.createGain(); bandBus.gain.value = 0.45;
+  bandBus = ctx.createGain(); bandBus.gain.value = 0.35;
   bandBus.connect(menuBus);
-  const chatBus = ctx.createGain(); chatBus.gain.value = 0.62;
-  chatBus.connect(menuBus);
-  renderChatter(ctx.sampleRate).then((b) => {
-    const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(chatBus); s.start();
-  }).catch((e) => console.warn('conversación', e));
   renderBand(ctx.sampleRate).then((b) => { bandBuf = b; if (bandAt != null) playBand(bandAt); }).catch((e) => console.warn('banda', e));
   menuLevel(1.2);
   if (!bandHold) startBand(2);
