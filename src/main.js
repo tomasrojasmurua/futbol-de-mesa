@@ -15,6 +15,7 @@ import { playerName } from './squads.js';
 import { fxTipHtml, cardArt, cardBodyHtml, VIEW_MINE, VIEW_THEIRS, VIEW_NEUTRAL } from './cardinfo.js';
 import { paintGrass, paintLogo, paintIcon } from './titleart.js';
 import { paintFlag, GROUP_FLAG, teamFlag, flagUrl } from './flags.js';
+import { paintMap } from './maps.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
@@ -1562,23 +1563,63 @@ function cupMenu() {
   show('screen-cups');
 }
 
-// Los equipos que juegan esa copa; el tuyo aparece marcado si está.
+// Selecciones por confederación, en el orden en que se muestran, con el mapa de su región.
+const CONFED = [
+  ['Sudamérica', 'sa', ['arg', 'bra', 'uru', 'col', 'chi', 'per', 'ecu', 'par', 'ven', 'bol']],
+  ['Norte y Centroamérica', 'na', ['mex', 'usa', 'can']],
+  ['Europa', 'eu', ['esp', 'fra', 'ger', 'eng', 'ita', 'por', 'ned', 'cro', 'bel', 'sui', 'den']],
+  ['África', 'af', ['mar', 'sen']],
+  ['Asia', 'as', ['jpn', 'kor']],
+];
+
+// Equipos de esa copa como en la selección de equipo, en dos pasos: los clubes
+// por liga con su bandera y las selecciones por confederación con el mapa de su
+// región. Si la copa es de un solo grupo (la Eurocopa), va directo a los equipos.
 function pickCupTeam(comp) {
-  $('#cup-team-title').textContent = comp.name;
+  const pool = new Set(comp.pool);
+  const teams = TEAMS.filter((t) => pool.has(t.id));
+  const groups = teams.every((t) => t.group === 'Selecciones')
+    ? CONFED.map(([name, map, ids]) => ({ name, ids: ids.filter((id) => pool.has(id)), paint: (cv) => paintMap(cv, map) })).filter((g) => g.ids.length)
+    : [...new Set(teams.map((t) => t.group))].map((name) => ({ name, ids: teams.filter((t) => t.group === name).map((t) => t.id), paint: (cv) => paintFlag(cv, GROUP_FLAG[name]) }));
   const grid = $('#cup-team-grid');
-  grid.innerHTML = '';
-  const ids = [...comp.pool].sort((a, b) => teamById(a).name.localeCompare(teamById(b).name, 'es'));
-  if (ids.includes(myTeamId)) { ids.splice(ids.indexOf(myTeamId), 1); ids.unshift(myTeamId); }
-  for (const id of ids) {
-    const t = teamById(id);
-    const b = document.createElement('button');
-    b.className = 'team-btn' + (id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
-    b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
-    paintSwatch(b.querySelector('.kit-swatch'), t);
-    b.onclick = () => confirmCup(comp, id);
-    grid.appendChild(b);
+  const list = $('#cup-team-groups');
+  const groupTeams = (g) => {
+    $('#cup-team-title').textContent = g.name;
+    $('#cup-team-back').onclick = groups.length > 1 ? cupGroups : cupMenu;
+    list.hidden = true;
+    grid.hidden = false;
+    grid.innerHTML = '';
+    for (const id of g.ids) {
+      const t = teamById(id);
+      const b = document.createElement('button');
+      b.className = 'team-btn' + (id === myTeamId ? ' sel' : '') + (longName(t) ? ' long' : '');
+      b.innerHTML = `<span class="kit-swatch"></span><span>${t.name}</span>`;
+      paintSwatch(b.querySelector('.kit-swatch'), t);
+      b.onclick = () => confirmCup(comp, id);
+      grid.appendChild(b);
+    }
+    grid.scrollTop = 0;
+  };
+  function cupGroups() {
+    $('#cup-team-title').textContent = comp.name;
+    $('#cup-team-back').onclick = cupMenu;
+    grid.hidden = true;
+    list.hidden = false;
+    list.innerHTML = '';
+    const mine = teams.find((t) => t.id === myTeamId);
+    for (const g of groups) {
+      const has = mine && g.ids.includes(mine.id);
+      const b = document.createElement('button');
+      b.className = 'league-btn flag-btn' + (has ? ' saved' : '');
+      b.append(g.paint(document.createElement('canvas')));
+      b.insertAdjacentHTML('beforeend', `<b>${g.name}</b><small>${g.ids.length} ${g.ids.length === 1 ? 'equipo' : 'equipos'}</small>${has ? `<em>Último equipo: ${mine.name}</em>` : ''}`);
+      b.onclick = () => groupTeams(g);
+      list.appendChild(b);
+    }
+    list.scrollTop = 0;
   }
-  grid.scrollTop = 0;
+  if (groups.length > 1) cupGroups();
+  else groupTeams({ ...groups[0], name: comp.name });
   show('screen-cup-teams');
 }
 
