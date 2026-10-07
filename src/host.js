@@ -3,8 +3,8 @@ import { newMatch, resolveToss, resolvePlay, validChoice, randomChoice, optionsF
 // El anfitrión guarda el estado oficial del partido. Recibe elecciones de los
 // dos asientos (0 = local, 1 = visita) y difunde cada resultado.
 export class Host {
-  constructor({ home, away, callerSide, broadcast, length, shootout = true }) {
-    this.state = newMatch({ home, away, callerSide, length, shootout });
+  constructor({ home, away, callerSide, broadcast, length, shootout = true, setup = null }) {
+    this.state = newMatch({ home, away, callerSide, length, shootout, setup });
     this.broadcast = broadcast;
     this.pending = {};
   }

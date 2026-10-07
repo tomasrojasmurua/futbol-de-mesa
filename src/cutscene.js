@@ -5,6 +5,7 @@
 import { P4 } from './players.js';
 import { p4Kit } from './playerkit.js';
 import { buildSide } from './sidecam.js';
+import { LIGHT } from './matchday.js';
 
 const LW = 180; // ancho lógico de la escena
 // Escalas de los jugadores ilustrados (más chico el número, más grande el dibujo).
@@ -795,6 +796,15 @@ export class Cutscene {
     const vg = g.createRadialGradient(LW / 2, H * 0.45, H * 0.25, LW / 2, H * 0.45, H * 0.8);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
     g.fillStyle = vg; g.fillRect(0, 0, LW, H);
+    const st = this.o.stadium;
+    if (st && st.weather) {
+      // la luz de la previa: tarde dorada, cielo cubierto gris (de noche manda la luz de los focos)
+      const time = { day: 'morning', dusk: 'afternoon', night: 'night' }[st.sky] || 'night';
+      g.save();
+      if (st.weather !== 'clear') { g.globalCompositeOperation = 'saturation'; g.fillStyle = 'rgba(128,128,128,0.28)'; g.fillRect(0, 0, LW, H); }
+      if (time !== 'night') { g.globalCompositeOperation = 'multiply'; g.fillStyle = LIGHT[time][st.weather][1]; g.fillRect(0, 0, LW, H); }
+      g.restore();
+    }
     if (this.rain) {
       // lluvia en pixel art: tono frío y gotas en diagonal
       g.fillStyle = 'rgba(40,55,80,.22)'; g.fillRect(0, 0, LW, H);
@@ -818,16 +828,41 @@ export class Cutscene {
     const st = o.stadium || { seats: ['#2a2f3a', '#3a404d'], features: [], sky: 'night', name: 'CALCCIOPOLI' };
     const f = st.features, skyH = this.skyH;
     // cielo
-    const sky = { night: ['#070b16', '#16203a'], dusk: ['#3b2a5a', '#e08a5a'], day: ['#5f9fd8', '#b8dcf2'] }[st.sky] || ['#070b16', '#16203a'];
+    // cielo según la hora y el clima de la previa
+    const wet = st.weather === 'cloudy' || st.weather === 'rain';
+    const SKIES = wet
+      ? { night: ['#0b0e15', '#1c212c'], dusk: ['#4a4656', '#9a8579'], day: ['#7d8794', '#b9c0c9'] }
+      : { night: ['#070b16', '#16203a'], dusk: ['#3b2a5a', '#e08a5a'], day: ['#5f9fd8', '#b8dcf2'] };
+    const sky = SKIES[st.sky] || SKIES.night;
     const gr = g.createLinearGradient(0, -40, 0, this.standsB);
     gr.addColorStop(0, sky[0]); gr.addColorStop(1, sky[1]);
     g.fillStyle = gr; g.fillRect(-40, -60, LW + 80, this.standsB + 60);
+    if (st.sky === 'night' && !wet) {
+      // estrellas
+      g.fillStyle = '#c9d4ee';
+      for (let i = 0; i < 26; i++) { const x = Math.round(seeded(i * 7 + 1) * (LW + 60)) - 30, y = Math.round(seeded(i * 7 + 2) * (skyH + 40)) - 42; if (seeded(i + 99) < 0.8) g.fillRect(x, y, 1, 1); }
+    }
+    if (wet || st.sky !== 'night') {
+      // nubes en pixel art: panzas planas, lomo redondo, luz desde arriba
+      const n = wet ? 7 : 3;
+      const top = wet ? (st.sky === 'night' ? '#2a303c' : st.sky === 'dusk' ? '#8a7b80' : '#c7ccd3') : st.sky === 'dusk' ? '#f0b08a' : '#f4f8fc';
+      const body = wet ? (st.sky === 'night' ? '#1e232d' : st.sky === 'dusk' ? '#6a6170' : '#a3aab4') : st.sky === 'dusk' ? '#b7728a' : '#d9e6f2';
+      for (let i = 0; i < n; i++) {
+        const w = 22 + Math.round(seeded(i * 5 + 3) * 30), x0 = (Math.round(seeded(i * 5 + 4) * (LW + 80) + s * (wet ? 1.2 : 0.6)) % (LW + 80)) - 40;
+        const yb = Math.round(-30 + seeded(i * 5 + 5) * (skyH + 26));
+        for (let x = 0; x < w; x++) {
+          const t = x / w, h = Math.round(3 + Math.sin(t * Math.PI) * (4 + seeded(i) * 4) + Math.sin(t * 9 + i) * 1.2);
+          g.fillStyle = body; g.fillRect(x0 + x, yb - h, 1, h);
+          g.fillStyle = top; g.fillRect(x0 + x, yb - h, 1, Math.max(1, Math.round(h / 3)));
+        }
+      }
+    }
     if (f.includes('andes')) {
       // la cordillera detrás de la tribuna, con nieve en las cumbres
       for (let x = -40; x < LW + 40; x++) {
         const h = 10 + Math.sin(x * 0.07) * 5 + Math.sin(x * 0.19 + 1) * 3 + Math.sin(x * 0.031 + 2) * 6;
         const top = Math.round(skyH - h);
-        g.fillStyle = st.sky === 'day' ? '#6a7a96' : '#4a3f63'; g.fillRect(x, top, 1, skyH - top + 2);
+        g.fillStyle = st.sky === 'day' ? (wet ? '#7a828f' : '#6a7a96') : '#4a3f63'; g.fillRect(x, top, 1, skyH - top + 2);
         g.fillStyle = '#f4f2f0'; g.fillRect(x, top, 1, Math.max(1, Math.round(h / 5)));
       }
     }

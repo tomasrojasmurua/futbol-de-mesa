@@ -31,7 +31,7 @@ Las tres opciones de ataque valen lo mismo (un 33% de gol por llegada contra una
 
 Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nunca tocan el duelo de adivinar: solo cambian caras de los cuatro dados (salida defendida, ataque defendido, atajada y remate). Caras nuevas que pueden aparecer: «sigue la jugada», «remate directo» y «penal».
 
-**Mazo de partido** (57 cartas, 20 situaciones): se roba cuatro veces por partido, dos por tiempo, siempre en una salida. Casi todas duran una jugada y vencen al terminar el tiempo; la Lluvia dura el resto del partido.
+**Mazo de partido** (55 cartas, 19 situaciones): se roba cuatro veces por partido, dos por tiempo, siempre en una salida. Duran una jugada y vencen al terminar el tiempo. La lluvia no es carta: es el clima que eliges antes del partido y no cambia el juego.
 
 | Carta | Copias | A quién | Qué hace |
 |---|---|---|---|
@@ -44,7 +44,6 @@ Dos mazos (`src/situations.js`) traen el azar de un partido real. Las cartas nun
 | Fortuna de arquero | 3 | no tiene la pelota | En el próximo remate rival que lo supere, tres caras de gol pasan a «atajada al córner». |
 | Capitán inspirado | 3 | tiene la pelota | Tiki-taka: en su próximo ataque que le adivinen, tres caras pasan a favor de su equipo. |
 | Genialidad del crack | 3 | tiene la pelota | En su próximo ataque que le adivinen, tres caras pasan a favor de su equipo. |
-| Lluvia | 2 | los dos | Se larga a llover y no para: hasta el final, en los remates de los dos equipos una cara de gol pasa a «afuera». |
 | Error del DT | 2 | va ganando (empate: tiene la pelota) | En su próxima defensa acertada pierde la contra y el rival sigue la jugada con 3 caras. |
 | Tiro colocado | 2 | tiene la pelota | En su próximo remate que supere al arquero, todo es gol: ni palo ni afuera. |
 | Arquero nervioso | 2 | tiene la pelota | Si le atajan el próximo remate, el dado queda: córner, 2 atajada y 3 gol. |
