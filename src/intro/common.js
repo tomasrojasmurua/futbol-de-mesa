@@ -1,5 +1,6 @@
 // Calcciopoli · la previa en película: utilidades compartidas por las escenas.
 import { hexRgb } from '../teams.js';
+import { crestOf, CREST_W, CREST_H } from '../crests.js';
 
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
@@ -141,6 +142,15 @@ export function drawSprite(g, s, x, y, flip = false, img = null) {
 
 // Escudo simple del club: blasón con los colores de la camiseta y la sigla.
 export function crest(g, cx, cy, kit, short, k = 1, txt) {
+  // los clubes con escudo propio (src/crests.js) lo usan; el resto, uno genérico con sus colores
+  const real = crestOf(short);
+  if (real) {
+    const w = CREST_W * k, h = CREST_H * k;
+    g.save(); g.imageSmoothingEnabled = false;
+    g.drawImage(real, Math.round(cx - w / 2), Math.round(cy - h / 2), w, h);
+    g.restore();
+    return;
+  }
   const w = 12 * k, h = 15 * k;
   const pts = [[cx - w, cy - h], [cx + w, cy - h], [cx + w, cy + h * 0.25], [cx, cy + h], [cx - w, cy + h * 0.25]];
   const ol = [[cx - w - 1, cy - h - 1], [cx + w + 1, cy - h - 1], [cx + w + 1, cy + h * 0.25], [cx, cy + h + 2], [cx - w - 1, cy + h * 0.25]];
@@ -162,9 +172,5 @@ export function crest(g, cx, cy, kit, short, k = 1, txt) {
     textPx(g, s, Math.round(cx - tw / 2), Math.round(cy + 2 * k), ink, kk);
   }
 }
-// mini fuente 3x5 (igual a la de cutscene.js) para no depender de ella aquí
-const F3 = { A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111', F: '111100110100100', G: '011100101101011', H: '101101111101101', I: '111010010010111', J: '001001001101010', K: '101101110101101', L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010', P: '110101110100100', Q: '010101101110011', R: '110101110101101', S: '011100010001110', T: '111010010010010', U: '101101101101111', V: '101101101101010', W: '101101111111101', X: '101101010101101', Y: '101101010010010', Z: '111001010100111' };
-function textPx(g, s, x, y, color, k) {
-  g.fillStyle = color;
-  [...s.toUpperCase()].forEach((ch, c) => { const gl = F3[ch]; if (!gl) return; for (let i = 0; i < 15; i++) if (gl[i] === '1') g.fillRect(x + (c * 4 + (i % 3)) * k, y + Math.floor(i / 3) * k, k, k); });
-}
+import { textPx } from './font3.js';
+export { textPx };
