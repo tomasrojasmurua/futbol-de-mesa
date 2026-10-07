@@ -1807,9 +1807,13 @@ function showCareerPick() {
   for (const l of LEAGUES) {
     const c = saved[l.id];
     const b = document.createElement('button');
-    b.className = 'league-btn';
+    b.className = 'league-btn cup-btn';
     const sub = c ? `${teamById(c.me).name} · Temporada ${c.season} · ${seasonOver(c) ? 'terminada' : `fecha ${c.round + 1} de ${totalRounds(c)}`}` : `${l.teams.length} equipos`;
-    b.innerHTML = `<b>${l.name}</b><small>${l.country}</small><em>${sub}</em>`;
+    const cv = trophyCanvas(`lg_${l.id}`);
+    const img = document.createElement('canvas');
+    img.width = cv.width; img.height = cv.height; img.getContext('2d').drawImage(cv, 0, 0);
+    b.append(img);
+    b.insertAdjacentHTML('beforeend', `<b>${l.name}</b><small>${l.country}</small><em>${sub}</em>`);
     if (c) b.classList.add('saved');
     b.onclick = () => {
       if (!c) { pickCareerTeam(l); return; }
