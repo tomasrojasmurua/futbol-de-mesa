@@ -627,9 +627,12 @@ body.watching .cards .duel-card { pointer-events: none; }
 #pre-scene { position: absolute; left: 0; top: 0; image-rendering: pixelated; z-index: 0; }
 .pre-side { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .pre-name { text-align: center; background: rgba(8,10,16,.72); box-shadow: 0 0 0 2px #0c0f15; padding: 6px 4px 5px; width: 100%; }
-.pre-name b { display: block; font-size: 18px; line-height: .95; font-weight: 400; overflow-wrap: anywhere; }
+.pre-name b { display: block; font-size: 16px; line-height: .95; font-weight: 400; overflow-wrap: anywhere; }
 .pre-name small { display: block; color: var(--gold); font-size: 15px; line-height: 1; margin-top: 2px; }
-.pre-fig { flex: 1; width: 100%; min-height: 150px; }
+.pre-fig { position: relative; flex: 1; width: 100%; min-height: 150px; }
+.pre-crest { position: absolute; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; filter: drop-shadow(0 3px 0 rgba(0,0,0,.45)); }
+.pre-crest img { width: 56px; height: auto; max-height: 68px; image-rendering: pixelated; }
+.pre-crest img.flag { width: 60px; box-shadow: 0 0 0 2px #0c0f15; }
 .pre-kits { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .pre-kits button { display: flex; align-items: center; gap: 4px; padding: 5px 4px; border: 0; background: rgba(8,10,16,.78); box-shadow: 0 0 0 2px #0c0f15; color: var(--ink); font-size: 15px; line-height: 1; text-align: left; }
 .pre-kits button .kit-swatch { width: 12px; height: 15px; box-shadow: 0 0 0 1px #0c0f15; }

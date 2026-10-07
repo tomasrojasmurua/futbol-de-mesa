@@ -112,12 +112,10 @@ function colorDist(a, b) {
   return Math.hypot(r1 - r2, g1 - g2, b1 - b2);
 }
 
-// Qué camiseta usa cada uno si nadie elige (0 = titular, 1 = recambio): si
-// chocan los colores, la visita se pone la alternativa.
-export function autoKits(home, away) {
-  const h = home.kit, a = away.kit;
-  const clash = Math.min(colorDist(h.shirt, a.shirt), colorDist(h.shirt, a.alt2) + 60, colorDist(h.alt2, a.shirt) + 60);
-  return [0, clash < 120 ? 1 : 0];
+// Qué camiseta usa cada uno si nadie elige (0 = titular, 1 = recambio): el
+// local con la primera y la visita con la segunda.
+export function autoKits() {
+  return [0, 1];
 }
 
 // ¿Se confunden las dos camisetas en la cancha?
