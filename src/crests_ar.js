@@ -199,4 +199,28 @@ export const CRESTS_AR = {
     word(g, 'A', 6, 7, BK); word(g, 'F', 16, 7, BK); word(g, 'B', 8, 22, BK); word(g, 'C', 15, 22, BK);
     g.restore();
   } },
+  // Huracán: el globo rojo con la H, las cuerdas y la canasta.
+  HUR: { draw(g) {
+    const R = '#e30613';
+    const ln = (x0, y0, x1, y1, w = 1) => { g.strokeStyle = R; g.lineWidth = w; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+    circ(g, R, 13.5, 11.6, 11.6); circ(g, WH, 13.5, 11.6, 10.4);
+    // gajos del globo
+    ln(13.5, 1.4, 4, 15.5); ln(13.5, 1.4, 23, 15.5); ln(11.5, 1.6, 6.5, 12); ln(15.5, 1.6, 20.5, 12);
+    ln(4.2, 7, 11, 17); ln(22.8, 7, 16, 17); ln(2.4, 12, 8, 4.5, 0.8); ln(24.6, 12, 19, 4.5, 0.8);
+    // la H
+    rect(g, WH, 9.5, 8, 8, 9); rect(g, R, 10, 8, 2, 8); rect(g, R, 15, 8, 2, 8); rect(g, R, 10, 11.5, 7, 2);
+    // cuerdas
+    ln(5, 19.5, 8.5, 26.4); ln(22, 19.5, 18.5, 26.4); ln(8, 19, 13.5, 28, 0.9); ln(19, 19, 13.5, 28, 0.9); ln(12, 20, 11, 28, 0.8); ln(15, 20, 16, 28, 0.8);
+    rect(g, R, 8, 25.6, 11, 1);
+    ell(g, R, 13.5, 29.4, 8, 2.4); ell(g, WH, 13.5, 29.2, 6.4, 1.2);
+    rect(g, R, 5.6, 30, 16, 3.4); rect(g, WH, 8, 31, 2, 2); rect(g, WH, 12.5, 31, 2, 2); rect(g, WH, 17, 31, 2, 2);
+  } },
+  // Independiente Rivadavia: círculo azul violeta con el monograma CSR.
+  IRV: { draw(g) {
+    const BL = '#26218c';
+    disc(g, [[13.5, BL], [12.6, WH], [11.6, BL]]);
+    g.strokeStyle = WH; g.lineWidth = 1.2; g.beginPath(); g.arc(13.5, 17, 7.6, 0.7, Math.PI * 2 - 0.7); g.stroke();
+    word(g, 'S', 9, 14, WH); word(g, 'R', 14, 14, WH);
+    rect(g, WH, 7, 8, 14, 0.8); rect(g, WH, 7, 26, 14, 0.8);
+  } },
 };
