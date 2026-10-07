@@ -682,3 +682,12 @@ body.watching .cards .duel-card { pointer-events: none; }
 .intro-film { position: fixed; inset: 0; z-index: 8; background: #000; display: flex; align-items: center; justify-content: center; transition: opacity .3s; touch-action: manipulation; cursor: pointer; }
 .intro-film.out { opacity: 0; pointer-events: none; }
 .intro-film canvas { height: 100%; max-width: 100%; image-rendering: pixelated; display: block; }
+
+/* Escudos de clubes en lugar de la camiseta */
+.kit-swatch.crest { box-shadow: none; image-rendering: pixelated; width: 24px; height: 29px; }
+.hud .kit-swatch.crest { width: 20px; height: 24px; box-shadow: none; }
+.champ .kit-swatch.crest { width: 34px; height: 41px; }
+.next-match .vsrow .kit-swatch.crest { width: 34px; height: 41px; }
+.lg-players .kit-swatch.crest, .league-table .kit-swatch.crest { width: 17px; height: 21px; }
+.mvp .kit-swatch.crest { width: 20px; height: 24px; }
+.np-score .kit-swatch { display: block; margin: 0 auto 4px; width: 34px; height: 41px; }

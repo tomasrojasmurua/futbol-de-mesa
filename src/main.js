@@ -20,6 +20,7 @@ import { paintMap } from './maps.js';
 import { defaultSetup, dayLine } from './matchday.js';
 import { openPrematch } from './prematch.js';
 import { Intro } from './intro/index.js';
+import { crestOf } from './crests.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
@@ -58,14 +59,25 @@ export function swatchCss(kit) {
   return `linear-gradient(transparent 70%, ${shorts} 70%), ${top}`;
 }
 
-// Muestra de un equipo: su camiseta, o la bandera si es una selección.
+// Muestra de un equipo: la bandera si es selección, su escudo si lo tiene, o su camiseta.
 const isNation = (t) => t && t.group === 'Selecciones' && teamFlag(t.id);
+const crestUrls = {};
+function crestUrl(t) {
+  if (!t || isNation(t)) return null;
+  if (!(t.short in crestUrls)) { const c = crestOf(t.short); crestUrls[t.short] = c ? c.toDataURL() : null; }
+  return crestUrls[t.short];
+}
+const crestBg = (u) => `url(${u}) center / contain no-repeat`;
 function swatchAttrs(t) {
+  const u = crestUrl(t);
+  if (u) return `class="kit-swatch crest" style="background:${crestBg(u)}"`;
   return isNation(t) ? `class="kit-swatch flag" style="background:url(${flagUrl(teamFlag(t.id))}) center / 100% 100%"` : `class="kit-swatch" style="background:${swatchCss(t.kit)}"`;
 }
 function paintSwatch(el, t) {
+  const u = crestUrl(t);
   el.classList.toggle('flag', !!isNation(t));
-  el.style.background = isNation(t) ? `url(${flagUrl(teamFlag(t.id))}) center / 100% 100%` : swatchCss(t.kit);
+  el.classList.toggle('crest', !!u);
+  el.style.background = u ? crestBg(u) : isNation(t) ? `url(${flagUrl(teamFlag(t.id))}) center / 100% 100%` : swatchCss(t.kit);
 }
 
 function paintMyTeam() {
@@ -340,7 +352,7 @@ function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadiu
       <p><span>${date}</span><span>${stadium ? stadium.name : 'Edición deportiva'}</span><span>$ 500</span></p></header>
     <p class="np-kicker">${h.kicker}</p>
     <h2 class="np-title">${h.title}</h2>
-    <div class="np-score"><div><b>${teams[0].short}</b><small>${teams[0].name}</small></div><strong>${a} - ${b}</strong><div><b>${teams[1].short}</b><small>${teams[1].name}</small></div></div>
+    <div class="np-score"><div><i ${swatchAttrs(teams[0])}></i><b>${teams[0].short}</b><small>${teams[0].name}</small></div><strong>${a} - ${b}</strong><div><i ${swatchAttrs(teams[1])}></i><b>${teams[1].short}</b><small>${teams[1].name}</small></div></div>
     ${pens}
     <p class="np-lead">${bits.join(' ')}</p>
     <div class="np-cols">
@@ -695,7 +707,7 @@ class MatchView {
     const order = this.mySide === 0 ? [0, 1] : [1, 0];
     order.forEach((side, k) => {
       $(`#hud-n${k}`).textContent = teams[side].short;
-      $(`#hud-sw${k}`).style.background = swatchCss(this.kits[side]);
+      { const sw = $(`#hud-sw${k}`), tm = teamById(state.teams[side]), u = crestUrl(tm); sw.classList.toggle('crest', !!u); sw.style.background = u ? crestBg(u) : swatchCss(this.kits[side]); }
       $(`#hud-s${k}`).textContent = state.score[side];
     });
     $('#hud-min').textContent = state.pens ? 'PENALES' : (state.half === 1 ? '1T ' : '2T ') + fmtMinute(Math.max(state.minute, state.half === 2 ? 45 : 0), state.half);

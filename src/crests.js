@@ -1,25 +1,10 @@
 // Calcciopoli · escudos de los clubes en pixel art.
-// Cada escudo se dibuja a mano sobre una grilla de 28 × 34 píxeles con una
-// paleta corta (los colores reales del club), se cierra con un contorno oscuro
-// y queda en una caché. Se piden por la sigla del equipo (`short`).
+// Cada escudo se dibuja a mano sobre una grilla de 28 × 34 píxeles con los
+// colores reales del club, se ajusta a su paleta (sin mezclas), se cierra con
+// un contorno oscuro y queda en una caché. Se piden por la sigla del equipo.
 import { hexRgb as rgb } from './teams.js';
-import { textPx } from './intro/font3.js';
-
-const W = 28, H = 34;
-const BK = '#15171d', WH = '#f6f3ea';
-
-const poly = (g, c, pts) => { g.fillStyle = c; g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); };
-const rect = (g, c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
-const circ = (g, c, x, y, r) => { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
-const ell = (g, c, x, y, rx, ry, a = 0) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, a, 0, 7); g.fill(); };
-const px = (g, c, ...pts) => { g.fillStyle = c; for (let i = 0; i < pts.length; i += 2) g.fillRect(pts[i], pts[i + 1], 1, 1); };
-const clip = (g, pts) => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.clip(); };
-const word = (g, s, x, y, c) => textPx(g, s, x, y, c, 1);
-// Dibujo a mano por filas: cada letra es un color de `map`, el punto es vacío.
-const art = (g, x, y, rows, map) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (map[r[i]]) { g.fillStyle = map[r[i]]; g.fillRect(x + i, y + j, 1, 1); } });
-
-// El casco clásico: tapa recta arriba, lados rectos y punta abajo.
-const SHIELD = (i = 0) => [[2 + i, 2 + i], [25 - i, 2 + i], [25 - i, 17], [22 - i * 0.6, 24 - i * 0.4], [13.5, 32 - i * 1.4], [5 + i * 0.6, 24 - i * 0.4], [2 + i, 17]];
+import { W, H, BK, WH, poly, rect, circ, ell, px, clip, word, art, SHIELD } from './crestkit.js';
+import { CRESTS2 } from './crests2.js';
 
 const CRESTS = {
   // Colo-Colo: el cacique de perfil con su penacho, en un escudo blanco y negro.
@@ -204,6 +189,7 @@ const CRESTS = {
   },
 };
 
+const ALL = { ...CRESTS, ...CRESTS2 };
 const cache = new Map();
 
 // Paleta → los píxeles quedan exactamente en los colores del club (sin mezclas).
@@ -231,17 +217,23 @@ function outline(cv, color) {
 
 // El escudo (canvas de 28 × 34) del equipo con esa sigla, o null si no tiene.
 export function crestOf(short) {
-  const def = CRESTS[short];
+  const def = ALL[short];
   if (!def) return null;
   if (cache.has(short)) return cache.get(short);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d', { willReadFrequently: true });
+  // se anotan los colores usados: esa es la paleta del escudo
+  const used = new Set();
+  for (const prop of ['fillStyle', 'strokeStyle']) {
+    const d = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, prop);
+    Object.defineProperty(g, prop, { configurable: true, get() { return d.get.call(g); }, set(v) { if (typeof v === 'string' && v[0] === '#') used.add(v.length === 4 ? '#' + [...v.slice(1)].map((c) => c + c).join('') : v.slice(0, 7)); d.set.call(g, v); } });
+  }
   def.draw(g);
-  snap(cv, def.pal);
+  snap(cv, [...used]);
   outline(cv, '#0c0d12');
   cache.set(short, cv);
   return cv;
 }
 
 export const CREST_W = W, CREST_H = H;
-export const CREST_SHORTS = Object.keys(CRESTS);
+export const CREST_SHORTS = Object.keys(ALL);
