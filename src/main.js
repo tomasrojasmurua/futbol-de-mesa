@@ -19,6 +19,7 @@ import { paintFlag, GROUP_FLAG, teamFlag, flagUrl } from './flags.js';
 import { paintMap } from './maps.js';
 import { defaultSetup, dayLine } from './matchday.js';
 import { openPrematch } from './prematch.js';
+import { Intro } from './intro/index.js';
 import { COMPS, FREE_CUP, TROPHY_LIST, trophyCanvas, loadTrophies, addTrophy, paintRoom } from './trophies.js';
 
 const $ = (s) => document.querySelector(s);
@@ -358,8 +359,12 @@ function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadiu
 class MatchView {
   // spectator: sólo mira (la liga, cuando no te toca jugar). endButtons: botones
   // propios para el cuadro final.
-  constructor({ mySide, send, isHost, onRematch, spectator = false, endButtons = null, tutorial = false }) {
+  // intro: antes del partido pasa la película de la previa; peer: avisa al otro
+  // celular (en una sala, si uno salta la película, se salta en los dos).
+  constructor({ mySide, send, isHost, onRematch, spectator = false, endButtons = null, tutorial = false, intro = false, peer = null }) {
     this.mySide = mySide;
+    this.introOn = intro;
+    this.peer = peer;
     this.tutorial = tutorial;
     this.coachSeen = new Set();
     this.spectator = spectator;
@@ -431,6 +436,8 @@ class MatchView {
       const st = renderer.stadium;
       const len = state.length && state.length !== 'normal' ? ` Partido ${LENGTHS[state.length].label.toLowerCase()}.` : '';
       this.feed(`¡Bienvenidos! Se juega en ${st.name}${st.city ? `, ${st.city}` : ''}, en ${dayLine(renderer.day)}.${len}`);
+      if (this.introOn) await this.playIntro(teams);
+      if (this.dead) return;
       return this.promptToss(state);
     }
     if (ev.type === 'toss') {
@@ -917,7 +924,26 @@ class MatchView {
     modal(html, btns, 'news');
   }
 
+  // La película de la previa (estadio, camarín, túnel, himnos y banderas).
+  async playIntro(teams) {
+    if (this.skipPending || params.get('film') === '0') return;
+    this.intro = new Intro({
+      teams, kits: this.kits, setup: renderer.day, mySide: this.mySide,
+      cue: (c) => audio.intro(c),
+      onSkip: () => this.peer && this.peer({ t: 'intro-skip' }),
+    });
+    try { await this.intro.play(); } catch (e) { console.error(e); }
+    this.intro = null;
+  }
+
+  // El otro celular saltó la película.
+  skipIntro() {
+    if (this.intro) this.intro.skip(false);
+    else if (!this.state || this.state.phase === 'toss') this.skipPending = true;
+  }
+
   destroy() {
+    if (this.intro) this.intro.finish(true);
     this.dead = true; this.stopTimer(); this.queue = [];
     document.body.classList.remove('watching');
     if (this.dismissCard) this.dismissCard();
@@ -1008,7 +1034,7 @@ function startCpu(level = 'normal', awayId = pickCpuOpponent(), setup = null) {
   host = new Host({ home: myTeamId, away: awayId, callerSide: 0, broadcast: deliver, length: myLength, setup });
   cpu = new Cpu(1, (m) => host.receive(1, m), level);
   lastHost = host;
-  view = new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId, setup); } });
+  view = new MatchView({ mySide: 0, isHost: true, intro: true, send: (m) => host.receive(0, m), onRematch: () => { leaveMatch(); startCpu(level, awayId, setup); } });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `Contra la IA (${LEVELS[level].label}). ¡Bienvenidos al estadio!`;
   host.start();
@@ -1050,10 +1076,11 @@ function startHostGame(conn, guestTeam, homeTeam = myTeamId, setup = null, lengt
     begin();
     return false;
   };
-  const makeView = () => new MatchView({ mySide: 0, isHost: true, send: (m) => host.receive(0, m), onRematch: rematch });
+  const makeView = () => new MatchView({ mySide: 0, isHost: true, intro: true, peer: (m) => conn.send(m), send: (m) => host.receive(0, m), onRematch: rematch });
   view = makeView();
   conn.on('message', (m) => {
     if (m.t === 'quit') { onRivalQuit(); return; }
+    if (m.t === 'intro-skip') { if (view) view.skipIntro(); return; }
     if (m.t === 'choice' || m.t === 'call') host.receive(1, m);
     // El rival volvió de una desconexión corta: le reenviamos el último estado.
     if (m.t === 'sync' && lastMsg && lastMsg.n > (m.n || 0)) conn.send(lastMsg);
@@ -1276,6 +1303,7 @@ function joinOnline(code) {
           renderSala();
           return;
         }
+        if (m.t === 'intro-skip') { if (view) view.skipIntro(); return; }
         if (m.t !== 'state') return;
         if (m.n && m.n <= lastN) return; // repetido
         if (m.n) lastN = m.n;
@@ -1283,7 +1311,7 @@ function joinOnline(code) {
           closeSalaPre();
           if (view) view.destroy();
           closeModal();
-          view = new MatchView({ mySide: 1, isHost: false, send: (x) => c.send(x), onRematch: null });
+          view = new MatchView({ mySide: 1, isHost: false, intro: true, peer: (x) => c.send(x), send: (x) => c.send(x), onRematch: null });
         }
         view && view.onMessage(m);
       });
@@ -1796,7 +1824,7 @@ function startCupMatch(rival, setup) {
   cpu = new Cpu(1, (x) => host.receive(1, x), level);
   lastHost = host;
   cupPlaying = true;
-  view = new MatchView({ mySide: 0, isHost: true, send: (x) => host.receive(0, x), endButtons: (state) => [['Continuar', 'primary', () => cupAfterMatch(resultOf(state, cup.me, rival))]] });
+  view = new MatchView({ mySide: 0, isHost: true, intro: true, send: (x) => host.receive(0, x), endButtons: (state) => [['Continuar', 'primary', () => cupAfterMatch(resultOf(state, cup.me, rival))]] });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `${ROUND_NAMES[teamsLeft(cup)]} contra ${teamById(rival).name}.`;
   host.start();
@@ -2030,7 +2058,7 @@ function startCareerMatch(setup) {
   cpu = new Cpu(1 - mySide, (x) => host.receive(1 - mySide, x), c.level);
   lastHost = host;
   careerPlaying = true;
-  view = new MatchView({ mySide, isHost: true, send: (x) => host.receive(mySide, x), endButtons: (state) => [['Continuar', 'primary', () => careerAfterMatch(resultFrom(state))]] });
+  view = new MatchView({ mySide, isHost: true, intro: true, send: (x) => host.receive(mySide, x), endButtons: (state) => [['Continuar', 'primary', () => careerAfterMatch(resultFrom(state))]] });
   session = { cleanup: () => { host.broadcast = () => {}; } };
   $('#feed').textContent = `${leagueOf(c).name}, fecha ${c.round + 1}.`;
   host.start();
