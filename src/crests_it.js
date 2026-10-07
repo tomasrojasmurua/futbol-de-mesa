@@ -41,6 +41,41 @@ export const CRESTS_IT = {
     word(g, 'COMO', 6, 10, NAVY);
     [17, 20, 23].forEach((y) => { for (let x = 7; x < 21; x++) px(g, B, x, y + ((x >> 1) % 2)); });
   } },
+  // Cremonese: círculo rojo, gris y dorado, el escudo de franjas con el poste azul y las letras U S C.
+  CRE: { draw(g) {
+    circ(g, RED, 14, 17, 12.4); circ(g, '#85868c', 14, 17, 10.4); circ(g, '#d09e50', 14, 17, 8.8);
+    poly(g, WH, [[10, 3], [14, 3], [14, 17], [12.4, 15], [11.4, 12], [11, 9], [10.4, 6], [10, 5]]);
+    rect(g, RED, 10, 3, 4, 2); rect(g, RED, 10, 8, 4, 3); rect(g, RED, 10, 13, 4, 2);
+    poly(g, '#0b4a9a', [[14, 3], [18, 3], [18, 5], [17.4, 6], [17, 9], [16.6, 12], [15.6, 15], [14, 17]]);
+    rect(g, '#d09e50', 14, 5, 2, 9); px(g, RED, 14, 8, 15, 10, 14, 12);
+    // letras blancas con borde negro
+    const L = [[1, 12, 2, 9], [6, 12, 2, 10], [2, 20, 5, 2], [20, 12, 2, 10], [22, 12, 5, 2], [22, 20, 5, 2], [25, 14, 2, 1], [25, 18, 2, 2],
+      [12, 19, 6, 2], [12, 21, 2, 3], [14, 23, 4, 2], [16, 25, 2, 3], [12, 28, 6, 2]];
+    L.forEach(([x, y, w, h]) => rect(g, BK, x - 1, y - 1, w + 2, h + 2));
+    L.forEach(([x, y, w, h]) => rect(g, WH, x, y, w, h));
+  } },
+  // Hellas Verona: las dos cabezas doradas que forman la V, con la escalera en el centro.
+  HEL: { draw(g) {
+    poly(g, GOLD, [[2, 2], [25, 2], [25, 21], [21, 28], [13.5, 32.6], [6, 28], [2, 21]]);
+    poly(g, '#14337a', [[3.2, 3.2], [23.8, 3.2], [23.8, 20.6], [20.4, 27], [13.5, 31], [6.6, 27], [3.2, 20.6]]);
+    const A = [[6, 5], [11.6, 12.4], [10.6, 26.4], [4.4, 17.4], [3, 12.6], [3.2, 9.4], [5.6, 6.6]];
+    poly(g, GOLD, A); poly(g, GOLD, A.map(([x, y]) => [27 - x, y]));
+    px(g, '#14337a', 4, 11, 5, 11, 22, 11, 21, 11);
+    poly(g, GOLD, [[13.5, 14.6], [11.8, 17.4], [15.2, 17.4]]);
+    rect(g, GOLD, 12, 19, 3, 1); rect(g, GOLD, 12, 21, 3, 1); rect(g, GOLD, 12, 23, 3, 1);
+    poly(g, GOLD, [[12, 25], [15, 25], [15, 27.6], [13.5, 30], [12, 27.6]]);
+  } },
+  // Pisa: óvalo negro con franjas azules, la cruz pisana sobre el círculo rojo y la torre blanca.
+  PIS: { draw(g) {
+    ell(g, BK, 14, 17, 11.8, 15.8); ell(g, '#1f5fd0', 14, 17, 10.8, 14.8); ell(g, '#101216', 14, 17, 9.6, 13.6);
+    clipEll(g, 14, 17, 9.6, 13.6);
+    rect(g, '#1f5fd0', 8, 0, 3, 34); rect(g, '#1f5fd0', 18, 0, 3, 34);
+    word(g, 'PISA', 6, 9, WH);
+    g.restore();
+    circ(g, RED, 10.5, 22, 4.2);
+    px(g, WH, 10, 19, 10, 20, 10, 21, 10, 22, 10, 23, 10, 24, 7, 22, 8, 22, 9, 22, 11, 22, 12, 22, 13, 22, 8, 20, 12, 24, 8, 24, 12, 20);
+    rect(g, WH, 15, 18, 3, 2); rect(g, WH, 14, 21, 4, 2); rect(g, WH, 13, 24, 5, 2); rect(g, WH, 12, 27, 6, 2);
+  } },
   // Fiorentina: rombo violeta con borde blanco, lirio rojo arriba y la curva violeta abajo.
   FIO: { draw(g) {
     const V = '#5b2a86';
