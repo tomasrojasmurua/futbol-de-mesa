@@ -1,5 +1,5 @@
 // Entrada de la portada: se prenden los focos sobre el pasto, caen las letras
-// de Calcciopoli una por una y la pelota entra rodando desde un costado,
+// de Calciopoli una por una y la pelota entra rodando desde un costado,
 // pica, se pasa un poco, vuelve y queda en su lugar sobre el nombre. Después
 // un brillo cruza las letras y aparece JUGAR. Tocar la pantalla la salta.
 // Todo se pinta en la grilla de píxeles del logo, así el último cuadro es

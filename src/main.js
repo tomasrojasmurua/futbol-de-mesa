@@ -277,7 +277,7 @@ const QUESTIONS = {
 // ---------- tutorial ----------
 // Consejos que aparecen la primera vez que pasa cada cosa en el partido guiado.
 const COACH = {
-  welcome: ['¡Bienvenido a Calcciopoli!', 'Cada jugada es un duelo: tú y tu rival eligen una carta al mismo tiempo, sin ver la del otro. Si el que defiende adivina, corta la jugada. Este es un partido corto contra una IA fácil y sin reloj: tómate tu tiempo.'],
+  welcome: ['¡Bienvenido a Calciopoli!', 'Cada jugada es un duelo: tú y tu rival eligen una carta al mismo tiempo, sin ver la del otro. Si el que defiende adivina, corta la jugada. Este es un partido corto contra una IA fácil y sin reloj: tómate tu tiempo.'],
   toss: ['El sorteo', 'Elige cara o sello. Quien gana el sorteo saca primero.'],
   'build-att': ['La salida', 'Tienes la pelota. Elige por dónde sales: izquierda, centro o derecha. Si el rival cierra esa zona, casi siempre te la quita. Si no, llegas al último tercio.'],
   'build-def': ['Defender la salida', 'El rival sale jugando. Elige qué zona cierras. Si adivinas por dónde sale, casi siempre recuperas la pelota.'],
@@ -348,7 +348,7 @@ function newspaper({ state, teams, res, winner, name, mvp, mvpLine, best, stadiu
   const pens = state.pens ? `<p class="np-pens">Penales: ${state.pens.goals[0]} - ${state.pens.goals[1]}</p>` : '';
   return `<article class="np">
     <div class="np-stamp">${tutorial ? 'Tutorial completado' : res}</div>
-    <header class="np-mast"><h1>El Calcciopolitano</h1>
+    <header class="np-mast"><h1>El Calciopolitano</h1>
       <p><span>${date}</span><span>${stadium ? stadium.name : 'Edición deportiva'}</span><span>$ 500</span></p></header>
     <p class="np-kicker">${h.kicker}</p>
     <h2 class="np-title">${h.title}</h2>
@@ -1192,9 +1192,9 @@ function createOnline() {
       $('#room-code').textContent = code;
       const url = `${location.origin}${location.pathname}?sala=${code}&b=${broker}`;
       $('#btn-share').onclick = async () => {
-        const text = `¡Te desafío a un partido de Calcciopoli! Entra con el código ${code}`;
+        const text = `¡Te desafío a un partido de Calciopoli! Entra con el código ${code}`;
         try {
-          if (navigator.share) await navigator.share({ title: 'Calcciopoli', text, url });
+          if (navigator.share) await navigator.share({ title: 'Calciopoli', text, url });
           else { await navigator.clipboard.writeText(`${text}: ${url}`); $('#lobby-msg').textContent = 'Enlace copiado.'; }
         } catch { /* cancelado */ }
       };
@@ -1387,9 +1387,9 @@ function createLeague() {
       $('#lg-code').textContent = code;
       const url = `${location.origin}${location.pathname}?sala=${code}&b=${broker}`;
       $('#lg-share').onclick = async () => {
-        const text = `¡Súmate a mi liga de Calcciopoli! Entra con el código ${code}`;
+        const text = `¡Súmate a mi liga de Calciopoli! Entra con el código ${code}`;
         try {
-          if (navigator.share) await navigator.share({ title: 'Calcciopoli', text, url });
+          if (navigator.share) await navigator.share({ title: 'Calciopoli', text, url });
           else { await navigator.clipboard.writeText(`${text}: ${url}`); $('#lg-msg').textContent = 'Enlace copiado.'; }
         } catch { /* cancelado */ }
       };
@@ -1867,7 +1867,7 @@ function confirmQuitCup() {
 }
 
 // ---------- sala de trofeos ----------
-const HOW_TO = { calc: 'Gana un torneo libre (Copa Calcciopoli) en Torneo.' };
+const HOW_TO = { calc: 'Gana un torneo libre (Copa Calciopoli) en Torneo.' };
 function trophyHint(id) {
   if (HOW_TO[id]) return HOW_TO[id];
   const comp = COMPS.find((c) => c.id === id);

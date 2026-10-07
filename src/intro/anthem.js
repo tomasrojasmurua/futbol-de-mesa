@@ -107,7 +107,7 @@ export class Anthem {
     }
     // carteles LED y el pasto
     g.fillStyle = '#0f1117'; g.fillRect(0, board, W, 9);
-    const name = teams[side].name.toUpperCase() + ' · CALCCIOPOLI · ';
+    const name = teams[side].name.toUpperCase() + ' · CALCIOPOLI · ';
     const tw = pxTextW(name) + 4;
     for (let x = -((off * 1.3 + t * 20) % tw); x < W; x += tw) pxText(g, name, Math.round(x), board + 2, side ? '#ffe27a' : '#9fe0ff');
     for (let y = grass; y < H; y++) { g.fillStyle = Math.floor((y - grass) / 12) % 2 ? '#3f9c3b' : '#48ab43'; g.fillRect(0, y, W, 1); }

@@ -1,4 +1,4 @@
-// Calcciopoli · escudos del fútbol brasileño dibujados a mano, siguiendo los escudos reales (ver crests.js).
+// Calciopoli · escudos del fútbol brasileño dibujados a mano, siguiendo los escudos reales (ver crests.js).
 import { BK, WH, poly, rect, circ, ell, px, word, art, SHIELD, star, clipPoly, clipCirc, ring } from './crestkit.js';
 
 const RED = '#e4002b';

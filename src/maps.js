@@ -1,4 +1,4 @@
-// Calcciopoli · mapas en pixel art de cada confederación (36×24, como las banderas).
+// Calciopoli · mapas en pixel art de cada confederación (36×24, como las banderas).
 // '#' es tierra de la confederación, 'o' tierra de otras y '.' mar. Calcados de un
 // mapa real (Natural Earth 1:110m) en proyección equirectangular centrada en la región.
 const W = 36, H = 24;

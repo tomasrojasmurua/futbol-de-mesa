@@ -1,5 +1,5 @@
 // Portada del menú: pasto de cancha visto desde arriba, con franjas de corte y
-// el mismo grano que el pasto de las animaciones, y el logo de Calcciopoli
+// el mismo grano que el pasto de las animaciones, y el logo de Calciopoli
 // (pelota y nombre) pintado en pixel art. Todo se pinta en píxeles grandes y se
 // escala sin suavizar.
 import { P4 } from './players.js';
@@ -64,7 +64,7 @@ const GLYPHS = {
   O: ['.#####.', '#######', '##...##', '##...##', '##...##', '##...##', '##...##', '#######', '.#####.'],
   P: ['######.', '#######', '##...##', '##...##', '#######', '######.', '##.....', '##.....', '##.....'],
 };
-export const LOGO_TEXT = 'CALCCIOPOLI';
+export const LOGO_TEXT = 'CALCIOPOLI';
 // `ball: false` deja el lugar de la pelota vacío y `only: i` pinta sólo la
 // letra i, en su lugar: la animación de entrada arma el logo con esas piezas.
 export function paintLogo(cv, { ball = true, only = null } = {}) {

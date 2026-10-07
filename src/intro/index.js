@@ -1,4 +1,4 @@
-// Calcciopoli · la previa en película (unos 20 segundos antes de cada partido).
+// Calciopoli · la previa en película (unos 20 segundos antes de cada partido).
 // Toma aérea del estadio → camarín → salida del túnel → himnos → banderas en la
 // cancha. Usa el estadio, la hora, el clima y las camisetas de la previa.
 // Se salta tocando la pantalla (en una sala, se salta en los dos celulares).
@@ -110,7 +110,7 @@ export class Intro {
   title(g, W, H, t) {
     const a = clamp(t / 0.4, 0, 1) * clamp((1.0 - t) / 0.3, 0, 1);
     g.globalAlpha = a;
-    const s = 'CALCCIOPOLI', w = pxTextW(s, 2);
+    const s = 'CALCIOPOLI', w = pxTextW(s, 2);
     pxText(g, s, Math.round(W / 2 - w / 2), Math.round(H / 2 - 8), '#ffd23f', 2);
     const p = 'PRESENTA', pw = pxTextW(p);
     pxText(g, p, Math.round(W / 2 - pw / 2), Math.round(H / 2 + 6), '#c9ccd6');

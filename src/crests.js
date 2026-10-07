@@ -1,4 +1,4 @@
-// Calcciopoli · escudos de los clubes en pixel art.
+// Calciopoli · escudos de los clubes en pixel art.
 // Cada escudo se dibuja a mano sobre una grilla de 28 × 34 píxeles con los
 // colores reales del club, se ajusta a su paleta (sin mezclas), se cierra con
 // un contorno oscuro y queda en una caché. Se piden por la sigla del equipo.

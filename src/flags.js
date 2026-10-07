@@ -1,4 +1,4 @@
-// Calcciopoli · banderas en pixel art para elegir liga.
+// Calciopoli · banderas en pixel art para elegir liga.
 // Cada bandera se define píxel a píxel (36×24) y se le da caída de tela:
 // pliegues suaves en tres tonos, como si flameara.
 const W = 36, H = 24;

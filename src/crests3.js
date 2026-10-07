@@ -1,4 +1,4 @@
-// Calcciopoli · escudos de los demás clubes, armados a partir de una receta por club (ver crests.js).
+// Calciopoli · escudos de los demás clubes, armados a partir de una receta por club (ver crests.js).
 // Receta: [forma, borde, campo, texto, emblema]
 //  forma: S casco, R redondo, B placa    campo: ['s',a] ['v',a,b] ['h',a,b] ['x',a,b] ['y',a,b] ['d',a,b] ['t',a,b]
 //  texto: [letras, color, colorDeBanda|0]    emblema: [nombre, color, escala]

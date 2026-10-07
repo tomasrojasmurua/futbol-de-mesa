@@ -242,7 +242,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .banner.goal { font-size: 40px; animation: goalcolors .25s steps(2) infinite; }
 @keyframes goalcolors { 50% { color: var(--c2, #ffd23f); } }
 
-/* ---- mesa de dados: ventana de Calcciopoli con paño de cancha ---- */
+/* ---- mesa de dados: ventana de Calciopoli con paño de cancha ---- */
 .dice-wrap { position: absolute; inset: 0; z-index: 3; display: none; place-items: center; padding: 12px; background: rgba(8,10,14,.6); pointer-events: none; }
 .dice-wrap.show { display: grid; }
 .tbox { width: min(420px, 100%); background: linear-gradient(#232a38, #181d27); box-shadow: 0 0 0 4px #000, 0 10px 0 4px rgba(0,0,0,.35); border-bottom: 4px solid #0c0f15; color: var(--ink); font-family: var(--vt); }

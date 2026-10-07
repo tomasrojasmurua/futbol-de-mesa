@@ -825,7 +825,7 @@ export class Cutscene {
 
   drawStands(s) {
     const g = this.g, o = this.o, T = this.T;
-    const st = o.stadium || { seats: ['#2a2f3a', '#3a404d'], features: [], sky: 'night', name: 'CALCCIOPOLI' };
+    const st = o.stadium || { seats: ['#2a2f3a', '#3a404d'], features: [], sky: 'night', name: 'CALCIOPOLI' };
     const f = st.features, skyH = this.skyH;
     // cielo
     // cielo según la hora y el clima de la previa
@@ -918,7 +918,7 @@ export class Cutscene {
       g.fillStyle = i % 2 ? tone(st.seats[0], -0.2) : '#14171f';
       g.fillRect(Math.round(x), by, 32, 10);
     }
-    const label = st.name || 'CALCCIOPOLI';
+    const label = st.name || 'CALCIOPOLI';
     const w = textW(label);
     g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(Math.round(LW / 2 - w / 2) - 3, by + 1, w + 6, 8);
     text(g, label, Math.round(LW / 2 - w / 2), by + 3, '#ffffff');

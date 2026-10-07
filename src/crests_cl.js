@@ -1,4 +1,4 @@
-// Calcciopoli · escudos de la liga chilena dibujados a mano, siguiendo los escudos reales (ver crests.js).
+// Calciopoli · escudos de la liga chilena dibujados a mano, siguiendo los escudos reales (ver crests.js).
 import { BK, WH, poly, rect, circ, ell, px, word, art, SHIELD, star, vstripes, hstripes, disc, clipCirc, clipPoly, ring } from './crestkit.js';
 
 const sh = (g, border, fn, inner = 1.6, outer = 0) => { poly(g, border, SHIELD(outer)); clipPoly(g, SHIELD(inner)); fn(); g.restore(); };
