@@ -84,6 +84,24 @@ export const CRESTS_FR = {
     poly(g, WH, [[4, 12.5], [4, 20.5], [7, 17.4], [7, 15.6]]); poly(g, WH, [[23, 12.5], [23, 20.5], [20, 17.4], [20, 15.6]]);
     circ(g, WH, 13.5, 16.5, 3.8); ring(g, '#1d52a8', 13.5, 16.5, 3.8, 0.7); px(g, '#1d52a8', 13, 15, 14, 18, 12, 17);
   } },
+  // Metz: la cruz de Lorena granate de doble travesaño sobre escudo blanco.
+  FCM: { draw(g) {
+    const G = '#7a1a1f';
+    poly(g, G, SHIELD(0)); poly(g, WH, SHIELD(1.3));
+    poly(g, G, [[11.4, 6], [16.2, 10.4], [16.2, 29.4], [11.4, 24.4]]);
+    rect(g, G, 8, 11.6, 11, 4); rect(g, G, 5, 17, 17, 6);
+  } },
+  // Nantes: escudo amarillo con las letras verdes, el marco en U, la N y el armiño.
+  FCN: { draw(g) {
+    const G = '#00a65a';
+    poly(g, '#fddc00', [[2, 1], [25, 1], [25, 21], [21, 27], [13.5, 33], [6, 27], [2, 21]]);
+    word(g, 'FCN', 8, 3, G);
+    const L = [[5.4, 8.5], [7, 8.5], [7, 21], [7.8, 23.2], [10.4, 25.6], [10.4, 28], [6.4, 25], [5.4, 21.4]];
+    poly(g, G, L); poly(g, G, L.map(([x, y]) => [26 - x + 1.5, y]));
+    rect(g, G, 15.4, 8.5, 1.8, 11); rect(g, G, 9, 12.6, 1.6, 10);
+    poly(g, G, [[8.7, 8.5], [11.2, 8.5], [17.2, 17.6], [17.2, 20.2]]); poly(g, G, [[9.6, 12.6], [16.4, 21.6], [15, 22.8], [9.6, 16.4]]);
+    poly(g, G, [[13.5, 26], [14.7, 30], [13.5, 31.4], [12.3, 30]]);
+  } },
   // Angers: escudo blanco con borde negro, las letras SCO y la flecha.
   SCO: { draw(g) {
     poly(g, BK, [[2, 3], [25, 3], [25, 16], [13.5, 32], [2, 16]]);
