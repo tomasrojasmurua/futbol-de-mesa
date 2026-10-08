@@ -2229,15 +2229,18 @@ export class Renderer {
         l.fillRect(0, 0, MX + PW * S * (1 - reach), WH);
       }
     }
-    if (night) {
-      // focos en las cuatro esquinas: manchas de luz cálida sobre el pasto
-      const k = weather === 'clear' ? 1 : weather === 'cloudy' ? 0.85 : 0.9;
+    // focos en las cuatro esquinas: de noche iluminan la cancha entera; con el día
+    // cubierto (nublado o lluvia) quedan encendidos pero tenues
+    if (night || !sun) {
+      const k = night ? (weather === 'clear' ? 1 : weather === 'cloudy' ? 0.9 : 0.95) : 0.32;
       const pool = (x, y, r, a) => {
         const gr = l.createRadialGradient(x, y, 0, x, y, r);
-        gr.addColorStop(0, `rgba(255,248,214,${a * k})`); gr.addColorStop(0.55, `rgba(255,244,200,${a * 0.45 * k})`); gr.addColorStop(1, 'rgba(255,244,200,0)');
+        gr.addColorStop(0, `rgba(255,248,214,${a * k})`); gr.addColorStop(0.55, `rgba(255,244,200,${a * 0.5 * k})`); gr.addColorStop(1, 'rgba(255,244,200,0)');
         l.fillStyle = gr; l.fillRect(x - r, y - r, r * 2, r * 2);
       };
-      for (const [x, y] of [[MX - 6, MY - 6], [MX + PW * S + 6, MY - 6], [MX - 6, MY + PL * S + 6], [MX + PW * S + 6, MY + PL * S + 6]]) pool(x, y, 150, 0.14);
+      for (const [x, y] of [[MX - 6, MY - 6], [MX + PW * S + 6, MY - 6], [MX - 6, MY + PL * S + 6], [MX + PW * S + 6, MY + PL * S + 6]]) pool(x, y, 260, 0.3);
+      // y un resplandor parejo sobre el pasto
+      l.fillStyle = `rgba(255,246,215,${0.06 * k})`; l.fillRect(gx0, gy0, gw, gh);
     }
     if (weather === 'rain') {
       // charcos donde el pasto está gastado: brillan con la luz que haya

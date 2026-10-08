@@ -17,9 +17,9 @@ export const weatherLabel = (w, time) => (time === 'night' && WEATHERS[w].night)
 
 // Tinte de la luz (se multiplica sobre la imagen): [tribunas, cancha].
 export const LIGHT = {
-  morning: { clear: ['#e9edf6', '#fffaf0'], cloudy: ['#a9adb6', '#c9ccd2'], rain: ['#99a1b2', '#b9c1cf'] },
-  afternoon: { clear: ['#e2c6a8', '#ffe4c0'], cloudy: ['#aba19a', '#cbc1b8'], rain: ['#9a97a6', '#bbb6c2'] },
-  night: { clear: ['#3e4562', '#a3b0cf'], cloudy: ['#363b4e', '#96a0b6'], rain: ['#323a52', '#909db9'] },
+  morning: { clear: ['#e9edf6', '#fffaf0'], cloudy: ['#a9adb6', '#d0d3d9'], rain: ['#99a1b2', '#c1c9d6'] },
+  afternoon: { clear: ['#e2c6a8', '#ffe4c0'], cloudy: ['#aba19a', '#d2c8bf'], rain: ['#9a97a6', '#c3becb'] },
+  night: { clear: ['#48507a', '#d2dbf2'], cloudy: ['#3e4560', '#c4cde2'], rain: ['#3a435f', '#b3bfd8'] },
 };
 
 const SKY_TIME = { day: 'morning', dusk: 'afternoon', night: 'night' };
