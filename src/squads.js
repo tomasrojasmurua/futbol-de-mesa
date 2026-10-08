@@ -54,7 +54,7 @@ export const SQUADS = {
   cel: ['Schmeichel', 'Tierney', 'Carter-Vickers', 'Scales', 'Johnston', 'Maeda', 'McGregor', 'Engels', 'Hatate', 'Idah', 'Iheanacho'],
   gal: ['Çakır', 'Jakobs', 'Bardakcı', 'D. Sánchez', 'Singo', 'Sané', 'Torreira', 'Lemina', 'Barış Alper', 'Osimhen', 'Sara'],
   // Selecciones
-  arg: ['Dibu Martínez', 'Tagliafico', 'Lisandro', 'Cuti Romero', 'Molina', 'Mac Allister', 'Enzo', 'De Paul', 'Almada', 'Messi', 'Julián Álvarez'],
+  arg: ['Dibu Martínez', 'Tagliafico', 'Lisandro', 'Cuti Romero', 'Molina', 'Mac Allister', 'Enzo', 'De Paul', 'Almada', 'Julián Álvarez', 'Messi'],
   chi: ['Vigouroux', 'Suazo', 'Maripán', 'Paulo Díaz', 'Hormazábal', 'Assadi', 'Echeverría', 'Pizarro', 'Osorio', 'Alexis', 'Brereton'],
   bra: ['Alisson', 'Alex Sandro', 'Gabriel', 'Marquinhos', 'Wesley', 'Vinícius Jr.', 'Casemiro', 'B. Guimarães', 'Estêvão', 'Cunha', 'Raphinha'],
   uru: ['Rochet', 'Olivera', 'Araujo', 'Giménez', 'Nández', 'M. Araújo', 'Ugarte', 'Valverde', 'Pellistri', 'Darwin', 'Arrascaeta'],
