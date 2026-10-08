@@ -135,13 +135,12 @@ function buildTeamGrid() {
   const list = $('#team-groups');
   list.hidden = false;
   list.innerHTML = '';
-  const mine = teamById(myTeamId);
   for (const g of teamGroups()) {
     const teams = TEAMS.filter((t) => t.group === g);
     const b = document.createElement('button');
-    b.className = 'league-btn flag-btn' + (mine?.group === g ? ' saved' : '');
+    b.className = 'league-btn flag-btn';
     b.append(paintFlag(document.createElement('canvas'), GROUP_FLAG[g]));
-    b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${teams.length} equipos</small>${mine?.group === g ? `<em>Último equipo: ${mine.name}</em>` : ''}`);
+    b.insertAdjacentHTML('beforeend', `<b>${g}</b><small>${teams.length} equipos</small>`);
     b.onclick = () => buildGroupTeams(g);
     list.appendChild(b);
   }
