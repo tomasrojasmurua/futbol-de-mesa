@@ -43,6 +43,7 @@ const INK = '#14171f';
 const SKY = '#0d1424';
 const LINE = '#eef0e6';
 const NET = '#c9d2dc';
+const KFRONT = 6; // cuánto adelanta el arquero los pies respecto de la línea de gol
 const GRASS = ['#3f9c3b', '#48ab43'];
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -693,7 +694,7 @@ export class Cutscene {
   // Arquero: estado en s → { x, y, pose, dir, lift }
   keeper(s) {
     const o = this.o, T = this.T;
-    const x0 = 90, y0 = this.gy - 1;
+    const x0 = 90, y0 = this.gy - 1 + KFRONT; // el arquero juega adelantado: sus pies pisan el pasto por delante de la línea
     // sale antes y llega estirado justo cuando llega la pelota
     const start = T.kick + T.F * 0.1;
     if (s < start) {
@@ -714,7 +715,7 @@ export class Cutscene {
     const peak = this.gy - 10 - aim[1];
     const lift = Math.sin(clamp(q, 0, 1) * Math.PI * 0.75) * peak;
     const fall = s > T.hit + 0.15 ? clamp((s - T.hit - 0.15) / 0.45, 0, 1) : 0;
-    return { x: lerp(x0, tx, q), y: this.gy - 10 - lift * (1 - fall) + fall * 4, pose: 'dive', dir, p };
+    return { x: lerp(x0, tx, q), y: this.gy - 10 + KFRONT * (1 - q) - lift * (1 - fall) + fall * 4, pose: 'dive', dir, p };
   }
 
   keeperHands(s) {
@@ -1021,7 +1022,7 @@ export class Cutscene {
     const g = this.g, P = P4.POSES, kit = this.gkKit;
     // sombra
     g.fillStyle = 'rgba(0,0,0,.3)';
-    g.fillRect(Math.round(k.x) - (k.pose === 'dive' ? 18 : 10), this.gy, k.pose === 'dive' ? 36 : 20, 2);
+    g.fillRect(Math.round(k.x) - (k.pose === 'dive' ? 18 : 10), this.gy + KFRONT, k.pose === 'dive' ? 36 : 20, 2);
     let sp, center = false;
     if (k.pose === 'ready') {
       const i = Math.floor(((this.s * 1.6) % 1) * 8);
