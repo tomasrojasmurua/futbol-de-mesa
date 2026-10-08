@@ -758,9 +758,15 @@ export class Cutscene {
     const z = lerp(1.35, 1.16, intro) + (s > T.kick ? 0.5 * ease(clamp((s - T.kick) / T.F, 0, 1)) : 0);
     const fy = s > T.kick ? lerp(H * 0.5, this.gy - 14, ease(clamp((s - T.kick) / T.F, 0, 1))) : H * 0.5;
     const sh = this.shake > 0 ? Math.round((Math.random() - 0.5) * 4 * this.shake) : 0;
+    // si pega en un palo, la cámara se corre hacia él para que el golpe se vea (sin salir de la escena)
+    let cx = LW / 2;
+    if (o.outcome === 'post' && s > T.kick) {
+      const px = this.finalPoint()[0], half = LW / 2 / z;
+      cx = lerp(LW / 2, clamp(px, half, LW - half), ease(clamp((s - T.kick) / T.F, 0, 1)));
+    }
     g.translate(LW / 2 + sh, H * 0.5);
     g.scale(z, z);
-    g.translate(-LW / 2, -fy + (this.shake > 0 ? Math.round((Math.random() - 0.5) * 3 * this.shake) : 0));
+    g.translate(-cx, -fy + (this.shake > 0 ? Math.round((Math.random() - 0.5) * 3 * this.shake) : 0));
 
     this.drawStands(s);
     this.drawPitch();
@@ -779,6 +785,15 @@ export class Cutscene {
     // en el mano a mano que no se ataja el arquero quedó atrás en la jugada: arco vacío
     if (!this.manoOpen) this.drawKeeper(this.keeper(s));
     this.drawPosts();
+    if (o.outcome === 'post' && s > T.hit && s < T.hit + 0.35) {
+      // el golpe en el palo: destello y chispas en el punto de contacto
+      const [px, py] = this.finalPoint(), k = (s - T.hit) / 0.35, r = 3 + k * 6;
+      g.fillStyle = `rgba(255,255,255,${0.9 * (1 - k)})`;
+      g.fillRect(Math.round(px - 1), Math.round(py - r), 3, Math.round(r * 2));
+      g.fillRect(Math.round(px - r), Math.round(py - 1), Math.round(r * 2), 3);
+      g.fillStyle = `rgba(255,230,120,${1 - k})`;
+      for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) g.fillRect(Math.round(px + dx * r * 0.7), Math.round(py + dy * r * 0.7), 2, 2);
+    }
     if (b && !b[3]) {
       // sombra
       if (s >= T.kick || o.kind !== 'cabezazo') {
