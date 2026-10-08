@@ -480,6 +480,12 @@ class MatchView {
         await ui.banner(`${this.names()[state.winner].toUpperCase()} GANA`, { hold: 2200 });
         return this.showEnd(state);
       }
+      // una falta del último minuto se sanciona en el momento, antes del pitazo del tiempo
+      if (ev.halfEnd && ev.card) {
+        await this.coach(ev.card.deck === 'disciplina' ? 'disciplina' : 'card'); await this.situationCard(ev.card, state);
+        if (this.dead) return;
+        this.paintFx(state);
+      }
       if (ev.halfEnd) {
         audio.sound('whistle3');
         await ui.banner(ev.halfEnd === 1 ? 'ENTRETIEMPO' : 'FINAL', { hold: 1800 });
@@ -497,7 +503,7 @@ class MatchView {
         await renderer.kickoff(ev.kickoffAfter);
         audio.sound('whistle');
       }
-      if (ev.card) { await this.coach(ev.card.deck === 'disciplina' ? 'disciplina' : 'card'); await this.situationCard(ev.card, state); }
+      if (ev.card && !ev.halfEnd) { await this.coach(ev.card.deck === 'disciplina' ? 'disciplina' : 'card'); await this.situationCard(ev.card, state); }
       if (this.dead) return;
       if (ev.card && ev.card.id === 'freekick') await renderer.cardMove(state.poss, state.situation);
       this.paintFx(state);
