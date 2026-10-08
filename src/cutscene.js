@@ -464,7 +464,8 @@ export class Cutscene {
       cam: (base, hip) => Math.min(hip + 45, Math.max(base, (hip + kx(s)) / 2)),
       behind: (cam) => {
         // el defensa corre detrás y no llega
-        const wx = lerp(-420, -120, clamp((s - RUN0 + 0.1) / (T.kick + 0.3 - RUN0), 0, 1));
+        // arranca bien afuera de cuadro: si no, de entrada se ve un pedazo suyo pegado al borde
+        const wx = lerp(-600, -40, clamp((s - RUN0 + 0.1) / (T.kick + 0.3 - RUN0), 0, 1));
         this.actor(this.runSpr('def', dk, wx), wx, cam);
       },
       front: (cam) => {
