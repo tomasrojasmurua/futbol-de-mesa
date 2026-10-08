@@ -306,6 +306,11 @@ export class Renderer {
       this.hdGet(kk, 'side', 'r' + i, () => P4.POSES.run(u, 0.9));
       for (const v of ['front', 'back']) this.hdGet(kk, v, 'r' + i, () => P4.POSES.runFront(u, 0.9));
     }
+    // la celebración también: sin esto salta con el muñeco de baja resolución mientras se dibuja
+    for (let i = 0; i < 8; i++) for (const p of all) {
+      const kk = this.hdKit(p, this.kits[p.side], p.i === 0);
+      for (const v of ['front', 'back']) this.hdGet(kk, v, 'cheer' + i, () => cheerPose(i / 8));
+    }
   }
 
   // Elige vista, cuadro y postura del jugador ilustrado. dir < 0 = espejado.
@@ -2120,7 +2125,7 @@ export class Renderer {
     const flipDir = (d) => (this.mySide === 1 ? -d : d);
 
     const now = performance.now();
-    const cheerHop = p.cheer > 0 && !p.jump ? Math.round(Math.abs(Math.sin(now / 120)) * 3) : 0;
+    const cheerHop = p.cheer > 0 && !p.jump ? Math.round(Math.abs(Math.sin(Math.PI * ((now / 1000) * 1.4 + p.i * 0.37))) * 3) : 0;
     const kk = this.hdKit(p, kit, isGK);
     const pick = this.hdPick(p, isGK, fx, facing, flipDir, now);
     const hs = this.hdGet(kk, pick.view, pick.key, pick.pose, true);
