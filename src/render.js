@@ -2238,9 +2238,9 @@ export class Renderer {
         gr.addColorStop(0, `rgba(255,248,214,${a * k})`); gr.addColorStop(0.55, `rgba(255,244,200,${a * 0.5 * k})`); gr.addColorStop(1, 'rgba(255,244,200,0)');
         l.fillStyle = gr; l.fillRect(x - r, y - r, r * 2, r * 2);
       };
-      for (const [x, y] of [[MX - 6, MY - 6], [MX + PW * S + 6, MY - 6], [MX - 6, MY + PL * S + 6], [MX + PW * S + 6, MY + PL * S + 6]]) pool(x, y, 260, 0.3);
+      for (const [x, y] of [[MX - 6, MY - 6], [MX + PW * S + 6, MY - 6], [MX - 6, MY + PL * S + 6], [MX + PW * S + 6, MY + PL * S + 6]]) pool(x, y, 260, 0.22);
       // y un resplandor parejo sobre el pasto
-      l.fillStyle = `rgba(255,246,215,${0.06 * k})`; l.fillRect(gx0, gy0, gw, gh);
+      l.fillStyle = `rgba(255,246,215,${0.04 * k})`; l.fillRect(gx0, gy0, gw, gh);
     }
     if (weather === 'rain') {
       // charcos donde el pasto está gastado: brillan con la luz que haya

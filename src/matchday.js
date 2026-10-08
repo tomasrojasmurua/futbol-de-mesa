@@ -19,7 +19,7 @@ export const weatherLabel = (w, time) => (time === 'night' && WEATHERS[w].night)
 export const LIGHT = {
   morning: { clear: ['#e9edf6', '#fffaf0'], cloudy: ['#a9adb6', '#d0d3d9'], rain: ['#99a1b2', '#c1c9d6'] },
   afternoon: { clear: ['#e2c6a8', '#ffe4c0'], cloudy: ['#aba19a', '#d2c8bf'], rain: ['#9a97a6', '#c3becb'] },
-  night: { clear: ['#48507a', '#d2dbf2'], cloudy: ['#3e4560', '#c4cde2'], rain: ['#3a435f', '#b3bfd8'] },
+  night: { clear: ['#444b70', '#bcc8e4'], cloudy: ['#3b425b', '#aeb9d0'], rain: ['#383f5a', '#a5b2cb'] },
 };
 
 const SKY_TIME = { day: 'morning', dusk: 'afternoon', night: 'night' };
