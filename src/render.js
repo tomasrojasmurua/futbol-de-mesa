@@ -688,9 +688,18 @@ export class Renderer {
   }
 
   async pass(side, uv, { dur = 0.8, h = 0.4, recv = null, z1 = 0 } = {}) {
-    const to = this.W(side, uv[0], uv[1]);
+    let to = this.W(side, uv[0], uv[1]);
     const passer = this.ball.owner;
     const r = recv || this.nearest(side, to[0], to[1], true, passer ? [passer] : []);
+    // El que recibe llega corriendo: si el pase cae más lejos de lo que alcanza a
+    // cubrir, la pelota tarda un poco más y cae donde él llega. Así nunca queda
+    // sola esperando ni se desliza hacia él sin que nadie la toque.
+    const RUN = 9, dist = Math.hypot(r.x - to[0], r.y - to[1]);
+    if (dist > RUN * dur + 1) {
+      dur = Math.min(2, (dist - 1) / RUN);
+      const reach = RUN * dur + 1;
+      if (dist > reach) { const k = reach / dist; to = [r.x + (to[0] - r.x) * k, r.y + (to[1] - r.y) * k]; }
+    }
     r.ov = to; r.boost = 1.5;
     this.launch(to, { dur, h, z1 });
     this.ui.sound('kick');
@@ -819,7 +828,10 @@ export class Renderer {
     }
     // si la había ganado de cabeza, la baja con el pecho y sigue con los pies
     this.ball.head = false; this.ball.rest = false;
-    this.moveTo(p, this.W(side, uv[0], uv[1]), dur, { zig });
+    // nadie conduce más rápido que lo que corre: si el tramo es largo, tarda más
+    const to = this.W(side, uv[0], uv[1]);
+    dur = Math.max(dur, Math.hypot(to[0] - p.x, to[1] - p.y) / 7.5);
+    this.moveTo(p, to, dur, { zig });
     await this.wait(dur);
   }
 
@@ -1272,8 +1284,10 @@ export class Renderer {
       const owner = this.ball.owner;
       const [ou] = this.ballUV(A);
       const wide = [this.byNum(A, L ? 5 : 8), this.byNum(A, L ? 1 : 4)];
-      let crosser = wide.includes(owner) && Math.abs(ou - wingU) < 14 ? owner : (Math.random() < 0.6 ? wide[0] : wide[1]);
-      if (crosser === owner && !wide.includes(owner)) crosser = wide[0];
+      // centra el que ya la lleva por la banda o un compañero de la banda que esté cerca;
+      // si no hay ninguno cerca, sale el mismo que la tiene (nunca un pase largo hacia atrás)
+      const closeWide = wide.filter((q) => q !== owner && Math.hypot(q.x - owner.x, q.y - owner.y) <= 14);
+      const crosser = wide.includes(owner) && Math.abs(ou - wingU) < 14 ? owner : closeWide.length ? pickR(closeWide) : owner;
       const target = [L ? 38 : 30, 95.5];
       const heads = [this.byNum(A, 9), this.byNum(A, 10)].filter((p) => p !== crosser);
       const runner = heads[L ? heads.length - 1 : 0] || this.mate(A, [6, 7], [crosser]);
@@ -1309,21 +1323,37 @@ export class Renderer {
       await this.dribble(A, [lerp(cu, 34, 0.3), Math.max(cv, 70) + 1.5], 0.4);
       const runU = 34 + (lane < 34 ? -5 : lane > 34 ? 5 : rnd(-4, 4));
       const owner = this.ball.owner;
-      const kind = pickR(['directo', 'toque', 'pared']);
+      // El compañero que participa tiene que estar cerca y no atrás del que la lleva:
+      // si no hay ninguno, sale el pase filtrado directo.
+      const [ou0, ov0] = this.ballUV(A);
+      const near = (nums, maxD, maxBack) => {
+        let best = null, bd = maxD;
+        for (const n of nums) {
+          const q = this.byNum(A, n);
+          if (!q || q === owner) continue;
+          const [, qv] = this.U(A, q.x, q.y);
+          const d = Math.hypot(q.x - owner.x, q.y - owner.y);
+          if (d < bd && qv >= ov0 - maxBack) { best = q; bd = d; }
+        }
+        return best;
+      };
+      let kind = pickR(['directo', 'toque', 'pared']);
+      let helper = null;
+      if (kind === 'pared') helper = near([9, 10, 6, 7, 8], 20, 3);
+      else if (kind === 'toque') helper = near(ou0 < 34 ? [7, 6, 8] : [6, 7, 5], 16, 6);
+      if (!helper) kind = 'directo';
       let runner;
       if (kind === 'pared') {
         // se la da al 9 de espaldas y pica: el 9 se la devuelve al espacio
-        const nine = this.mate(A, [9, 10, 6], [owner]);
-        const [ou, ov] = this.ballUV(A);
-        await this.passTo(A, nine, [lerp(ou, 34, 0.5), ov + 7], { dur: 0.5, h: 0.2 });
+        const [wu, wv] = this.U(A, helper.x, helper.y);
+        await this.passTo(A, helper, [wu, wv + 1.5], { dur: 0.5, h: 0.2 });
         runner = owner;
         this.moveTo(owner, this.W(A, runU + (runU < 34 ? -3 : 3), 84), 0.7);
         await this.wait(0.15);
       } else {
         if (kind === 'toque') {
-          const [ou, ov] = this.ballUV(A);
-          const side = this.mate(A, ou < 34 ? [7, 6] : [6, 7], [owner]);
-          await this.passTo(A, side, [clamp(ou + (ou < 34 ? 6 : -6), 14, 54), ov + 0.5], { dur: 0.45, h: 0.15 });
+          const [wu, wv] = this.U(A, helper.x, helper.y);
+          await this.passTo(A, helper, [wu, wv + 0.5], { dur: 0.45, h: 0.15 });
         }
         const holder = this.ball.owner;
         runner = this.mate(A, runU < 34 ? [9, 5, 10, 8] : [10, 8, 9, 5], [holder]);

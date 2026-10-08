@@ -12,7 +12,9 @@ const SKINS = ['#f1c7a0', '#e0a77c', '#c68657', '#9c6440', '#6e4428'];
 export function buildSide(o, LW, H, GY) {
   const R = rng(23);
   const st = o.stadium || { seats: ['#2a2f3a', '#3a404d'], name: 'CALCIOPOLI' };
-  const grassTop = GY - 114, gw = 1400, gh = H - grassTop;
+  // el pasto y los carteles se extienden bien más allá de donde arranca la carrera,
+  // así la cámara nunca muestra el borde del dibujo
+  const GX = 1000, grassTop = GY - 114, gw = 2600, gh = H - grassTop;
   // pasto: franjas que se angostan hacia el fondo, con algo de ruido
   const grass = document.createElement('canvas'); grass.width = gw; grass.height = gh;
   {
@@ -22,7 +24,7 @@ export function buildSide(o, LW, H, GY) {
     for (let y = 0; y < gh; y++) {
       const depth = Math.min(1, y / 128), s = 0.42 + 0.58 * depth;
       for (let x = 0; x < gw; x++) {
-        const u = (x - 400) / s;
+        const u = (x - GX) / s;
         const c = Math.floor((u + 4000) / 46) % 2 ? A : B;
         const r = R();
         let k = r < 0.12 ? 0.92 : r < 0.22 ? 1.06 : 1;
@@ -34,11 +36,11 @@ export function buildSide(o, LW, H, GY) {
     for (let x = 0; x < gw; x++) for (const [yy, a] of [[24, 0.85], [25, 0.4]]) { const i = (yy * gw + x) * 4; d[i] += (240 - d[i]) * a; d[i + 1] += (245 - d[i + 1]) * a; d[i + 2] += (232 - d[i + 2]) * a; }
     g.putImageData(im, 0, 0);
     // punto penal gastado, justo donde está la pelota
-    for (let i = 0; i < 220; i++) { const a = R() * 6.28, rr = Math.sqrt(R()) * 16; g.fillStyle = R() < 0.5 ? '#6f7a3c' : '#5d7a36'; g.fillRect(Math.round(400 + Math.cos(a) * rr), Math.round(114 + 1 + Math.sin(a) * rr * 0.3), 1, 1); }
-    g.fillStyle = '#eef2e4'; g.fillRect(396, 114, 9, 2); g.fillRect(397, 115, 7, 2);
+    for (let i = 0; i < 220; i++) { const a = R() * 6.28, rr = Math.sqrt(R()) * 16; g.fillStyle = R() < 0.5 ? '#6f7a3c' : '#5d7a36'; g.fillRect(Math.round(GX + Math.cos(a) * rr), Math.round(114 + 1 + Math.sin(a) * rr * 0.3), 1, 1); }
+    g.fillStyle = '#eef2e4'; g.fillRect(GX - 4, 114, 9, 2); g.fillRect(GX - 3, 115, 7, 2);
   }
   // carteles de publicidad
-  const bw = 1400;
+  const BX = 700, bw = 2100;
   const boards = document.createElement('canvas'); boards.width = bw; boards.height = 16;
   {
     const b = boards.getContext('2d');
@@ -115,8 +117,8 @@ export function buildSide(o, LW, H, GY) {
       g.fillStyle = 'rgba(255,255,255,0.95)'; g.fillRect(x, y, 1, 1);
       g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillRect(x - 1, y, 3, 1); g.fillRect(x, y - 1, 1, 3);
     }
-    g.drawImage(boards, Math.round(-(cam * 0.85) - 420 + LW / 2), grassTop - 14);
-    g.drawImage(grass, Math.round(-cam - 400 + LW / 2), grassTop);
+    g.drawImage(boards, Math.round(-(cam * 0.85) - BX + LW / 2), grassTop - 14);
+    g.drawImage(grass, Math.round(-cam - GX + LW / 2), grassTop);
     g.fillStyle = 'rgba(6,20,8,0.35)'; g.fillRect(0, grassTop, LW, 3);
   }
   return { draw, toScreen, grassTop, standsTop };
